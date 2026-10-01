@@ -3,13 +3,18 @@
 namespace App\Livewire\Settings;
 
 use App\Enums\EmailProvider;
+use App\Enums\MessageStatus;
 use App\Exceptions\Email\EmailProviderException;
+use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\EmailConnection;
 use App\Models\Organization;
 use App\Services\Email\EmailDomainService;
+use App\Services\Email\EmailService;
 use App\Validation\EmailConnectionRules;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -35,7 +40,14 @@ class EmailSettings extends Component
     #[Locked]
     public ?int $showingDnsRecordsFor = null;
 
+    #[Locked]
+    public ?int $testEmailConnectionId = null;
+
+    public string $testRecipient = '';
+
     public bool $showForm = false;
+
+    public const TEST_EMAILS_PER_HOUR = 5;
 
     public ?string $statusMessage = null;
 
@@ -228,6 +240,69 @@ class EmailSettings extends Component
         unset($this->connections);
     }
 
+    public function openTestEmail(int $connectionId): void
+    {
+        $connection = $this->findConnection($connectionId);
+        $this->authorize('sendTestEmail', $connection);
+
+        $this->resetValidation('testRecipient');
+        $this->testEmailConnectionId = $connection->id;
+        $this->testRecipient = (string) Auth::user()->email;
+    }
+
+    public function cancelTestEmail(): void
+    {
+        $this->reset('testEmailConnectionId', 'testRecipient');
+        $this->resetValidation('testRecipient');
+    }
+
+    /**
+     * Send the fixed test email from the selected connection. The sender is always the
+     * connection's verified business address; only the recipient comes from the browser.
+     */
+    public function sendTestEmail(): void
+    {
+        $connection = $this->findConnection($this->testEmailConnectionId);
+        $this->authorize('sendTestEmail', $connection);
+
+        $this->testRecipient = strtolower(trim($this->testRecipient));
+        $this->validateOnly('testRecipient', ['testRecipient' => ['required', 'string', 'max:254', 'email:rfc,strict']]);
+
+        $rateLimitKey = 'send-test-email:'.$connection->organization_id;
+
+        if (RateLimiter::tooManyAttempts($rateLimitKey, self::TEST_EMAILS_PER_HOUR)) {
+            $minutes = (int) ceil(RateLimiter::availableIn($rateLimitKey) / 60);
+            $this->notify("You've sent several test emails recently. Please try again in {$minutes} minute(s).", 'error');
+
+            return;
+        }
+
+        RateLimiter::hit($rateLimitKey, 3600);
+
+        try {
+            $message = app(EmailService::class)->sendTestEmail($connection, $this->testRecipient);
+        } catch (EmailSendingNotAllowedException $e) {
+            $this->notify($e->getMessage(), 'error');
+
+            return;
+        }
+
+        Log::info('Test email requested.', [
+            'organization_id' => $connection->organization_id,
+            'user_id' => Auth::id(),
+            'email_connection_id' => $connection->id,
+            'message_id' => $message->id,
+            'status' => $message->status->value,
+        ]);
+
+        if ($message->status === MessageStatus::Sent) {
+            $this->notify("Test email sent to {$message->to_address}.");
+            $this->cancelTestEmail();
+        } else {
+            $this->notify($message->failure_reason ?? 'The test email could not be sent.', 'error');
+        }
+    }
+
     public function dismissStatus(): void
     {
         $this->statusMessage = null;
@@ -258,6 +333,7 @@ class EmailSettings extends Component
             'domain' => 'business domain',
             'senderName' => 'sender name',
             'senderEmail' => 'sender email',
+            'testRecipient' => 'test email address',
         ];
     }
 

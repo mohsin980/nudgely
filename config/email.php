@@ -20,8 +20,10 @@ return [
     'providers' => [
 
         'postmark' => [
-            // Domains are managed with an Account API token, not a Server token.
+            // Domains are managed with an Account API token; email is sent with a Server token.
             'account_token' => env('POSTMARK_ACCOUNT_TOKEN'),
+            'server_token' => env('POSTMARK_SERVER_TOKEN'),
+            'message_stream' => env('POSTMARK_MESSAGE_STREAM', 'outbound'),
             'base_url' => env('POSTMARK_API_URL', 'https://api.postmarkapp.com'),
             'timeout' => (int) env('POSTMARK_TIMEOUT', 15),
             'return_path_subdomain' => env('POSTMARK_RETURN_PATH_SUBDOMAIN', 'pm-bounces'),
