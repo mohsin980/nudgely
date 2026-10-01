@@ -67,12 +67,24 @@
                                     <dd class="truncate text-gray-900">{{ $connection->domain }}</dd>
                                     <dt class="text-gray-500">Status:</dt>
                                     <dd><x-email-verification-badge :status="$connection->verification_status" /></dd>
+                                    @if ($connection->isVerified())
+                                        <dt class="text-gray-500">Sender:</dt>
+                                        <dd class="min-w-0 break-words text-gray-900">{{ $connection->sender_name }} &lt;{{ $connection->sender_email }}&gt;</dd>
+                                    @endif
                                 </dl>
                             </div>
 
                             <div class="flex flex-wrap gap-2 sm:justify-end">
                                 <button type="button" wire:click="edit({{ $connection->id }})" class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                                     Edit
+                                </button>
+
+                                <button type="button"
+                                        wire:click="openTestEmail({{ $connection->id }})"
+                                        @disabled(! $connection->isVerified())
+                                        @if (! $connection->isVerified()) title="Verify this domain before sending a test email." aria-describedby="default-hint-{{ $connection->id }}" @endif
+                                        class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white">
+                                    Send Test Email
                                 </button>
 
                                 @unless ($connection->is_default)
@@ -91,6 +103,43 @@
                                 </button>
                             </div>
                         </div>
+
+                        @if ($connection->isVerified() && $testEmailConnectionId === $connection->id)
+                            <form wire:submit="sendTestEmail" class="mt-4 rounded-md bg-gray-50 p-4" novalidate>
+                                <label for="testRecipient" class="block text-sm font-medium text-gray-900">Test Email Address</label>
+                                <p id="testRecipient-hint" class="text-sm text-gray-600">
+                                    We'll send a short test message from {{ $connection->sender_name }} &lt;{{ $connection->sender_email }}&gt;.
+                                </p>
+                                <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
+                                    <div class="min-w-0 flex-1 sm:max-w-md">
+                                        <input id="testRecipient"
+                                               type="email"
+                                               wire:model="testRecipient"
+                                               autocomplete="email"
+                                               placeholder="you@example.com"
+                                               aria-describedby="testRecipient-hint @error('testRecipient') testRecipient-error @enderror"
+                                               @error('testRecipient') aria-invalid="true" @enderror
+                                               @class([
+                                                   'block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2',
+                                                   'border-red-400 focus:border-red-500 focus:ring-red-500' => $errors->has('testRecipient'),
+                                                   'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500' => ! $errors->has('testRecipient'),
+                                               ])>
+                                        @error('testRecipient')
+                                            <p id="testRecipient-error" class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div class="flex shrink-0 gap-2">
+                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                            <span wire:loading.remove wire:target="sendTestEmail">Send Test Email</span>
+                                            <span wire:loading wire:target="sendTestEmail">Sending…</span>
+                                        </button>
+                                        <button type="button" wire:click="cancelTestEmail" class="rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        @endif
 
                         @unless ($connection->isVerified())
                             @php
@@ -115,7 +164,7 @@
                                             <p class="text-red-700">{{ $connection->verification_error }}</p>
                                         @endif
                                         <p id="default-hint-{{ $connection->id }}" class="text-gray-600">
-                                            Only verified emails can become the default sender.
+                                            Only verified emails can send email or become the default sender.
                                         </p>
                                     </div>
 

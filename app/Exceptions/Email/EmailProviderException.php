@@ -75,6 +75,36 @@ class EmailProviderException extends RuntimeException
             'We couldn\'t connect your domain right now. Please try again.');
     }
 
+    public static function sendingNotConfigured(string $detail): self
+    {
+        return new self($detail, self::NOT_CONFIGURED,
+            'Email sending isn\'t available right now. Please contact support.');
+    }
+
+    public static function authenticationFailed(string $detail): self
+    {
+        return new self($detail, self::NOT_CONFIGURED, 'Email provider authentication failed.');
+    }
+
+    public static function emailRejected(string $detail): self
+    {
+        return new self($detail, self::REJECTED, 'The email could not be accepted by the provider.');
+    }
+
+    public static function sendUnavailable(string $detail): self
+    {
+        return new self($detail, self::UNAVAILABLE,
+            'The email provider did not respond. The message will be retried when appropriate.');
+    }
+
+    /**
+     * Whether trying again later could succeed.
+     */
+    public function isTransient(): bool
+    {
+        return in_array($this->reason, [self::UNAVAILABLE, self::IN_PROGRESS], true);
+    }
+
     public function userMessage(): string
     {
         return $this->userMessage;

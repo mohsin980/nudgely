@@ -43,6 +43,14 @@ class EmailConnectionPolicy
         return $this->managesConnection($user, $connection);
     }
 
+    /**
+     * Send a fixed test email from this connection. Eligibility (verified sender) is checked by EmailService.
+     */
+    public function sendTestEmail(User $user, EmailConnection $connection): bool
+    {
+        return $this->managesConnection($user, $connection);
+    }
+
     private function managesConnection(User $user, EmailConnection $connection): bool
     {
         return $user->isOrganizationAdmin() && $connection->organization_id === $user->organization_id;
