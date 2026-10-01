@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EmailProvider;
 use App\Enums\EmailVerificationStatus;
+use App\Services\Email\Data\DnsRecord;
 use Database\Factories\EmailConnectionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,9 +15,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 
 /**
- * organization_id, verification_status, verified_at and provider_domain_id are
- * intentionally not mass assignable: tenancy is set through the organization
- * relationship and verification state is owned by the system.
+ * organization_id and the verification fields (verification_status, verification_error,
+ * verified_at, provider_domain_id, dns_records) are intentionally not mass assignable:
+ * tenancy is set through the organization relationship and verification state is owned
+ * by the system.
  */
 #[Fillable(['provider', 'domain', 'sender_email', 'sender_name', 'is_default'])]
 class EmailConnection extends Model
@@ -46,6 +48,7 @@ class EmailConnection extends Model
             'verification_status' => EmailVerificationStatus::class,
             'is_default' => 'boolean',
             'verified_at' => 'datetime',
+            'dns_records' => 'array',
         ];
     }
 
@@ -55,8 +58,10 @@ class EmailConnection extends Model
         static::saving(function (EmailConnection $connection) {
             if ($connection->exists && $connection->isDirty(['domain', 'sender_email'])) {
                 $connection->verification_status = EmailVerificationStatus::Pending;
+                $connection->verification_error = null;
                 $connection->verified_at = null;
                 $connection->provider_domain_id = null;
+                $connection->dns_records = null;
             }
         });
 
@@ -100,6 +105,19 @@ class EmailConnection extends Model
     public function isVerified(): bool
     {
         return $this->verification_status === EmailVerificationStatus::Verified;
+    }
+
+    public function isRegisteredWithProvider(): bool
+    {
+        return $this->provider_domain_id !== null;
+    }
+
+    /**
+     * @return list<DnsRecord>
+     */
+    public function dnsRecords(): array
+    {
+        return array_map(DnsRecord::fromArray(...), $this->dns_records ?? []);
     }
 
     /**

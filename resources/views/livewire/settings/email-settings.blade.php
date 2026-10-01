@@ -14,6 +14,7 @@
                  'flex items-start justify-between gap-4 rounded-md p-4 text-sm',
                  'bg-green-50 text-green-800' => $statusType === 'success',
                  'bg-red-50 text-red-800' => $statusType === 'error',
+                 'bg-blue-50 text-blue-800' => $statusType === 'info',
              ])>
             <p>{{ $statusMessage }}</p>
             <button type="button" wire:click="dismissStatus" class="shrink-0 rounded font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-current">
@@ -92,20 +93,155 @@
                         </div>
 
                         @unless ($connection->isVerified())
-                            <div class="mt-4 flex flex-col gap-3 rounded-md bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="text-sm">
-                                    <p class="font-medium text-gray-900">
-                                        {{ $connection->verification_status === \App\Enums\EmailVerificationStatus::Failed ? 'Your domain could not be verified.' : 'Your domain has not been verified yet.' }}
-                                    </p>
-                                    <p id="default-hint-{{ $connection->id }}" class="text-gray-600">
-                                        Domain verification will be available soon. Only verified emails can become the default sender.
-                                    </p>
+                            @php
+                                $failed = $connection->verification_status === \App\Enums\EmailVerificationStatus::Failed;
+                                $registered = $connection->isRegisteredWithProvider();
+                                $showingRecords = $registered && $showingDnsRecordsFor === $connection->id;
+                            @endphp
+
+                            <div class="mt-4 rounded-md bg-gray-50 p-4">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div class="text-sm">
+                                        <p class="font-medium text-gray-900">
+                                            @if ($failed)
+                                                Your domain could not be verified.
+                                            @elseif ($registered)
+                                                Waiting for your DNS records to be detected.
+                                            @else
+                                                Your domain has not been verified yet.
+                                            @endif
+                                        </p>
+                                        @if ($failed && $connection->verification_error)
+                                            <p class="text-red-700">{{ $connection->verification_error }}</p>
+                                        @endif
+                                        <p id="default-hint-{{ $connection->id }}" class="text-gray-600">
+                                            Only verified emails can become the default sender.
+                                        </p>
+                                    </div>
+
+                                    <div class="flex shrink-0 flex-wrap gap-2">
+                                        @if ($registered)
+                                            <button type="button"
+                                                    wire:click="toggleDnsRecords({{ $connection->id }})"
+                                                    aria-expanded="{{ $showingRecords ? 'true' : 'false' }}"
+                                                    aria-controls="dns-records-{{ $connection->id }}"
+                                                    class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                                                {{ $showingRecords ? 'Hide DNS Records' : 'View DNS Records' }}
+                                            </button>
+                                            <button type="button"
+                                                    wire:click="checkVerification({{ $connection->id }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="checkVerification({{ $connection->id }})"
+                                                    class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                                <span wire:loading.remove wire:target="checkVerification({{ $connection->id }})">Check Verification</span>
+                                                <span wire:loading wire:target="checkVerification({{ $connection->id }})">Checking…</span>
+                                            </button>
+                                        @else
+                                            <button type="button"
+                                                    wire:click="startVerification({{ $connection->id }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="startVerification({{ $connection->id }})"
+                                                    class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                                <span wire:loading.remove wire:target="startVerification({{ $connection->id }})">{{ $failed ? 'Try Again' : 'Verify Domain' }}</span>
+                                                <span wire:loading wire:target="startVerification({{ $connection->id }})">Connecting…</span>
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
 
-                                {{-- Placeholder only: verification is not implemented yet and makes no requests. --}}
-                                <button type="button" disabled class="shrink-0 cursor-not-allowed rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-500 opacity-60 ring-1 ring-gray-300 ring-inset">
-                                    Verify Domain
-                                </button>
+                                @if ($showingRecords)
+                                    @php($records = $connection->dnsRecords())
+                                    @php($hasPriority = collect($records)->contains(fn ($record) => $record->priority !== null))
+
+                                    <div id="dns-records-{{ $connection->id }}" class="mt-4 border-t border-gray-200 pt-4">
+                                        <h3 class="text-sm font-semibold text-gray-900">DNS records</h3>
+                                        <p class="mt-1 text-sm text-gray-600">
+                                            Add these DNS records at the DNS provider for <span class="font-medium text-gray-900">{{ $connection->domain }}</span>.
+                                            DNS changes can take some time to propagate.
+                                        </p>
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            Some DNS providers add your domain to the name automatically. If yours does, enter only the part before ".{{ $connection->domain }}".
+                                        </p>
+
+                                        @if ($records === [])
+                                            <p class="mt-3 text-sm text-gray-700">
+                                                We couldn't load the DNS records.
+                                                <button type="button" wire:click="startVerification({{ $connection->id }})" class="font-medium text-indigo-700 underline-offset-2 hover:underline">Try again</button>
+                                            </p>
+                                        @else
+                                            {{-- Wide screens: table --}}
+                                            <div class="mt-3 hidden overflow-hidden rounded-md ring-1 ring-gray-200 sm:block">
+                                                <table class="w-full table-fixed text-left text-sm">
+                                                    <thead class="bg-white text-xs text-gray-500 uppercase">
+                                                        <tr>
+                                                            <th scope="col" class="w-20 px-3 py-2 font-medium">Type</th>
+                                                            <th scope="col" class="px-3 py-2 font-medium">Name</th>
+                                                            <th scope="col" class="w-2/5 px-3 py-2 font-medium">Value</th>
+                                                            @if ($hasPriority)
+                                                                <th scope="col" class="w-20 px-3 py-2 font-medium">Priority</th>
+                                                            @endif
+                                                            <th scope="col" class="w-28 px-3 py-2 font-medium">Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-200 bg-white">
+                                                        @foreach ($records as $record)
+                                                            <tr class="align-top">
+                                                                <td class="px-3 py-3 font-mono text-gray-900">
+                                                                    {{ $record->type }}
+                                                                    <span class="block font-sans text-xs text-gray-500">{{ $record->purpose }}</span>
+                                                                </td>
+                                                                <td class="px-3 py-3">
+                                                                    <div class="flex items-start gap-2">
+                                                                        <span class="min-w-0 font-mono break-all text-gray-900">{{ $record->name }}</span>
+                                                                        <x-copy-button :value="$record->name" :label="'Copy '.$record->purpose.' name'" />
+                                                                    </div>
+                                                                </td>
+                                                                <td class="px-3 py-3">
+                                                                    <div class="flex items-start gap-2">
+                                                                        <span class="line-clamp-3 min-w-0 font-mono break-all text-gray-900" title="{{ $record->value }}">{{ $record->value }}</span>
+                                                                        <x-copy-button :value="$record->value" :label="'Copy '.$record->purpose.' value'" />
+                                                                    </div>
+                                                                </td>
+                                                                @if ($hasPriority)
+                                                                    <td class="px-3 py-3 text-gray-900">{{ $record->priority ?? '—' }}</td>
+                                                                @endif
+                                                                <td class="px-3 py-3"><x-dns-record-status :verified="$record->verified" /></td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {{-- Small screens: stacked cards --}}
+                                            <ul role="list" class="mt-3 space-y-3 sm:hidden">
+                                                @foreach ($records as $record)
+                                                    <li class="rounded-md bg-white p-3 text-sm ring-1 ring-gray-200">
+                                                        <div class="flex items-center justify-between gap-2">
+                                                            <span class="font-mono font-medium text-gray-900">{{ $record->type }} <span class="font-sans font-normal text-gray-500">· {{ $record->purpose }}</span></span>
+                                                            <x-dns-record-status :verified="$record->verified" />
+                                                        </div>
+                                                        <dl class="mt-2 space-y-2">
+                                                            <div>
+                                                                <dt class="text-xs text-gray-500">Name</dt>
+                                                                <dd class="flex items-start justify-between gap-2"><span class="min-w-0 font-mono break-all">{{ $record->name }}</span><x-copy-button :value="$record->name" :label="'Copy '.$record->purpose.' name'" /></dd>
+                                                            </div>
+                                                            <div>
+                                                                <dt class="text-xs text-gray-500">Value</dt>
+                                                                <dd class="flex items-start justify-between gap-2"><span class="line-clamp-4 min-w-0 font-mono break-all">{{ $record->value }}</span><x-copy-button :value="$record->value" :label="'Copy '.$record->purpose.' value'" /></dd>
+                                                            </div>
+                                                            @if ($record->priority !== null)
+                                                                <div>
+                                                                    <dt class="text-xs text-gray-500">Priority</dt>
+                                                                    <dd>{{ $record->priority }}</dd>
+                                                                </div>
+                                                            @endif
+                                                        </dl>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         @endunless
                     </li>

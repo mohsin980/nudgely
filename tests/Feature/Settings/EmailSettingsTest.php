@@ -121,19 +121,6 @@ class EmailSettingsTest extends TestCase
             ->assertSee('Connect your business email');
     }
 
-    public function test_pending_connection_shows_disabled_verify_button_without_calling_any_provider(): void
-    {
-        EmailConnection::factory()->for($this->organization)->create();
-
-        $this->settings()
-            ->assertSee('Your domain has not been verified yet.')
-            ->assertSeeHtml('disabled class="shrink-0 cursor-not-allowed')
-            ->assertSee('Verify Domain');
-
-        $this->assertFalse(method_exists(EmailSettings::class, 'verify'));
-        Http::assertNothingSent();
-    }
-
     // Create
 
     public function test_admin_can_create_a_pending_non_default_connection(): void
