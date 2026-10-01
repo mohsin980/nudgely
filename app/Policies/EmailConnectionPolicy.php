@@ -35,6 +35,14 @@ class EmailConnectionPolicy
         return $this->managesConnection($user, $connection);
     }
 
+    /**
+     * Register the domain with the email provider, view its DNS records and check verification.
+     */
+    public function verify(User $user, EmailConnection $connection): bool
+    {
+        return $this->managesConnection($user, $connection);
+    }
+
     private function managesConnection(User $user, EmailConnection $connection): bool
     {
         return $user->isOrganizationAdmin() && $connection->organization_id === $user->organization_id;

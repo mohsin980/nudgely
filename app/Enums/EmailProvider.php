@@ -11,10 +11,10 @@ enum EmailProvider: string
     case Custom = 'custom';
 
     /**
-     * The provider assigned to connections created before provider selection exists.
+     * The configured provider for new connections, falling back to Postmark.
      */
     public static function default(): self
     {
-        return self::Postmark;
+        return self::tryFrom((string) config('email.provider')) ?? self::Postmark;
     }
 }

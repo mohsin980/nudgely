@@ -3,8 +3,10 @@
 namespace App\Livewire\Settings;
 
 use App\Enums\EmailProvider;
+use App\Exceptions\Email\EmailProviderException;
 use App\Models\EmailConnection;
 use App\Models\Organization;
+use App\Services\Email\EmailDomainService;
 use App\Validation\EmailConnectionRules;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -29,6 +31,9 @@ class EmailSettings extends Component
 
     #[Locked]
     public ?int $confirmingDeletionId = null;
+
+    #[Locked]
+    public ?int $showingDnsRecordsFor = null;
 
     public bool $showForm = false;
 
@@ -102,8 +107,15 @@ class EmailSettings extends Component
         ];
 
         if ($connection) {
+            $previousProviderDomainId = $connection->provider_domain_id;
+
             // The model resets verification when the domain or sender address changes.
             $connection->update($attributes);
+
+            if ($previousProviderDomainId !== null && $connection->provider_domain_id === null) {
+                $this->domains()->releaseProviderDomain($connection->provider, $previousProviderDomainId);
+            }
+
             $this->notify('Email connection updated successfully.');
         } else {
             $this->organization->emailConnections()->create([
@@ -141,7 +153,7 @@ class EmailSettings extends Component
         $this->authorize('delete', $connection);
 
         // The default is a flag on the row itself, so deleting it simply leaves no default.
-        $connection->delete();
+        $this->domains()->deleteConnection($connection);
 
         if ($this->editingConnectionId === $connection->id) {
             $this->resetForm();
@@ -167,6 +179,53 @@ class EmailSettings extends Component
 
         unset($this->connections);
         $this->notify('Default sender updated.');
+    }
+
+    /**
+     * Register the domain with the email provider and show the DNS records to publish.
+     */
+    public function startVerification(int $connectionId): void
+    {
+        $connection = $this->findConnection($connectionId);
+        $this->authorize('verify', $connection);
+
+        try {
+            $this->domains()->registerDomain($connection);
+            $this->showingDnsRecordsFor = $connection->id;
+            $this->notify('Add the DNS records below at your DNS provider, then click "Check Verification".', 'info');
+        } catch (EmailProviderException $e) {
+            $this->notify($e->userMessage(), 'error');
+        }
+
+        unset($this->connections);
+    }
+
+    public function toggleDnsRecords(int $connectionId): void
+    {
+        $connection = $this->findConnection($connectionId);
+        $this->authorize('verify', $connection);
+
+        $this->showingDnsRecordsFor = $this->showingDnsRecordsFor === $connection->id ? null : $connection->id;
+    }
+
+    public function checkVerification(int $connectionId): void
+    {
+        $connection = $this->findConnection($connectionId);
+        $this->authorize('verify', $connection);
+
+        try {
+            if ($this->domains()->verifyDomain($connection)) {
+                $this->showingDnsRecordsFor = null;
+                $this->notify('Your domain is verified.');
+            } else {
+                $this->showingDnsRecordsFor = $connection->id;
+                $this->notify('We couldn\'t verify your domain yet. DNS changes can take some time to propagate, so please check again later.', 'info');
+            }
+        } catch (EmailProviderException $e) {
+            $this->notify($e->userMessage(), 'error');
+        }
+
+        unset($this->connections);
     }
 
     public function dismissStatus(): void
@@ -208,6 +267,11 @@ class EmailSettings extends Component
     private function findConnection(?int $connectionId): EmailConnection
     {
         return $this->organization->emailConnections()->whereKey($connectionId)->first() ?? abort(404);
+    }
+
+    private function domains(): EmailDomainService
+    {
+        return app(EmailDomainService::class);
     }
 
     private function resetForm(): void
