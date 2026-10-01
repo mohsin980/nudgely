@@ -179,4 +179,39 @@ class EmailConnectionTest extends TestCase
         $this->assertDatabaseMissing('email_connections', ['organization_id' => $organization->id]);
         $this->assertModelExists($otherConnection);
     }
+
+    public function test_domain_is_normalized_from_url_input(): void
+    {
+        $this->assertSame('example.com', EmailConnection::normalizeDomain(' https://Example.com/ '));
+        $this->assertSame('example.com', EmailConnection::normalizeDomain('HTTP://example.com'));
+        $this->assertSame('example.com/contact', EmailConnection::normalizeDomain('https://example.com/contact'));
+    }
+
+    public function test_changing_domain_or_sender_email_resets_verification(): void
+    {
+        foreach (['domain' => 'newexample.com', 'sender_email' => 'billing@newexample.com'] as $attribute => $value) {
+            $connection = EmailConnection::factory()->verified()->create(['provider_domain_id' => 'pm-1']);
+
+            $connection->update([$attribute => $value]);
+
+            $this->assertSame(EmailVerificationStatus::Pending, $connection->verification_status, $attribute);
+            $this->assertNull($connection->verified_at);
+            $this->assertNull($connection->provider_domain_id);
+        }
+    }
+
+    public function test_changing_sender_name_keeps_verification(): void
+    {
+        $connection = EmailConnection::factory()->verified()->create();
+
+        $connection->update(['sender_name' => 'Renamed']);
+
+        $this->assertTrue($connection->fresh()->isVerified());
+    }
+
+    public function test_only_verified_connections_can_become_default(): void
+    {
+        $this->assertFalse(EmailConnection::factory()->make()->canBecomeDefault());
+        $this->assertTrue(EmailConnection::factory()->verified()->make()->canBecomeDefault());
+    }
 }

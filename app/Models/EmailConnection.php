@@ -51,6 +51,15 @@ class EmailConnection extends Model
 
     protected static function booted(): void
     {
+        // A new domain or sender address invalidates any previous verification.
+        static::saving(function (EmailConnection $connection) {
+            if ($connection->exists && $connection->isDirty(['domain', 'sender_email'])) {
+                $connection->verification_status = EmailVerificationStatus::Pending;
+                $connection->verified_at = null;
+                $connection->provider_domain_id = null;
+            }
+        });
+
         // Keep a single default connection per organization, whichever way the flag is set.
         static::saving(function (EmailConnection $connection) {
             if (! $connection->is_default || ! $connection->isDirty(['is_default', 'organization_id'])) {
@@ -94,6 +103,30 @@ class EmailConnection extends Model
     }
 
     /**
+     * Only verified connections may be used as the organization's default sender.
+     */
+    public function canBecomeDefault(): bool
+    {
+        return $this->isVerified();
+    }
+
+    /**
+     * Normalize user input such as "https://Example.com/" to "example.com".
+     */
+    public static function normalizeDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+        $domain = preg_replace('#^[a-z][a-z0-9+.-]*://#', '', $domain);
+
+        return rtrim($domain, '/');
+    }
+
+    public static function normalizeEmail(string $email): string
+    {
+        return strtolower(trim($email));
+    }
+
+    /**
      * @param  Builder<EmailConnection>  $query
      */
     public function scopeVerified(Builder $query): void
@@ -111,11 +144,11 @@ class EmailConnection extends Model
 
     protected function domain(): Attribute
     {
-        return Attribute::make(set: fn (?string $value) => $value === null ? null : strtolower(trim($value)));
+        return Attribute::make(set: fn (?string $value) => $value === null ? null : static::normalizeDomain($value));
     }
 
     protected function senderEmail(): Attribute
     {
-        return Attribute::make(set: fn (?string $value) => $value === null ? null : strtolower(trim($value)));
+        return Attribute::make(set: fn (?string $value) => $value === null ? null : static::normalizeEmail($value));
     }
 }
