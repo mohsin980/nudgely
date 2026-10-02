@@ -4,6 +4,38 @@ QuoteFlow sends email **from each organization's own verified business sender**,
 
 Not implemented yet: inbound replies, follow-up automation, templates, scheduling and bulk email.
 
+## Flow
+
+```
+example.com
+      ↓        Settings → Email: admin adds domain + sender
+DNS verification
+      ↓        Verify Domain → Postmark registers domain, returns DKIM TXT + Return-Path CNAME
+      ↓        Business adds records → Check Verification asks Postmark
+Verified
+      ↓        verification_status = verified, verified_at set; can be set as default
+sales@example.com
+      ↓        Organization's default EmailConnection: "Dallas Cooling" <sales@example.com>
+QuoteFlow Email Service
+      ↓        EmailService::send(): checks sender is verified + in domain,
+      ↓        validates recipient/Reply-To, stores Message (status: queued)
+Queue
+      ↓        SendEmailJob (unique per message, 5 tries with backoff):
+      ↓        claims message (queued → sending), re-checks verification
+Postmark
+      ↓        PostmarkEmailProvider::send() → POST /email with Server token
+      ↓        success → Message: sent + provider_message_id
+      ↓        failure → retried (timeout/5xx) or failed with safe reason
+Customer
+               From: "Dallas Cooling" <sales@example.com>
+               Reply-To: reply+secure-token@inbound.quoteflow.ai (if supplied)
+```
+
+- **Unverified domain:** the flow stops at the Email Service with *"Your business email domain must be verified before emails can be sent."* Nothing is queued.
+- **Send Test Email** (Settings → Email) skips the queue and goes straight from the Email Service to Postmark, so the admin sees the result immediately.
+
+The domain-verification steps are described in [email-domain-verification.md](email-domain-verification.md).
+
 ## Configuration
 
 | Variable | Description |
