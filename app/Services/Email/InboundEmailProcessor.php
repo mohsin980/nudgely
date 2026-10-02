@@ -6,11 +6,13 @@ use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Exceptions\Email\InvalidInboundEmailException;
+use App\Jobs\ClassifyCustomerReplyJob;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\EmailReplyRoute;
 use App\Models\Message;
 use App\Models\WebhookEvent;
+use App\Services\AI\CustomerReplyClassificationService;
 use App\Services\Email\Data\InboundEmail;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -94,6 +96,11 @@ class InboundEmailProcessor
 
         if ($senderMatches) {
             $conversation->recordActivity($message->received_at);
+
+            // Analysis only, after commit and off the webhook path. Held-for-review replies are not classified.
+            if (config('ai.classification.enabled')) {
+                ClassifyCustomerReplyJob::dispatch($message->id, CustomerReplyClassificationService::automaticRequestId($message))->afterCommit();
+            }
         }
 
         $this->finish($event->id, failureReason: null);

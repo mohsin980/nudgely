@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ConversationStatus;
+use App\Enums\CustomerReplyIntent;
 use Database\Factories\ConversationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +41,8 @@ class Conversation extends Model
         return [
             'status' => ConversationStatus::class,
             'last_message_at' => 'datetime',
+            'latest_intent' => CustomerReplyIntent::class,
+            'needs_attention' => 'boolean',
         ];
     }
 
