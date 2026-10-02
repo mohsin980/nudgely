@@ -7,10 +7,28 @@
     <section aria-labelledby="conversations-heading" class="space-y-3">
         <h2 id="conversations-heading" class="text-sm font-semibold tracking-wide text-gray-500 uppercase">Conversations</h2>
 
+        <nav aria-label="Filter conversations" class="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+            @foreach (\App\Livewire\Inbox\ConversationList::FILTERS as $key => $label)
+                <button type="button" wire:click="$set('filter', '{{ $key }}')" @if ($filter === $key) aria-current="true" @endif
+                        @class([
+                            'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                            'bg-indigo-600 text-white ring-indigo-600' => $filter === $key,
+                            'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' => $filter !== $key,
+                        ])>
+                    {{ $label }}
+                </button>
+            @endforeach
+        </nav>
+
         @if ($this->conversations->isEmpty())
             <div class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
-                <p class="text-base font-semibold text-gray-900">No conversations yet</p>
-                <p class="mt-2 text-sm text-gray-600">Conversations appear here when QuoteFlow emails a customer.</p>
+                @if ($filter === 'all')
+                    <p class="text-base font-semibold text-gray-900">No conversations yet</p>
+                    <p class="mt-2 text-sm text-gray-600">Conversations appear here when QuoteFlow emails a customer.</p>
+                @else
+                    <p class="text-base font-semibold text-gray-900">No matching conversations</p>
+                    <p class="mt-2 text-sm text-gray-600">No conversation currently matches this filter.</p>
+                @endif
             </div>
         @else
             <ul role="list" class="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -21,6 +39,16 @@
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-gray-900">{{ $conversation->customer->name }}</p>
                                 <p class="truncate text-sm text-gray-600">{{ $conversation->subject ?? '(no subject)' }}</p>
+                                @if ($conversation->latest_intent || $conversation->needs_attention)
+                                    <p class="mt-1 flex flex-wrap gap-1.5">
+                                        @if ($conversation->latest_intent)
+                                            <x-intent-badge :intent="$conversation->latest_intent" />
+                                        @endif
+                                        @if ($conversation->needs_attention)
+                                            <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Needs attention</span>
+                                        @endif
+                                    </p>
+                                @endif
                             </div>
                             <p class="shrink-0 text-xs text-gray-500">
                                 @if ($conversation->last_message_at)

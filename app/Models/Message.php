@@ -10,6 +10,7 @@ use Database\Factories\MessageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -66,6 +67,16 @@ class Message extends Model
     public function replyRoute(): BelongsTo
     {
         return $this->belongsTo(EmailReplyRoute::class, 'email_reply_route_id');
+    }
+
+    /**
+     * Every classification attempt, newest first.
+     *
+     * @return HasMany<MessageClassification, $this>
+     */
+    public function classifications(): HasMany
+    {
+        return $this->hasMany(MessageClassification::class)->latest('id');
     }
 
     public function isInbound(): bool

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\Email\EmailProviderInterface;
+use App\Services\AI\ReplyClassifierManager;
 use App\Services\Email\EmailProviderManager;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -20,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EmailProviderManager::class);
         $this->app->bind(EmailProviderInterface::class, fn ($app) => $app->make(EmailProviderManager::class)->driver());
         $this->app->singleton(InboundEmailProviderManager::class);
+        $this->app->singleton(ReplyClassifierManager::class);
     }
 
     /**
