@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Fall back to the home page until the application has a login route.
         $middleware->redirectGuestsTo(fn () => Route::has('login') ? route('login') : '/');
+
+        // Provider webhooks authenticate themselves and carry no CSRF token.
+        $middleware->validateCsrfTokens(except: ['webhooks/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

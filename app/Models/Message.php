@@ -10,9 +10,10 @@ use Database\Factories\MessageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
- * A single message exchanged with a customer. Only outbound email exists so far.
+ * A single email exchanged with a customer, outbound or inbound.
  *
  * Nothing is mass assignable: messages are created by EmailService, which sets
  * tenancy and delivery state explicitly.
@@ -38,6 +39,7 @@ class Message extends Model
             'status' => MessageStatus::class,
             'metadata' => 'array',
             'sent_at' => 'datetime',
+            'received_at' => 'datetime',
             'failed_at' => 'datetime',
         ];
     }
@@ -48,6 +50,35 @@ class Message extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * @return BelongsTo<Conversation, $this>
+     */
+    public function conversation(): BelongsTo
+    {
+        return $this->belongsTo(Conversation::class);
+    }
+
+    /**
+     * @return BelongsTo<EmailReplyRoute, $this>
+     */
+    public function replyRoute(): BelongsTo
+    {
+        return $this->belongsTo(EmailReplyRoute::class, 'email_reply_route_id');
+    }
+
+    public function isInbound(): bool
+    {
+        return $this->direction === MessageDirection::Inbound;
+    }
+
+    /**
+     * When the message happened: received for inbound, sent (or created) for outbound.
+     */
+    public function occurredAt(): Carbon
+    {
+        return $this->received_at ?? $this->sent_at ?? $this->created_at;
     }
 
     /**
