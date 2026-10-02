@@ -27,10 +27,20 @@
         </header>
 
         <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:grid lg:grid-cols-[13rem_1fr] lg:gap-10 lg:py-10">
-            <nav aria-label="Settings" class="mb-6 lg:mb-0">
-                <h2 class="mb-2 hidden px-3 text-xs font-semibold tracking-wide text-gray-500 uppercase lg:block">Settings</h2>
-
+            <nav aria-label="Main" class="mb-6 lg:mb-0">
                 <ul class="flex gap-1 overflow-x-auto lg:flex-col">
+                    <li>
+                        <a href="{{ route('inbox.index') }}"
+                           @if (request()->routeIs('inbox.*')) aria-current="page" @endif
+                           @class([
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                               'bg-indigo-50 text-indigo-700' => request()->routeIs('inbox.*'),
+                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('inbox.*'),
+                           ])>
+                            Inbox
+                        </a>
+                    </li>
+                    <li class="hidden px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase lg:block" aria-hidden="true">Settings</li>
                     <li>
                         <a href="{{ route('settings.email') }}"
                            @if (request()->routeIs('settings.email')) aria-current="page" @endif

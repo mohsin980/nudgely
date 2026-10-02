@@ -8,11 +8,13 @@ use App\Enums\MessageStatus;
 use App\Exceptions\Email\EmailProviderException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Jobs\SendEmailJob;
+use App\Models\Conversation;
 use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -28,7 +30,10 @@ class EmailService
 
     public const TEST_EMAIL_BODY = 'This is a test email from QuoteFlow. Your business email connection is working correctly.';
 
-    public function __construct(private readonly EmailProviderManager $providers) {}
+    public function __construct(
+        private readonly EmailProviderManager $providers,
+        private readonly ReplyRouteService $replyRoutes,
+    ) {}
 
     /**
      * Queue an email from the organization's default sender. Use this for automated sends.
@@ -54,6 +59,42 @@ class EmailService
         SendEmailJob::dispatch($message->id)->afterCommit();
 
         Log::info('Email queued.', ['organization_id' => $message->organization_id, 'message_id' => $message->id]);
+
+        return $message;
+    }
+
+    /**
+     * Queue an email to a conversation's customer with a fresh secure Reply-To address,
+     * so the customer's reply is routed back into this conversation.
+     *
+     * @throws EmailSendingNotAllowedException
+     */
+    public function sendToConversation(Conversation $conversation, string $subject, ?string $html = null, ?string $text = null): Message
+    {
+        $organization = $conversation->organization;
+        $customer = $organization->customers()->findOrFail($conversation->customer_id);
+        $connection = $this->defaultConnection($organization);
+
+        $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text) {
+            $message = $this->createMessage(
+                $connection, $customer->email, $subject, $html, $text,
+                replyTo: $this->replyRoutes->createFor($conversation),
+                toName: $customer->name,
+                conversationId: $conversation->id,
+            );
+
+            $conversation->recordActivity(now());
+
+            return $message;
+        });
+
+        SendEmailJob::dispatch($message->id)->afterCommit();
+
+        Log::info('Email queued.', [
+            'organization_id' => $message->organization_id,
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
+        ]);
 
         return $message;
     }
@@ -213,6 +254,7 @@ class EmailService
         ?string $replyTo = null,
         ?string $toName = null,
         array $metadata = [],
+        ?int $conversationId = null,
     ): Message {
         $this->assertCanSendFrom($connection, $connection->organization_id);
 
@@ -230,6 +272,7 @@ class EmailService
         $message = new Message;
         $message->forceFill([
             'organization_id' => $connection->organization_id,
+            'conversation_id' => $conversationId,
             'email_connection_id' => $connection->id,
             'direction' => MessageDirection::Outbound,
             'channel' => MessageChannel::Email,
