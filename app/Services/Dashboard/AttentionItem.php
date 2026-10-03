@@ -7,7 +7,7 @@ use App\Enums\CustomerReplyIntent;
 use DateTimeInterface;
 
 /**
- * One row of "Needs your attention": a conversation waiting for the business or a follow-up.
+ * One row of "Needs your attention": a conversation waiting for the business, a follow-up or a task.
  */
 final readonly class AttentionItem
 {
@@ -23,5 +23,6 @@ final readonly class AttentionItem
         public DateTimeInterface $at,
         public string $url,
         public string $actionLabel,
+        public bool $overdue = false,
     ) {}
 }

@@ -1,195 +1,214 @@
 <div class="space-y-6">
-    <div>
-        <a href="{{ route('inbox.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">&larr; Inbox</a>
-        <h1 class="mt-2 text-2xl font-semibold tracking-tight text-gray-900"><a href="{{ route('customers.show', $this->conversation->customer_id) }}" wire:navigate class="hover:underline">{{ $this->conversation->customer->name }}</a></h1>
-        <p class="text-sm text-gray-600">{{ $this->conversation->subject ?? '(no subject)' }} · {{ $this->conversation->customer->email }}</p>
+    @php($card = 'rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5')
+    @php($heading = 'text-xs font-semibold tracking-wide text-gray-500 uppercase')
+    @php($button = 'inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500')
+    @php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+    @php($conversation = $this->conversation)
+    @php($closed = $conversation->status === \App\Enums\ConversationStatus::Closed)
+
+    {{-- Customer header --}}
+    <div class="space-y-3">
+        <a href="{{ route('inbox.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">&larr; Conversations</a>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-900"><a href="{{ route('customers.show', $conversation->customer_id) }}" wire:navigate class="hover:underline">{{ $conversation->customer->name }}</a></h1>
+                <p class="break-words text-sm text-gray-600">{{ $conversation->subject ?? '(no subject)' }} · {{ $conversation->customer->email }}</p>
+                <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                    <x-conversation-status-badge :status="$conversation->status" />
+                    @if ($closed && $conversation->closed_reason)
+                        <span class="text-gray-600">({{ $conversation->closed_reason->label() }})</span>
+                    @endif
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('customers.show', $conversation->customer_id) }}" wire:navigate class="{{ $button }}">Customer Profile</a>
+                @if ($closed)
+                    <button type="button" wire:click="reopenConversation" class="{{ $button }}">Reopen Conversation</button>
+                @else
+                    <label for="conversation-status" class="sr-only">Conversation status</label>
+                    <select id="conversation-status" wire:change="setStatus($event.target.value)" class="rounded-md border-0 py-2 pr-8 pl-3 text-sm text-gray-700 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600">
+                        @foreach ($statuses as $status)
+                            <option value="{{ $status->value }}" @selected($status === $conversation->status)>{{ $status === \App\Enums\ConversationStatus::Closed ? 'Close…' : $status->label() }}</option>
+                        @endforeach
+                    </select>
+                    <button type="button" wire:click="$set('showCloseForm', true)" class="{{ $button }}">Close Conversation</button>
+                @endif
+            </div>
+        </div>
     </div>
 
     @if ($statusMessage)
-        <div role="status" class="flex items-start justify-between gap-4 rounded-md bg-blue-50 p-4 text-sm text-blue-800">
+        <div role="status" @class(['flex items-start justify-between gap-4 rounded-md p-4 text-sm', 'bg-green-50 text-green-800' => $statusMessageType === 'success', 'bg-blue-50 text-blue-800' => $statusMessageType !== 'success'])>
             <p>{{ $statusMessage }}</p>
             <button type="button" wire:click="$set('statusMessage', null)" class="shrink-0 font-medium hover:underline">Dismiss</button>
         </div>
     @endif
 
-    {{-- Follow-up --}}
-    @php($organization = $this->conversation->organization)
-    <section aria-labelledby="follow-up-heading" class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            @php($latest = $this->conversationFollowUps->first())
-            <h2 id="follow-up-heading" class="text-xs font-semibold tracking-wide text-gray-500 uppercase">
-                {{ $latest && $latest->status === \App\Enums\FollowUpStatus::Skipped && $this->conversationFollowUps->count() === 1 ? 'Follow-up skipped' : 'Follow-up' }}
-            </h2>
-            @unless ($showScheduleForm)
-                <button type="button" wire:click="openScheduleForm" class="text-sm font-medium text-indigo-700 hover:underline">Schedule Follow-Up</button>
-            @endunless
-        </div>
-        @include('follow-ups.flash')
-        @if ($showScheduleForm)
-            @include('follow-ups.schedule-form')
-        @endif
-        @if ($this->conversationFollowUps->isEmpty())
-            <p class="text-sm text-gray-500">No follow-up scheduled.</p>
-        @else
-            <ul role="list" class="-mx-4 divide-y divide-gray-100">
-                @foreach ($this->conversationFollowUps as $followUp)
-                    @include('follow-ups.item', ['showCustomer' => false])
-                @endforeach
-            </ul>
-        @endif
-    </section>
+    @if ($showCloseForm && ! $closed)
+        <form wire:submit="closeConversation" class="{{ $card }} space-y-3" aria-label="Close conversation">
+            <p class="text-sm text-gray-700">Closing keeps every message. Open automated follow-ups for this conversation will be skipped, and it leaves "Needs your attention".</p>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div><label for="close-reason" class="block text-sm font-medium text-gray-700">Reason</label>
+                    <select id="close-reason" wire:model="closeReason" class="{{ $field }}">@foreach ($closeReasons as $reason)<option value="{{ $reason->value }}">{{ $reason->label() }}</option>@endforeach</select></div>
+                <div><label for="close-note" class="block text-sm font-medium text-gray-700">Note <span class="font-normal text-gray-500">(optional)</span></label><input id="close-note" type="text" wire:model="closeNote" maxlength="255" class="{{ $field }}"></div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Close conversation</button>
+                <button type="button" wire:click="$set('showCloseForm', false)" class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
+            </div>
+        </form>
+    @endif
 
-    @if ($this->messages->isEmpty())
-        <p class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">No messages yet.</p>
-    @else
-        <ol role="list" class="space-y-4" aria-label="Messages">
-            @foreach ($this->messages as $message)
-                @php($inbound = $message->isInbound())
-                <li wire:key="message-{{ $message->id }}" data-direction="{{ $message->direction->value }}"
-                    @class([
-                        'rounded-lg p-4 shadow-sm sm:p-5',
-                        'mr-0 border border-gray-200 bg-white sm:mr-12' => $inbound,
-                        'ml-0 border border-indigo-100 bg-indigo-50 sm:ml-12' => ! $inbound,
-                    ])>
-                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <p class="text-sm font-semibold text-gray-900">
-                            @if ($inbound)
-                                {{ $this->conversation->customer->name }}
-                                <span class="font-normal text-gray-500">&lt;{{ $message->from_address }}&gt;</span>
-                            @else
-                                {{ $message->from_name ?? 'QuoteFlow' }}
-                                <span class="font-normal text-gray-500">&lt;{{ $message->from_address }}&gt;</span>
-                            @endif
-                        </p>
-                        <p class="text-xs text-gray-500">
-                            <span @class(['font-medium', 'text-gray-700' => $inbound, 'text-indigo-700' => ! $inbound])>{{ $inbound ? 'Received' : 'Sent' }}</span>
-                            ·
-                            <time datetime="{{ $message->occurredAt()->toIso8601String() }}">{{ $message->occurredAt()->format('M j, Y g:i A') }}</time>
-                            @if (! $inbound && $message->status !== \App\Enums\MessageStatus::Sent)
-                                · {{ ucfirst($message->status->value) }}
-                            @endif
-                        </p>
-                    </div>
+    <div class="grid gap-6 lg:grid-cols-3">
+        {{-- Timeline + composer --}}
+        <div class="min-w-0 space-y-4 lg:col-span-2">
+            <h2 class="sr-only">Messages and activity</h2>
+            @if ($this->hasEarlierMessages)
+                <button type="button" wire:click="loadEarlierMessages" class="text-sm font-medium text-indigo-700 hover:underline">Load earlier messages</button>
+            @endif
 
-                    @if ($message->subject)
-                        <p class="mt-1 text-sm font-medium text-gray-700">{{ $message->subject }}</p>
-                    @endif
-
-                    <div class="mt-3 text-sm break-words text-gray-900">
-                        @if (filled($message->body_text))
-                            {{-- Plain text is always escaped. --}}
-                            <div class="whitespace-pre-line">{{ $message->body_text }}</div>
-                        @elseif (filled($message->body_html))
-                            {{-- Sanitized on arrival and again by safeHtml(); never raw email HTML. --}}
-                            <div class="email-html space-y-2 [&_a]:text-indigo-700 [&_a]:underline">{!! $this->safeHtml($message->body_html) !!}</div>
+            @if ($this->feed->isEmpty())
+                <p class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">No messages yet.</p>
+            @else
+                <ol role="list" class="space-y-4" aria-label="Messages">
+                    @foreach ($this->feed as $row)
+                        @if ($row['type'] === 'message')
+                            @include('livewire.inbox.partials.message', ['message' => $row['item']])
                         @else
-                            <p class="text-gray-500 italic">(empty message)</p>
+                            @php($entry = $row['item'])
+                            <li wire:key="event-{{ $loop->index }}-{{ $entry->at->getTimestamp() }}" data-kind="{{ $entry->kind }}"
+                                @class(['rounded-md border px-3 py-2 text-sm', 'border-violet-200 bg-violet-50/60' => $entry->kind === 'automation', 'border-gray-200 bg-gray-50' => $entry->kind !== 'automation'])>
+                                <p class="flex flex-wrap items-center gap-x-2">
+                                    <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase ring-1 ring-inset {{ $entry->kind === 'automation' ? 'bg-violet-100 text-violet-800 ring-violet-200' : 'bg-white text-gray-600 ring-gray-200' }}">{{ ['automation' => 'Automation', 'business' => 'Business', 'system' => 'System', 'customer' => 'Customer'][$entry->kind] }}</span>
+                                    <span class="font-medium text-gray-900">{{ $entry->title }}</span>
+                                    <time class="text-xs text-gray-500" datetime="{{ $organization->localTime($entry->at)->toIso8601String() }}">{{ $organization->localTime($entry->at)->format('M j, g:i A') }}</time>
+                                </p>
+                                @if ($entry->body)<p class="mt-0.5 text-gray-700">{{ $entry->body }}</p>@endif
+                                @if ($entry->details)
+                                    <ul role="list" class="mt-1 text-gray-700">
+                                        @foreach ($entry->details as $detail)
+                                            <li><span aria-hidden="true">{{ $detail['ok'] ? '✓' : '–' }}</span> <span class="sr-only">{{ $detail['status'] }}:</span> {{ $detail['text'] }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </li>
                         @endif
-                    </div>
+                    @endforeach
+                </ol>
+            @endif
 
-                    @if ($inbound)
-                        @php($succeeded = $message->classifications->where('status', \App\Enums\ClassificationStatus::Succeeded)->values())
-                        @php($current = $succeeded->first())
-                        @php($lastAttempt = $message->classifications->first())
-
-                        @if ($current)
-                            @php($level = $this->confidenceLevel($current->confidence))
-                            <aside aria-label="AI insight" class="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm">
-                                <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase">AI Insight</p>
-                                    @if ($current->requires_human_review)
-                                        <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Needs attention</span>
-                                    @endif
-                                </div>
-
-                                <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-                                    <dt class="text-gray-500">Intent</dt>
-                                    <dd><x-intent-badge :intent="$current->intent" /></dd>
-                                    <dt class="text-gray-500">Confidence</dt>
-                                    <dd class="text-gray-900">{{ (int) round($current->confidence * 100) }}% <span class="text-gray-500">({{ $level->value }})</span></dd>
-                                    <dt class="text-gray-500">Summary</dt>
-                                    <dd class="text-gray-900">{{ $current->summary }}</dd>
-                                    <dt class="text-gray-500">Needs attention</dt>
-                                    <dd class="text-gray-900">{{ $current->requires_human_review ? 'Yes' : 'No' }}</dd>
-                                    @if ($current->sentiment || $current->urgency)
-                                        <dt class="text-gray-500">Tone</dt>
-                                        <dd class="text-gray-900">
-                                            {{ collect([$current->sentiment ? ucfirst($current->sentiment->value).' sentiment' : null, $current->urgency ? ucfirst($current->urgency->value).' urgency' : null])->filter()->implode(' · ') }}
-                                        </dd>
-                                    @endif
-                                </dl>
-
-                                <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
-                                    <p>AI analysis only; the AI itself takes no action. {{ $current->model }} · {{ $current->classified_at?->diffForHumans() }}</p>
-                                    @if ($this->canReclassify())
-                                        <button type="button" wire:click="reclassify({{ $message->id }})" wire:loading.attr="disabled" wire:target="reclassify({{ $message->id }})"
-                                                class="rounded-md bg-white px-2 py-1 font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 disabled:opacity-50">
-                                            Reclassify
-                                        </button>
-                                    @endif
-                                </div>
-
-                                @if ($lastAttempt && $lastAttempt->id > $current->id && $lastAttempt->status === \App\Enums\ClassificationStatus::Failed)
-                                    <p class="mt-2 text-xs text-amber-800">The latest reclassification attempt failed; showing the previous result.</p>
-                                @endif
-
-                                @if ($succeeded->count() > 1)
-                                    <details class="mt-2 text-xs">
-                                        <summary class="cursor-pointer text-gray-600">Previous classifications ({{ $succeeded->count() - 1 }})</summary>
-                                        <ul role="list" class="mt-2 space-y-1">
-                                            @foreach ($succeeded->slice(1) as $previous)
-                                                <li class="flex flex-wrap items-center gap-2 text-gray-600">
-                                                    <x-intent-badge :intent="$previous->intent" />
-                                                    <span>{{ (int) round($previous->confidence * 100) }}%</span>
-                                                    <span>· {{ $previous->model }}</span>
-                                                    <span>· {{ $previous->classified_at?->format('M j, Y g:i A') }}</span>
-                                                </li>
-                                            @endforeach
-                                        </ul>
-                                    </details>
-                                @endif
-                            </aside>
-                        @elseif ($message->status === \App\Enums\MessageStatus::Received)
-                            <p class="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                {{ $lastAttempt ? 'AI insight is unavailable for this reply.' : 'AI insight pending…' }}
-                                @if ($lastAttempt && $this->canReclassify())
-                                    <button type="button" wire:click="reclassify({{ $message->id }})" class="font-medium text-indigo-700 hover:underline">Try again</button>
-                                @endif
-                            </p>
-                        @endif
-                    @endif
-
-                    @if (! empty($message->metadata['attachments']))
-                        <p class="mt-3 text-xs text-gray-500">
-                            {{ trans_choice(':count attachment|:count attachments', count($message->metadata['attachments'])) }} not shown. Attachment support is coming soon.
-                        </p>
-                    @endif
-                </li>
-            @endforeach
-        </ol>
-    @endif
-
-    @if ($this->automationActivity->isNotEmpty())
-        <section aria-labelledby="automation-activity-heading" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 id="automation-activity-heading" class="text-xs font-semibold tracking-wide text-gray-500 uppercase">Automation activity</h2>
-            <ol role="list" class="mt-3 space-y-3">
-                @foreach ($this->automationActivity as $entry)
-                    <li wire:key="{{ $entry['key'] }}" class="text-sm">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <p class="font-medium text-gray-900">{{ $entry['title'] }}</p>
-                            <x-automation-status-badge :status="$entry['status']" />
-                            <time class="text-xs text-gray-500" datetime="{{ $entry['at']->toIso8601String() }}">{{ $entry['at']->format('M j, Y g:i A') }}</time>
+            {{-- Composer: sticky at the bottom of the screen on small devices. --}}
+            <div class="sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-gray-50/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0" id="composer">
+                @if (! $composerOpen)
+                    <button type="button" wire:click="$set('composerOpen', true)" class="w-full rounded-md bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 sm:w-auto">Reply</button>
+                @else
+                    <form wire:submit="sendReply" class="{{ $card }} space-y-3" aria-label="Reply by email">
+                        <p class="text-sm text-gray-600">To: <span class="font-medium text-gray-900">{{ $conversation->customer->email }}</span></p>
+                        @error('reply') <p role="alert" class="rounded-md bg-red-50 p-2 text-sm text-red-800">{{ $message }}</p> @enderror
+                        <div><label for="reply-subject" class="block text-sm font-medium text-gray-700">Subject</label><input id="reply-subject" type="text" wire:model="replySubject" maxlength="200" class="{{ $field }}">@error('replySubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                        <div><label for="reply-body" class="block text-sm font-medium text-gray-700">Message</label><textarea id="reply-body" wire:model="replyBody" rows="4" class="{{ $field }}" autofocus></textarea>@error('replyBody') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                        <div class="flex gap-2">
+                            <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"><span wire:loading.remove wire:target="sendReply">Send</span><span wire:loading wire:target="sendReply">Sending…</span></button>
+                            <button type="button" wire:click="$set('composerOpen', false)" class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
                         </div>
-                        @if ($entry['details'])
-                            <ul role="list" class="mt-1 space-y-0.5 text-gray-700">
-                                @foreach ($entry['details'] as $detail)
-                                    <li>{{ $detail }}</li>
-                                @endforeach
-                            </ul>
-                        @endif
-                    </li>
-                @endforeach
-            </ol>
-        </section>
-    @endif
+                    </form>
+                @endif
+            </div>
+        </div>
+
+        {{-- Side panel --}}
+        <div class="min-w-0 space-y-6">
+            {{-- AI classification --}}
+            @php($current = $this->currentClassification)
+            <section aria-labelledby="classification-heading" class="{{ $card }}" data-section="classification">
+                <h2 id="classification-heading" class="{{ $heading }}">AI classification</h2>
+                @if ($current)
+                    <p class="mt-2 text-lg font-semibold tracking-wide text-gray-900 uppercase">{{ $current->intent?->label() }}</p>
+                    @if ($current->isManual())
+                        <p class="text-sm text-gray-600">Corrected by {{ $current->overrider?->name ?? 'a team member' }} (AI said {{ $current->previous_intent?->label() }})</p>
+                        @if ($current->override_reason)<p class="text-sm text-gray-600">Reason: {{ $current->override_reason }}</p>@endif
+                    @else
+                        <p class="text-sm text-gray-900">{{ (int) round($current->confidence * 100) }}% confidence</p>
+                    @endif
+                    <p class="text-xs text-gray-500">Classified {{ $organization->localTime($current->classified_at ?? $current->created_at)->format('M j, g:i A') }}</p>
+                    @if (! $current->isManual() && $current->summary)
+                        <p class="mt-2 text-sm text-gray-700">{{ $current->summary }}</p>
+                    @endif
+
+                    @if ($showOverrideForm)
+                        <form wire:submit="overrideClassification" class="mt-3 space-y-2" aria-label="Correct the classification">
+                            <div><label for="override-intent" class="block text-sm font-medium text-gray-700">Correct intent</label>
+                                <select id="override-intent" wire:model="overrideIntent" class="{{ $field }}"><option value="">Choose…</option>@foreach ($intents as $intent)<option value="{{ $intent->value }}">{{ $intent->label() }}</option>@endforeach</select>
+                                @error('overrideIntent') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                            <div><label for="override-reason" class="block text-sm font-medium text-gray-700">Reason <span class="font-normal text-gray-500">(optional)</span></label><input id="override-reason" type="text" wire:model="overrideReason" maxlength="255" class="{{ $field }}"></div>
+                            <div class="flex gap-2">
+                                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">Save</button>
+                                <button type="button" wire:click="$set('showOverrideForm', false)" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
+                            </div>
+                        </form>
+                    @else
+                        <button type="button" wire:click="$set('showOverrideForm', true)" class="mt-3 text-sm font-medium text-indigo-700 hover:underline">Change classification</button>
+                    @endif
+                @else
+                    <p class="mt-2 text-sm text-gray-600">No customer reply has been classified yet.</p>
+                @endif
+            </section>
+
+            {{-- Follow-up --}}
+            <section aria-labelledby="follow-up-heading" class="{{ $card }} space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    @php($latest = $this->conversationFollowUps->first())
+                    <h2 id="follow-up-heading" class="{{ $heading }}">
+                        {{ $latest && $latest->status === \App\Enums\FollowUpStatus::Skipped && $this->conversationFollowUps->count() === 1 ? 'Follow-up skipped' : 'Follow-up' }}
+                    </h2>
+                    @unless ($showScheduleForm)
+                        <button type="button" wire:click="openScheduleForm" class="text-sm font-medium text-indigo-700 hover:underline">Schedule Follow-Up</button>
+                    @endunless
+                </div>
+                @include('follow-ups.flash')
+                @if ($showScheduleForm)
+                    @include('follow-ups.schedule-form')
+                @endif
+                @if ($this->conversationFollowUps->isEmpty())
+                    <p class="text-sm text-gray-500">No follow-up scheduled.</p>
+                @else
+                    <ul role="list" class="-mx-4 divide-y divide-gray-100 sm:-mx-5">
+                        @foreach ($this->conversationFollowUps as $followUp)
+                            @include('follow-ups.item', ['showCustomer' => false, 'compact' => true])
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+
+            {{-- Tasks --}}
+            <section aria-labelledby="tasks-heading" class="{{ $card }}">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 id="tasks-heading" class="{{ $heading }}">Tasks</h2>
+                    @unless ($showTaskForm)
+                        <button type="button" wire:click="$set('showTaskForm', true)" class="text-sm font-medium text-indigo-700 hover:underline">Create Task</button>
+                    @endunless
+                </div>
+                @if ($showTaskForm)
+                    <form wire:submit="createTask" class="mt-3 space-y-2" aria-label="Create task">
+                        <div><label for="task-title" class="block text-sm font-medium text-gray-700">Task</label><input id="task-title" type="text" wire:model="taskTitle" maxlength="255" placeholder="Call John about the install date" class="{{ $field }}">@error('taskTitle') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                        <div><label for="task-priority" class="block text-sm font-medium text-gray-700">Priority</label>
+                            <select id="task-priority" wire:model="taskPriority" class="{{ $field }}">@foreach (\App\Enums\TaskPriority::cases() as $p)<option value="{{ $p->value }}">{{ ucfirst($p->value) }}</option>@endforeach</select></div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">Add task</button>
+                            <button type="button" wire:click="$set('showTaskForm', false)" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
+                        </div>
+                    </form>
+                @endif
+                @if ($this->tasks->isEmpty())
+                    <p class="mt-3 text-sm text-gray-600">No tasks for this conversation.</p>
+                @else
+                    <ul role="list" class="mt-2 divide-y divide-gray-100 text-sm" data-section="tasks">
+                        @foreach ($this->tasks as $task)
+                            @include('livewire.partials.task-row')
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+        </div>
+    </div>
 </div>

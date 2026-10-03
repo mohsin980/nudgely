@@ -260,7 +260,7 @@ test('the customer page shows upcoming follow-ups and history', function () {
     $this->service->complete($done, $this->admin);
 
     Livewire::actingAs($this->admin)->test(ShowCustomer::class, ['customerId' => $this->customer->id])
-        ->assertSeeInOrder(['John Smith', 'Schedule Follow-Up', 'Upcoming follow-ups', 'Pending', 'Follow up about estimate', 'Follow-up history', 'Initial estimate follow-up', 'Completed', 'Conversations', 'Your HVAC estimate']);
+        ->assertSeeInOrder(['John Smith', 'Schedule Follow-Up', 'Conversation', 'Your HVAC estimate', 'Activity', 'Upcoming follow-ups', 'Pending', 'Follow up about estimate', 'Follow-up history', 'Initial estimate follow-up', 'Completed']);
 });
 
 test('the conversation page shows the follow-up and a skipped one with its reason', function () {

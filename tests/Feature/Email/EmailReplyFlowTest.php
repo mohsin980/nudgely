@@ -103,10 +103,12 @@ class EmailReplyFlowTest extends TestCase
         $this->assertSame(MessageStatus::NeedsReview, Message::where('from_address', 'x@evil.test')->sole()->status);
 
         // The reply shows in the business's Inbox, after the estimate; other organizations can't see it.
-        $this->actingAs($admin)->get('/inbox')->assertOk()->assertSee('John Smith')->assertSee('HVAC Estimate');
-        $this->actingAs($admin)->get("/inbox/{$conversation->id}")
+        $this->actingAs($admin)->get('/inbox')->assertRedirect('/conversations');
+        $this->actingAs($admin)->get('/conversations')->assertOk()->assertSee('John Smith')->assertSee('HVAC Estimate');
+        $this->actingAs($admin)->get("/inbox/{$conversation->id}")->assertRedirect("/conversations/{$conversation->id}");
+        $this->actingAs($admin)->get("/conversations/{$conversation->id}")
             ->assertOk()
             ->assertSeeInOrder(['Dallas Cooling', 'Hi John, here is your estimate', 'John Smith', 'Can you lower the price?']);
-        $this->actingAs(User::factory()->create())->get("/inbox/{$conversation->id}")->assertNotFound();
+        $this->actingAs(User::factory()->create())->get("/conversations/{$conversation->id}")->assertNotFound();
     }
 }

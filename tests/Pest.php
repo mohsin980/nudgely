@@ -25,7 +25,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace');
 
 /*
 |--------------------------------------------------------------------------

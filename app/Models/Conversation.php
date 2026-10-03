@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\ConversationCloseReason;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
+use App\Enums\ReplyUrgency;
 use App\Services\Dashboard\AttentionPriorityRules;
 use Database\Factories\ConversationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -46,6 +48,10 @@ class Conversation extends Model
             'last_message_at' => 'datetime',
             'latest_intent' => CustomerReplyIntent::class,
             'needs_attention' => 'boolean',
+            'latest_confidence' => 'float',
+            'latest_urgency' => ReplyUrgency::class,
+            'closed_at' => 'datetime',
+            'closed_reason' => ConversationCloseReason::class,
         ];
     }
 
@@ -134,10 +140,49 @@ class Conversation extends Model
      */
     public function recordActivity(\DateTimeInterface $at, ConversationStatus $status = ConversationStatus::Open): void
     {
+        $reopened = $this->status === ConversationStatus::Closed && $status !== ConversationStatus::Closed;
+
         $this->forceFill([
             'last_message_at' => $this->last_message_at === null || $this->last_message_at->lt($at) ? $at : $this->last_message_at,
             'status' => $status,
+            'closed_at' => null,
+            'closed_reason' => null,
         ])->save();
+
+        Customer::query()
+            ->whereKey($this->customer_id)
+            ->where(fn ($q) => $q->whereNull('last_activity_at')->orWhere('last_activity_at', '<', $at))
+            ->update(['last_activity_at' => $at]);
+
+        if ($reopened) {
+            ConversationEvent::record($this, 'reopened', null, ['by' => 'message']);
+        }
+    }
+
+    /**
+     * @return HasMany<ConversationEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(ConversationEvent::class);
+    }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
+
+    /**
+     * The most recent message in either direction (eager-loadable without N+1).
+     *
+     * @return HasOne<Message, $this>
+     */
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(Message::class)->ofMany(['id' => 'max'], fn ($query) => $query->whereIn('status', ['received', 'queued', 'sending', 'sent', 'failed']));
     }
 
     /**

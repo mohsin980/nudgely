@@ -166,6 +166,6 @@ class InboxTest extends TestCase
         $this->actingAs($this->member)
             ->get(route('inbox.index'))
             ->assertSeeHtml('href="'.route('inbox.index').'"')
-            ->assertSee('Inbox');
+            ->assertSee('Conversations');
     }
 }

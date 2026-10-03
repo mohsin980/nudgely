@@ -5,6 +5,8 @@ use App\Enums\ClassificationStatus;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
 use App\Enums\ReplyUrgency;
+use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
 use App\Jobs\SendEmailJob;
 use App\Livewire\Customers\CreateCustomerForm;
 use App\Livewire\Dashboard;
@@ -19,6 +21,7 @@ use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\MessageClassification;
 use App\Models\Organization;
+use App\Models\Task;
 use App\Models\User;
 use App\Notifications\FollowUpNotification;
 use App\Services\Dashboard\AttentionPriorityRules;
@@ -72,7 +75,7 @@ function classifiedReply(Conversation $conversation, string $text, ?CustomerRepl
 
 function customerWithConversation(Organization $organization, string $name): Conversation
 {
-    $customer = Customer::factory()->for($organization)->create(['name' => $name, 'email' => Str::slug($name).'@example.com']);
+    $customer = Customer::factory()->for($organization)->create(['name' => $name, 'email' => Str::slug($name).'-'.Str::lower(Str::random(6)).'@example.com']);
 
     return Conversation::factory()->for($customer)->create(['organization_id' => $organization->id, 'subject' => 'Estimate', 'last_message_at' => now()]);
 }
@@ -83,6 +86,19 @@ function reminderAt(User $user, Conversation $conversation, string $dueUtc, stri
     $followUp->forceFill(['due_at' => CarbonImmutable::parse($dueUtc, 'UTC')])->save();
 
     return $followUp;
+}
+
+function taskFor(Conversation $conversation, string $title, ?string $dueUtc, TaskPriority $priority = TaskPriority::Medium, array $attributes = []): Task
+{
+    return Task::query()->forceCreate($attributes + [
+        'organization_id' => $conversation->organization_id,
+        'customer_id' => $conversation->customer_id,
+        'conversation_id' => $conversation->id,
+        'title' => $title,
+        'priority' => $priority,
+        'status' => TaskStatus::Pending,
+        'due_at' => $dueUtc ? CarbonImmutable::parse($dueUtc, 'UTC') : null,
+    ]);
 }
 
 function dashboard(User $user)
@@ -347,6 +363,105 @@ test('unread notifications are shown and can be dismissed', function () {
 
 // Performance
 
+// Tasks
+
+test('an automation task due today appears in the attention list and the tasks section', function () {
+    // The business already replied, so the conversation itself no longer needs attention; the task still does.
+    $this->johnConversation->forceFill(['status' => ConversationStatus::WaitingCustomer])->save();
+    taskFor($this->johnConversation, 'Book John Smith', '2026-10-03 19:00:00', TaskPriority::High, ['idempotency_key' => str_repeat('a', 64)]);
+
+    $snapshot = snapshot($this->admin);
+    $item = $snapshot->attention->sole();
+
+    expect($item->kind)->toBe('task')
+        ->and($item->priority)->toBe(AttentionPriority::High)
+        ->and($item->reason)->toBe('Task: Book John Smith')
+        ->and($item->overdue)->toBeFalse()
+        ->and($item->url)->toBe(route('inbox.show', $this->johnConversation->id).'#tasks-heading')
+        ->and($snapshot->tasks->pluck('title')->all())->toBe(['Book John Smith'])
+        ->and($snapshot->taskCounts)->toBe(['open' => 1, 'due' => 1, 'overdue' => 0, 'later' => 0]);
+
+    dashboard($this->admin)
+        ->assertSeeInOrder(['Needs your attention', 'John Smith', 'High priority', 'Task: Book John Smith', 'Open Task'])
+        ->assertSeeInOrder(['Tasks (1)', 'Book John Smith', 'John Smith', 'High priority', 'due Oct 3, 2:00 PM', 'by automation', 'Complete']);
+});
+
+test('an overdue task is high priority whatever priority it was given', function () {
+    taskFor($this->johnConversation, 'Call back about the quote', '2026-10-03 13:00:00', TaskPriority::Low);
+
+    $item = snapshot($this->admin)->attention->sole();
+
+    expect($item->priority)->toBe(AttentionPriority::High)
+        ->and($item->reason)->toBe('Overdue task: Call back about the quote')
+        ->and($item->overdue)->toBeTrue()
+        ->and(snapshot($this->admin)->taskCounts['overdue'])->toBe(1);
+    dashboard($this->admin)->assertSeeInOrder(['Call back about the quote', 'Overdue']);
+});
+
+test('an overdue task comes before a task that is not due yet at the same priority', function () {
+    $sarah = customerWithConversation($this->organization, 'Sarah Wilson');
+    taskFor($this->johnConversation, 'Book John Smith', '2026-10-03 19:00:00', TaskPriority::High);
+    taskFor($sarah, 'Send financing options', '2026-10-03 13:00:00', TaskPriority::Low);
+
+    expect(snapshot($this->admin)->attention->pluck('reason')->all())->toBe(['Overdue task: Send financing options', 'Task: Book John Smith']);
+});
+
+test('a task for a conversation already listed is not repeated in the attention list', function () {
+    classifiedReply($this->johnConversation, "Yes, let's schedule.", CustomerReplyIntent::ReadyToBook, 0.97);
+    taskFor($this->johnConversation, 'Book John Smith', '2026-10-03 19:00:00', TaskPriority::High);
+
+    $snapshot = snapshot($this->admin);
+
+    expect($snapshot->attention->pluck('kind')->all())->toBe(['conversation'])
+        ->and($snapshot->tasks)->toHaveCount(1);
+});
+
+test('undated tasks are shown, later tasks are only counted, and finished tasks are hidden', function () {
+    taskFor($this->johnConversation, 'Undated task', null, TaskPriority::Low);
+    taskFor($this->johnConversation, 'Tomorrow task', '2026-10-04 16:00:00');
+    taskFor($this->johnConversation, 'Done task', '2026-10-03 16:00:00', attributes: ['status' => TaskStatus::Completed, 'completed_at' => now()]);
+    taskFor($this->johnConversation, 'Cancelled task', '2026-10-03 16:00:00', attributes: ['status' => TaskStatus::Cancelled]);
+
+    $snapshot = snapshot($this->admin);
+
+    expect($snapshot->tasks->pluck('title')->all())->toBe(['Undated task'])
+        ->and($snapshot->attention->pluck('reason')->all())->toBe(['Task: Undated task'])
+        ->and($snapshot->attention->sole()->priority)->toBe(AttentionPriority::Low)
+        ->and($snapshot->taskCounts)->toBe(['open' => 2, 'due' => 1, 'overdue' => 0, 'later' => 1]);
+    dashboard($this->admin)->assertSee('1 more task is scheduled for later.')->assertDontSee('Tomorrow task')->assertDontSee('Done task');
+});
+
+test('a task can be completed from the dashboard', function () {
+    $task = taskFor($this->johnConversation, 'Book John Smith', '2026-10-03 19:00:00', TaskPriority::High);
+
+    dashboard($this->admin)->call('completeTask', $task->id)->assertOk();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Completed)
+        ->and(snapshot($this->admin)->tasks)->toBeEmpty()
+        ->and(snapshot($this->admin)->attention)->toBeEmpty();
+    dashboard($this->admin)->assertSee('No tasks to do today.');
+});
+
+test("another organization's tasks are never shown and cannot be completed", function () {
+    [$otherAdmin, , $otherConversation] = followUpBusiness('Houston Plumbing');
+    $foreign = taskFor($otherConversation, 'Foreign task', '2026-10-03 19:00:00', TaskPriority::High);
+
+    expect(snapshot($this->admin)->tasks)->toBeEmpty()
+        ->and(snapshot($this->admin)->attention)->toBeEmpty()
+        ->and(snapshot($otherAdmin)->tasks->pluck('title')->all())->toBe(['Foreign task']);
+    dashboard($this->admin)->assertDontSee('Foreign task')->call('completeTask', $foreign->id)->assertNotFound();
+    expect($foreign->refresh()->status)->toBe(TaskStatus::Pending);
+});
+
+test('task priority follows the task until it is overdue', function () {
+    $rules = new AttentionPriorityRules;
+
+    expect($rules->forTask(TaskPriority::High, false))->toBe(AttentionPriority::High)
+        ->and($rules->forTask(TaskPriority::Medium, false))->toBe(AttentionPriority::Medium)
+        ->and($rules->forTask(TaskPriority::Low, false))->toBe(AttentionPriority::Low)
+        ->and($rules->forTask(TaskPriority::Low, true))->toBe(AttentionPriority::High);
+});
+
 /**
  * Seed $n customers, each with a classified reply, an overdue and a today follow-up, and an automation run.
  */
@@ -362,6 +477,7 @@ function seedVolume(object $test, int $n): void
         $run = AutomationRun::query()->forceCreate(['organization_id' => $test->organization->id, 'automation_id' => $automation->id, 'conversation_id' => $conversation->id,
             'event_type' => 'customer_reply_classified', 'event_id' => "classification:{$i}", 'status' => 'completed']);
         AutomationActionRun::query()->forceCreate(['automation_run_id' => $run->id, 'action_type' => 'create_task', 'status' => 'completed', 'result' => ['message' => 'Task created']]);
+        taskFor($conversation, "Task {$i}", '2026-10-03 20:00:00');
     }
 }
 
@@ -390,7 +506,7 @@ test('the dashboard never loads whole customer, message or follow-up tables', fu
     seedVolume($this, 15);
 
     $queries = collect(dashboardQueries($this->admin))
-        ->filter(fn ($sql) => preg_match('/from "(customers|messages|follow_ups|conversations|automation_runs|message_classifications)"/', $sql));
+        ->filter(fn ($sql) => preg_match('/from "(customers|messages|follow_ups|conversations|automation_runs|message_classifications|tasks)"/', $sql));
 
     expect($queries)->not->toBeEmpty();
 
@@ -406,6 +522,7 @@ test('the dashboard never loads whole customer, message or follow-up tables', fu
     $snapshot = snapshot($this->admin);
     expect($snapshot->attention)->toHaveCount(config('dashboard.limits.attention'))
         ->and($snapshot->todaysFollowUps)->toHaveCount(config('dashboard.limits.follow_ups'))
+        ->and($snapshot->tasks)->toHaveCount(config('dashboard.limits.tasks'))
         ->and($snapshot->recentReplies)->toHaveCount(config('dashboard.limits.replies'))
         ->and($snapshot->summary['overdue'])->toBe(15);
 });
@@ -430,8 +547,8 @@ test('quick actions: add a customer, schedule a follow-up, conversations and aut
         ->assertSeeLivewire('customers.create-customer-form');
 
     Livewire::actingAs($this->admin)->test(CreateCustomerForm::class)
-        ->set('name', 'Sarah Wilson')->set('email', 'not-an-email')->call('save')->assertHasErrors('email')
-        ->set('email', 'JOHN@example.com')->call('save')->assertHasErrors('email') // already a customer
+        ->set('first_name', 'Sarah')->set('last_name', 'Wilson')->set('email', 'not-an-email')->call('save')->assertHasErrors('email')
+        ->set('email', ' JOHN@Example.com ')->call('save')->assertHasErrors('email')->assertSee('Customer already exists.')->assertSee('View Customer') // already a customer
         ->set('email', 'sarah@example.com')->call('save')->assertHasNoErrors()->assertRedirect();
 
     expect(Customer::where('email', 'sarah@example.com')->sole()->organization_id)->toBe($this->organization->id);

@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
+use App\Models\Task;
 use App\Services\Dashboard\DashboardService;
+use App\Services\Tasks\TaskService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Lazy;
@@ -36,6 +38,14 @@ class Dashboard extends Component
     public function markAllNotificationsRead(): void
     {
         Auth::user()->unreadNotifications()->update(['read_at' => now()]);
+    }
+
+    public function completeTask(int $taskId, TaskService $tasks): void
+    {
+        // Only a task in the user's own organization; TaskService checks again.
+        $task = Task::query()->where('organization_id', Auth::user()->organization_id)->whereKey($taskId)->first() ?? abort(404);
+
+        $tasks->complete(Auth::user(), $task);
     }
 
     public function placeholder()

@@ -182,6 +182,8 @@ class CustomerReplyClassificationService
         if ($latestInboundId === $message->id) {
             $conversation->forceFill([
                 'latest_intent' => $classification->intent,
+                'latest_confidence' => $classification->confidence,
+                'latest_urgency' => $classification->urgency,
                 'needs_attention' => $classification->requires_human_review,
             ])->save();
         }

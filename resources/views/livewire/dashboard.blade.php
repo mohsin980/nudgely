@@ -75,7 +75,7 @@
                                             @if ($item->intent)
                                                 <x-intent-badge :intent="$item->intent" />
                                             @else
-                                                <span class="font-medium {{ $item->reason === 'Follow-up overdue' ? 'text-red-700' : 'text-gray-800' }}">{{ $item->reason }}</span>
+                                                <span class="font-medium {{ $item->overdue ? 'text-red-700' : 'text-gray-800' }}">{{ $item->reason }}</span>
                                             @endif
                                             @if ($item->confidence !== null)
                                                 <span>{{ (int) round($item->confidence * 100) }}% confidence</span>
@@ -88,6 +88,34 @@
                                 </li>
                             @endforeach
                         </ol>
+                    @endif
+                </section>
+
+                {{-- Open tasks --}}
+                <section aria-labelledby="tasks-heading" class="{{ $card }}">
+                    <h2 id="tasks-heading" class="{{ $heading }}">Tasks{{ $d->taskCounts['due'] ? ' ('.$d->taskCounts['due'].')' : '' }}</h2>
+                    @if ($d->tasks->isEmpty())
+                        <div class="mt-3 text-sm text-gray-600" role="status">
+                            <p class="font-medium text-gray-800">No tasks to do today.</p>
+                            @if ($d->taskCounts['later'])
+                                <p>{{ trans_choice(':count task is scheduled for later.|:count tasks are scheduled for later.', $d->taskCounts['later']) }}</p>
+                            @endif
+                        </div>
+                    @else
+                        <ul role="list" class="mt-1 divide-y divide-gray-100 text-sm" data-section="tasks">
+                            @foreach ($d->tasks as $task)
+                                @include('livewire.partials.task-row', ['showCustomer' => true])
+                            @endforeach
+                        </ul>
+                        @if ($d->taskCounts['due'] > $d->tasks->count() || $d->taskCounts['later'])
+                            <p class="mt-2 text-xs text-gray-500">
+                                {{ collect([
+                                    $d->taskCounts['due'] > $d->tasks->count() ? 'Showing '.$d->tasks->count().' of '.$d->taskCounts['due'].'.' : null,
+                                    $d->taskCounts['later'] ? trans_choice(':count more task is scheduled for later.|:count more tasks are scheduled for later.', $d->taskCounts['later']) : null,
+                                ])->filter()->implode(' ') }}
+                                All tasks are on each customer's page.
+                            </p>
+                        @endif
                     @endif
                 </section>
 
