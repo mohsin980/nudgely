@@ -13,6 +13,7 @@ use App\Livewire\Inbox\ShowConversation;
 use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\FollowUp;
+use App\Models\MessageClassification;
 use App\Models\User;
 use App\Services\Conversations\TimelineService;
 use App\Services\Dashboard\DashboardService;
@@ -335,4 +336,23 @@ test('the dashboard shows estimates sent today, awaiting customer and accepted t
 
     Livewire::withoutLazyLoading()->actingAs($this->admin)->test(Dashboard::class)
         ->assertSeeInOrder(['Estimates', 'Sent today', '3', 'Awaiting customer', '3', 'Accepted today', '1']);
+});
+
+test('the estimate activity shows the customer\'s replies since it was sent, with the AI classification', function () {
+    $before = customerReply($this->conversation, 'Can you quote an AC install?');
+    $this->travel(1)->minute();
+    $estimate = sentEstimate($this->admin, $this->john, ['conversation_id' => (string) $this->conversation->id]);
+    $this->travel(1)->minute();
+    $reply = customerReply($this->conversation, "Thanks, I'll think about it.");
+    MessageClassification::query()->forceCreate([
+        'organization_id' => $reply->organization_id, 'conversation_id' => $reply->conversation_id, 'message_id' => $reply->id,
+        'request_id' => 'r-1', 'status' => 'succeeded', 'intent' => 'interested', 'confidence' => 0.92, 'summary' => 'Interested',
+        'requires_human_review' => false, 'model' => 'test', 'classified_at' => now(),
+    ]);
+
+    $entries = app(TimelineService::class)->forEstimate($estimate);
+
+    expect($entries->first()->title)->toBe('Customer replied — AI: Interested')
+        ->and($entries->first()->body)->toBe("Thanks, I'll think about it.")
+        ->and($entries->pluck('body')->all())->not->toContain('Can you quote an AC install?');
 });

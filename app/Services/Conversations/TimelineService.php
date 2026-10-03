@@ -160,7 +160,25 @@ class TimelineService
             ->where('estimate_id', $estimate->id)
             ->latest('updated_at')->limit($limit)->get();
 
-        return $events->concat($this->followUpEntries($followUps))
+        // The customer's replies in the estimate's conversation since it was sent, with the AI's reading.
+        $replies = $estimate->conversation_id === null || $estimate->sent_at === null ? collect() : Message::query()
+            ->where('organization_id', $estimate->organization_id)
+            ->where('conversation_id', $estimate->conversation_id)
+            ->where('direction', 'inbound')
+            ->where('received_at', '>=', $estimate->sent_at)
+            ->with('latestClassification:message_classifications.id,message_classifications.message_id,intent,confidence')
+            ->select('id', 'conversation_id', 'direction', 'received_at', 'created_at')
+            ->selectRaw('left(body_text, 300) as excerpt')
+            ->latest('id')->limit($limit)->get()
+            ->map(fn (Message $m) => new TimelineEntry(
+                at: $m->received_at ?? $m->created_at,
+                kind: 'customer',
+                title: 'Customer replied'.($m->latestClassification?->intent ? ' — AI: '.$m->latestClassification->intent->label() : ''),
+                body: $this->excerpt($m->excerpt),
+                conversationId: $m->conversation_id,
+            ));
+
+        return $events->concat($this->followUpEntries($followUps))->concat($replies)
             ->sortByDesc(fn (TimelineEntry $e) => $e->at->getTimestamp())->take($limit)->values();
     }
 
