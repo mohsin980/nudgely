@@ -37,13 +37,14 @@ class AutomationBuilder
     public const MAX_CONDITIONS = 10;
 
     /**
-     * Condition types the builder offers; customer and estimate status have no data yet.
+     * Condition types the builder offers; customer status has no data yet.
      */
     public const CONDITION_TYPES = [
         AutomationConditionType::IntentEquals,
         AutomationConditionType::ConfidenceGreaterThan,
         AutomationConditionType::ConversationStatusEquals,
         AutomationConditionType::DaysSinceLastMessage,
+        AutomationConditionType::EstimateStatusEquals,
     ];
 
     public function __construct(

@@ -149,7 +149,7 @@ class AutomationEngineTest extends TestCase
         $this->assertSame(AutomationRunStatus::Completed, $run->status);
         $this->assertSame('classification:7', $run->event_id);
         $this->assertSame(0, $run->depth);
-        $this->assertEqualsCanonicalizing(['organization_id', 'trigger_type', 'event_id', 'customer_id', 'conversation_id', 'message_id', 'classification_id', 'intent', 'confidence', 'depth'], array_keys($run->context));
+        $this->assertEqualsCanonicalizing(['organization_id', 'trigger_type', 'event_id', 'customer_id', 'conversation_id', 'message_id', 'classification_id', 'intent', 'confidence', 'depth', 'estimate_id'], array_keys($run->context));
         $this->assertNotNull($run->completed_at);
 
         $actionRuns = $run->actionRuns;

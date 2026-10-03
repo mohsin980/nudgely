@@ -3,6 +3,7 @@
 namespace App\Services\FollowUps;
 
 use App\Enums\ConversationStatus;
+use App\Enums\EstimateStatus;
 use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\FollowUpType;
@@ -255,6 +256,14 @@ class FollowUpProcessor
             return FollowUpSkipReason::CustomerReplied;
         }
 
+        if ($followUp->estimate_id !== null && in_array(
+            $organization->estimates()->whereKey($followUp->estimate_id)->toBase()->value('status'),
+            [EstimateStatus::Accepted->value, EstimateStatus::Declined->value, EstimateStatus::Cancelled->value],
+            true,
+        )) {
+            return FollowUpSkipReason::EstimateClosed;
+        }
+
         if ($customer->hasOptedOutOfEmail()) {
             return FollowUpSkipReason::OptedOut;
         }
@@ -296,10 +305,11 @@ class FollowUpProcessor
         }
 
         try {
-            $text = $this->templates->render($locked->body, $customer, $organization);
+            $estimate = $locked->estimate_id === null ? null : $organization->estimates()->find($locked->estimate_id);
+            $text = $this->templates->render($locked->body, $customer, $organization, $estimate);
             $message = $this->email->sendToConversation(
                 $conversation,
-                $this->templates->render($locked->subject, $customer, $organization),
+                $this->templates->render($locked->subject, $customer, $organization, $estimate),
                 '<p>'.nl2br(e($text)).'</p>',
                 $text,
                 ['type' => 'follow_up', 'automation_key' => $key, 'follow_up_id' => (string) $locked->id],

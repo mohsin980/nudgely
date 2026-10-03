@@ -6,6 +6,7 @@ use App\Enums\EmailProvider;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Services\Estimates\EstimateService;
 use Database\Factories\MessageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,18 @@ class Message extends Model
     use HasFactory;
 
     protected $guarded = ['*'];
+
+    /**
+     * An estimate email that is delivered (or fails) updates its estimate.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (Message $message) {
+            if ($message->wasChanged('status') && ($message->metadata['type'] ?? null) === 'estimate') {
+                app(EstimateService::class)->deliveryUpdated($message);
+            }
+        });
+    }
 
     /**
      * Get the attributes that should be cast.

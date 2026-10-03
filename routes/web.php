@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Livewire\Customers\CustomerForm;
 use App\Livewire\Customers\CustomerIndex;
 use App\Livewire\Customers\ShowCustomer;
 use App\Livewire\Dashboard;
+use App\Livewire\Estimates\EstimateForm;
+use App\Livewire\Estimates\EstimateIndex;
+use App\Livewire\Estimates\ShowEstimate;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
@@ -16,6 +20,7 @@ use App\Livewire\Settings\EmailSettings;
 use App\Models\Automation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use Illuminate\Support\Facades\Route;
 
@@ -58,6 +63,21 @@ Route::middleware('auth')->prefix('settings')->name('settings.')->group(function
 Route::middleware(['auth', 'can:access-organization'])->group(function () {
     Route::get('/conversations', ConversationList::class)->name('inbox.index');
     Route::get('/conversations/{conversationId}', ShowConversation::class)->whereNumber('conversationId')->name('inbox.show');
+});
+
+// Estimates: IDs are looked up inside the user's organization by each component.
+Route::middleware(['auth', 'can:access-organization'])->prefix('estimates')->name('estimates.')->group(function () {
+    Route::get('/', EstimateIndex::class)->name('index');
+    Route::get('/create', EstimateForm::class)->middleware('can:create,'.Estimate::class)->name('create');
+    Route::get('/{estimateId}', ShowEstimate::class)->whereNumber('estimateId')->name('show');
+    Route::get('/{estimateId}/edit', EstimateForm::class)->whereNumber('estimateId')->name('edit');
+});
+
+// The customer's estimate page: no account; the unguessable link is the only credential.
+Route::prefix('estimate/view/{token}')->name('estimates.public.')->where(['token' => '[A-Za-z0-9]{48}'])->middleware('throttle:public-estimates')->group(function () {
+    Route::get('/', [PublicEstimateController::class, 'show'])->name('show');
+    Route::post('/accept', [PublicEstimateController::class, 'accept'])->name('accept');
+    Route::post('/decline', [PublicEstimateController::class, 'decline'])->name('decline');
 });
 
 // Old addresses (e.g. links stored in notifications) keep working.

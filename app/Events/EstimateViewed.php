@@ -8,10 +8,9 @@ use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * A customer opened an estimate.
+ * A customer opened their estimate link for the first time.
  *
- * Not dispatched yet: QuoteFollow has no estimates feature. Defined so the automation
- * trigger has a stable contract when estimates are built.
+ * Dispatched by EstimateService after the change is committed, once per estimate.
  */
 final class EstimateViewed implements AutomationEvent, ShouldDispatchAfterCommit
 {

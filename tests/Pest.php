@@ -6,13 +6,17 @@ use App\Models\Automation;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Email\EmailProviderManager;
+use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
 
 /*
@@ -25,7 +29,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates');
 
 /*
 |--------------------------------------------------------------------------
@@ -127,4 +131,87 @@ function makeDue(FollowUp $followUp): void
 {
     test()->travelTo($followUp->refresh()->due_at->addMinute());
     app(FollowUpProcessor::class)->markDue();
+}
+
+/*
+|--------------------------------------------------------------------------
+| Estimate helpers
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Replace the email provider with the in-memory fake (no HTTP) and return it.
+ */
+function fakeEmailProvider(): FakeEmailProvider
+{
+    $provider = new FakeEmailProvider;
+    app(EmailProviderManager::class)->extend('postmark', fn () => $provider);
+
+    return $provider;
+}
+
+/**
+ * Dallas HVAC with a verified sender (sales@example.com), John Smith and a conversation.
+ *
+ * @return array{0: User, 1: Customer, 2: Conversation}
+ */
+function estimateBusiness(string $name = 'Dallas HVAC'): array
+{
+    [$admin, $customer, $conversation] = followUpBusiness($name);
+    $admin->organization->forceFill(['automations_enabled' => true])->save();
+    EmailConnection::factory()->verified()->default()->create([
+        'organization_id' => $admin->organization_id,
+        'domain' => 'example.com',
+        'sender_email' => 'sales@example.com',
+        'sender_name' => $name,
+    ]);
+
+    return [$admin, $customer, $conversation];
+}
+
+/**
+ * Form input for an estimate: AC Installation 1 × $2,500 and Thermostat 1 × $250 by default.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function estimateInput(Customer $customer, array $overrides = []): array
+{
+    return $overrides + [
+        'customer_id' => (string) $customer->id,
+        'conversation_id' => '',
+        'title' => 'AC Installation',
+        'notes' => '',
+        'valid_until' => now()->addDays(30)->toDateString(),
+        'discount_type' => '',
+        'discount_value' => '',
+        'tax_rate' => '',
+        'items' => [
+            ['description' => 'AC Installation', 'quantity' => '1', 'unit_price' => '2500'],
+            ['description' => 'Thermostat', 'quantity' => '1', 'unit_price' => '250'],
+        ],
+    ];
+}
+
+/**
+ * A draft created through EstimateService.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function draftEstimate(User $actor, Customer $customer, array $overrides = []): Estimate
+{
+    return app(EstimateService::class)->create($actor, estimateInput($customer, $overrides));
+}
+
+/**
+ * A draft that was sent and delivered (fake provider; the sync queue delivers right away).
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function sentEstimate(User $actor, Customer $customer, array $overrides = []): Estimate
+{
+    $estimate = draftEstimate($actor, $customer, $overrides);
+    app(EstimateService::class)->send($actor, $estimate);
+
+    return $estimate->refresh();
 }

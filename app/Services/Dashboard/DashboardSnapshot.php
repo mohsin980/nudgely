@@ -15,6 +15,7 @@ final readonly class DashboardSnapshot
      * @param  array{new_customers: int, customer_replies: int, follow_ups_completed: int, follow_ups_due: int, emails_sent: int}  $today
      * @param  array<string, int>  $conversationStatuses
      * @param  array{open: int, due: int, overdue: int, later: int}  $taskCounts
+     * @param  array{sent_today: int, awaiting: int, accepted_today: int}  $estimates
      */
     public function __construct(
         public CarbonImmutable $localNow,
@@ -28,6 +29,7 @@ final readonly class DashboardSnapshot
         public Collection $todaysFollowUps,
         public Collection $tasks,
         public array $taskCounts,
+        public array $estimates,
         public Collection $recentReplies,
         public Collection $automationRuns,
         public Collection $notifications,

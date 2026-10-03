@@ -30,7 +30,7 @@ class AutomationEnumsTest extends TestCase
         $this->assertSame(['draft', 'active', 'paused'], $this->values(AutomationStatus::class));
         $this->assertSame([
             'customer_reply_received', 'customer_reply_classified', 'estimate_sent',
-            'estimate_viewed', 'estimate_expired', 'follow_up_due',
+            'estimate_viewed', 'estimate_expired', 'estimate_accepted', 'estimate_declined', 'follow_up_due',
         ], $this->values(AutomationTriggerType::class));
         $this->assertSame([
             'intent_equals', 'confidence_greater_than', 'customer_status_equals',
@@ -71,7 +71,12 @@ class AutomationEnumsTest extends TestCase
     {
         $available = array_values(array_filter(AutomationTriggerType::cases(), fn (AutomationTriggerType $t) => $t->isAvailable()));
 
-        $this->assertSame([AutomationTriggerType::CustomerReplyReceived, AutomationTriggerType::CustomerReplyClassified], $available);
+        // Every trigger is dispatched by the application except "follow-up due".
+        $this->assertSame([
+            AutomationTriggerType::CustomerReplyReceived, AutomationTriggerType::CustomerReplyClassified,
+            AutomationTriggerType::EstimateSent, AutomationTriggerType::EstimateViewed, AutomationTriggerType::EstimateExpired,
+            AutomationTriggerType::EstimateAccepted, AutomationTriggerType::EstimateDeclined,
+        ], $available);
     }
 
     public function test_every_case_has_a_label(): void

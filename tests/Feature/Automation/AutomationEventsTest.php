@@ -9,6 +9,8 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Events\CustomerReplyClassified;
 use App\Events\CustomerReplyReceived;
+use App\Events\EstimateAccepted;
+use App\Events\EstimateDeclined;
 use App\Events\EstimateExpired;
 use App\Events\EstimateSent;
 use App\Events\EstimateViewed;
@@ -102,6 +104,8 @@ class AutomationEventsTest extends TestCase
             [new EstimateSent(1, 7), AutomationTriggerType::EstimateSent, 'estimate:7'],
             [new EstimateViewed(1, 7), AutomationTriggerType::EstimateViewed, 'estimate:7'],
             [new EstimateExpired(1, 7), AutomationTriggerType::EstimateExpired, 'estimate:7'],
+            [new EstimateAccepted(1, 7), AutomationTriggerType::EstimateAccepted, 'estimate:7'],
+            [new EstimateDeclined(1, 7), AutomationTriggerType::EstimateDeclined, 'estimate:7'],
             [new FollowUpDue(1, 9), AutomationTriggerType::FollowUpDue, 'follow_up:9'],
         ];
 
@@ -222,8 +226,9 @@ class AutomationEventsTest extends TestCase
         Event::assertNotDispatched(CustomerReplyReceived::class);
     }
 
-    public function test_estimate_and_follow_up_events_are_not_dispatched_by_the_application_yet(): void
+    public function test_classifying_a_reply_dispatches_no_estimate_or_follow_up_events(): void
     {
+        // Estimate events come only from EstimateService (tests/Feature/Estimates); FollowUpDue is not dispatched yet.
         Event::fake([EstimateSent::class, EstimateViewed::class, EstimateExpired::class, FollowUpDue::class]);
         $message = $this->reply();
         $this->classifier->willReturn();

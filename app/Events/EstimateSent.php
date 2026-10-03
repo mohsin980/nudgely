@@ -8,10 +8,9 @@ use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * An estimate was sent to a customer.
+ * An estimate email was delivered to the customer (not just queued).
  *
- * Not dispatched yet: QuoteFollow has no estimates feature. Defined so the automation
- * trigger has a stable contract when estimates are built.
+ * Dispatched by EstimateService after the change is committed, once per estimate.
  */
 final class EstimateSent implements AutomationEvent, ShouldDispatchAfterCommit
 {

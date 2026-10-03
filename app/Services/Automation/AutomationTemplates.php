@@ -83,6 +83,29 @@ class AutomationTemplates
                     ['type' => 'update_conversation_status', 'configuration' => ['status' => 'waiting_business']],
                 ],
             ],
+            'estimate_follow_up' => [
+                'name' => 'Estimate Follow-Up',
+                'description' => 'When an estimate is sent, schedule a follow-up in 3 days. A customer reply, or accepting or declining the estimate, cancels it.',
+                'trigger_type' => 'estimate_sent',
+                'conditions' => [],
+                'actions' => [
+                    ['type' => 'schedule_follow_up', 'configuration' => [
+                        'delay_days' => 3,
+                        'subject' => 'Following up on estimate {{estimate.number}}',
+                        'body' => "Hi {{customer.first_name}},\n\nI wanted to follow up on estimate {{estimate.number}} for {{estimate.title}} ({{estimate.total}}). Let us know if you have any questions.\n\nThanks,\n{{business.name}}",
+                    ]],
+                ],
+            ],
+            'estimate_declined' => [
+                'name' => 'Estimate Declined',
+                'description' => 'When a customer declines an estimate, create a high-priority task and notify the owner.',
+                'trigger_type' => 'estimate_declined',
+                'conditions' => [],
+                'actions' => [
+                    ['type' => 'create_task', 'configuration' => ['title' => 'Review declined estimate for {customer_name}', 'priority' => 'high', 'due_in_hours' => 24]],
+                    $notifyOwner('{customer_name} declined an estimate.'),
+                ],
+            ],
         ];
     }
 

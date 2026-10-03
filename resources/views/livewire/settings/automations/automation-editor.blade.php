@@ -83,6 +83,14 @@
                                 @endforeach
                             </select>
                             @break
+                        @case('estimate_status_equals')
+                            <select id="condition-{{ $i }}-value" wire:model="conditions.{{ $i }}.value" class="{{ $inline }}">
+                                <option value="">Choose status…</option>
+                                @foreach (\App\Enums\EstimateStatus::cases() as $status)
+                                    <option value="{{ $status->value }}">{{ $status->label() }}</option>
+                                @endforeach
+                            </select>
+                            @break
                         @case('confidence_greater_than')
                             <input id="condition-{{ $i }}-value" type="number" min="0" max="100" step="1" wire:model="conditions.{{ $i }}.value" class="{{ $inline }} w-24"> <span class="text-sm text-gray-600">%</span>
                             @break

@@ -17,6 +17,7 @@ enum FollowUpSkipReason: string
     case AutomationsDisabled = 'automations_disabled';
     case AnotherFollowUpCompleted = 'another_follow_up_completed';
     case RecentlyFollowedUp = 'recently_followed_up';
+    case EstimateClosed = 'estimate_closed';
 
     public function label(): string
     {
@@ -31,6 +32,7 @@ enum FollowUpSkipReason: string
             self::AutomationsDisabled => 'Automations are turned off.',
             self::AnotherFollowUpCompleted => 'Another follow-up with this customer was already completed.',
             self::RecentlyFollowedUp => 'The customer already received an automated follow-up recently.',
+            self::EstimateClosed => 'The estimate was accepted, declined or cancelled.',
         };
     }
 }

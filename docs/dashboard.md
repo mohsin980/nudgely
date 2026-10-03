@@ -18,9 +18,9 @@
 | Conversations | Open / Waiting on customer / Waiting on business / Closed | One grouped query |
 | Automation activity | The last 5 runs with each action's result | `automation_runs`, `LIMIT 5` |
 
-## Not shown
+## Estimates (Task 11)
 
-**Quotes sent** isn't shown, because QuoteFollow has no estimates feature yet. "Emails sent" is shown instead.
+The Estimates card shows **Sent today** (delivered today), **Awaiting customer** (sent or viewed) and **Accepted today**, from one aggregate query. It is not a financial report: no revenue or totals are summed.
 
 ## Definitions
 
@@ -55,7 +55,7 @@ The AI is not the only authority:
 
 ## Performance
 
-**Bounded queries:** `DashboardService::snapshot()` makes a fixed number of queries (about 26), whatever the data size.
+**Bounded queries:** `DashboardService::snapshot()` makes a fixed number of queries (about 27), whatever the data size.
 
 | Query type | How it's bounded |
 | --- | --- |

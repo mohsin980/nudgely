@@ -12,6 +12,8 @@ enum AutomationTriggerType: string
     case EstimateSent = 'estimate_sent';
     case EstimateViewed = 'estimate_viewed';
     case EstimateExpired = 'estimate_expired';
+    case EstimateAccepted = 'estimate_accepted';
+    case EstimateDeclined = 'estimate_declined';
     case FollowUpDue = 'follow_up_due';
 
     public function label(): string
@@ -22,19 +24,23 @@ enum AutomationTriggerType: string
             self::EstimateSent => 'Estimate sent',
             self::EstimateViewed => 'Estimate viewed',
             self::EstimateExpired => 'Estimate expired',
+            self::EstimateAccepted => 'Estimate accepted',
+            self::EstimateDeclined => 'Estimate declined',
             self::FollowUpDue => 'Follow-up due',
         };
     }
 
     /**
      * Whether the application currently dispatches this trigger's event.
-     * Estimates and scheduled follow-ups do not exist yet.
+     * "Follow-up due" is not dispatched yet.
      */
     public function isAvailable(): bool
     {
-        return match ($this) {
-            self::CustomerReplyReceived, self::CustomerReplyClassified => true,
-            default => false,
-        };
+        return $this !== self::FollowUpDue;
+    }
+
+    public function isEstimateTrigger(): bool
+    {
+        return in_array($this, [self::EstimateSent, self::EstimateViewed, self::EstimateExpired, self::EstimateAccepted, self::EstimateDeclined], true);
     }
 }

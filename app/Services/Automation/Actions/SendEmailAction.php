@@ -62,12 +62,18 @@ class SendEmailAction implements AutomationActionInterface
         $conversation = $context->conversation();
         $customer = $organization->customers()->findOrFail($conversation->customer_id);
         $key = $context->idempotencyKey($action);
-        $text = $this->templates->render($body, $customer, $organization);
+
+        try {
+            $text = $this->templates->render($body, $customer, $organization, $context->estimate());
+            $renderedSubject = $this->templates->render($subject, $customer, $organization, $context->estimate());
+        } catch (InvalidEmailTemplateException $e) {
+            return AutomationActionResult::failed($e->getMessage());
+        }
 
         try {
             $message = $this->email->sendToConversation(
                 $conversation,
-                $this->templates->render($subject, $customer, $organization),
+                $renderedSubject,
                 '<p>'.nl2br(e($text)).'</p>',
                 $text,
                 array_filter(['type' => 'automation', 'automation_key' => $key, 'automation_action_id' => (string) $action->id]),

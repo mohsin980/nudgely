@@ -216,7 +216,7 @@ class AutomationBuilderTest extends TestCase
         $base = ['name' => 'X', 'trigger_type' => 'customer_reply_classified', 'conditions' => [], 'actions' => [['type' => 'create_task', 'configuration' => ['title' => 'A']]]];
 
         $invalid = [
-            'trigger_type' => ['trigger_type' => 'estimate_sent'],
+            'trigger_type' => ['trigger_type' => 'follow_up_due'],
             'conditions.0' => ['conditions' => [['type' => 'customer_status_equals', 'operator' => 'equals', 'value' => 'lead']]],
             'actions.0' => ['actions' => [['type' => 'delete_customer']]],
         ];
@@ -234,7 +234,8 @@ class AutomationBuilderTest extends TestCase
         $clean = $builder->validated(['actions' => [['type' => 'create_task', 'configuration' => ['title' => 'A', 'php' => 'system("ls")']]]] + $base, requireActions: true);
         $this->assertSame(['title' => 'A', 'priority' => 'medium'], $clean['actions'][0]['configuration']);
 
-        $this->editor()->assertDontSee('Customer status')->assertDontSee('Estimate status')->assertDontSee('Estimate sent');
+        // Customer status and "follow-up due" have no data yet; estimate triggers and status do.
+        $this->editor()->call('addCondition')->assertDontSee('Customer status')->assertDontSee('Follow-up due')->assertSee('Estimate status')->assertSee('Estimate sent')->assertSee('Estimate accepted');
     }
 
     public function test_organization_id_from_the_browser_is_ignored(): void
@@ -266,9 +267,9 @@ class AutomationBuilderTest extends TestCase
             ->call('save')
             ->assertHasErrors('actions.0')
             ->assertSee('Unsupported variable {{php_code}}.')
-            ->set('actions.0.configuration.body', 'Your estimate {{estimate.number}}')
+            ->set('actions.0.configuration.body', 'Call us at {{business.phone}}')
             ->call('save')
-            ->assertSee('{{estimate.number}} cannot be used yet');
+            ->assertSee('{{business.phone}} cannot be used yet');
 
         $this->assertSame(0, Automation::count());
     }
@@ -285,7 +286,7 @@ class AutomationBuilderTest extends TestCase
         $page->call('installTemplate', 'give_discount')->assertNotFound();
 
         $automations = Automation::with(['conditions', 'actions'])->orderBy('id')->get();
-        $this->assertSame(['Customer Ready to Book', 'Price Objection', 'Interested Customer', 'Customer Wants Callback'], $automations->pluck('name')->all());
+        $this->assertSame(['Customer Ready to Book', 'Price Objection', 'Interested Customer', 'Customer Wants Callback', 'Estimate Follow-Up', 'Estimate Declined'], $automations->pluck('name')->all());
         $this->assertTrue($automations->every(fn ($a) => $a->organization_id === $this->admin->organization_id && $a->status === AutomationStatus::Draft));
 
         [$ready, $price, $interested, $callback] = $automations;
@@ -301,11 +302,17 @@ class AutomationBuilderTest extends TestCase
         $this->assertSame([['intent_equals equals wants_callback'], ['create_task', 'notify_user', 'update_conversation_status']], $summary($callback));
         $this->assertSame('waiting_business', $callback->actions[2]->configuration['status']);
 
+        [, , , , $estimateFollowUp, $declined] = $automations;
+        $this->assertSame(['estimate_sent', 'estimate_declined'], [$estimateFollowUp->trigger_type->value, $declined->trigger_type->value]);
+        $this->assertSame([[], ['schedule_follow_up']], $summary($estimateFollowUp));
+        $this->assertSame(3, $estimateFollowUp->actions[0]->configuration['delay_days']);
+        $this->assertSame([[], ['create_task', 'notify_user']], $summary($declined));
+
         // Each template is valid for activation as installed.
         foreach ($automations as $automation) {
             app(AutomationBuilder::class)->activate($automation, $this->admin);
         }
-        $this->assertSame(4, Automation::where('status', 'active')->count());
+        $this->assertSame(6, Automation::where('status', 'active')->count());
     }
 
     // Run log and timeline

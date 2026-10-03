@@ -7,6 +7,7 @@ use App\Exceptions\Conversations\ConversationActionException;
 use App\Livewire\Concerns\ManagesFollowUps;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Task;
 use App\Services\Conversations\ConversationService;
@@ -110,6 +111,21 @@ class ShowCustomer extends Component
             ->latest('id')
             ->limit(20)
             ->get();
+    }
+
+    /**
+     * Latest versions first; superseded (replaced) versions are still listed with their status.
+     *
+     * @return Collection<int, Estimate>
+     */
+    #[Computed]
+    public function estimates(): Collection
+    {
+        return $this->customer->estimates()
+            ->where('organization_id', $this->organization()->id)
+            ->latest()->latest('id')
+            ->limit(20)
+            ->get(['id', 'estimate_number', 'revision', 'status', 'title', 'total', 'currency', 'sent_at', 'created_at']);
     }
 
     #[Computed]
