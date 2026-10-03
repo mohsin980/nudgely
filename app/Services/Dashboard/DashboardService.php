@@ -5,11 +5,13 @@ namespace App\Services\Dashboard;
 use App\Enums\ConversationStatus;
 use App\Enums\FollowUpStatus;
 use App\Enums\MessageDirection;
+use App\Enums\TaskStatus;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\Organization;
+use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -43,6 +45,7 @@ class DashboardService
         $statusCounts = $this->conversationStatusCounts($organization);
         $overdue = $this->overdueFollowUps($organization, $start);
         $today = $this->todaysFollowUps($organization, $start, $end);
+        $tasks = $this->openTasks($organization, $end);
 
         return new DashboardSnapshot(
             localNow: $organization->localNow(),
@@ -62,9 +65,11 @@ class DashboardService
             conversationStatuses: $statusCounts['by_status'],
             hasCustomers: $customerCounts['total'] > 0,
             hasOpenFollowUps: $followUpCounts['open'] > 0,
-            attention: $this->attentionItems($organization, $overdue, $today),
+            attention: $this->attentionItems($organization, $overdue, $today, $tasks),
             overdueFollowUps: $overdue,
             todaysFollowUps: $today,
+            tasks: $tasks,
+            taskCounts: $this->taskCounts($organization, $end),
             recentReplies: $this->recentReplies($organization),
             automationRuns: $this->automationActivity($organization),
             notifications: $user->unreadNotifications()->limit((int) config('dashboard.limits.notifications'))->get(['id', 'data', 'created_at']),
@@ -173,13 +178,52 @@ class DashboardService
     }
 
     /**
-     * Conversations waiting for the business plus overdue and due follow-ups, most urgent first.
+     * Open tasks: due today, overdue, or undated ("to do"); later ones only count.
+     *
+     * @return array{open: int, due: int, overdue: int, later: int}
+     */
+    public function taskCounts(Organization $organization, CarbonImmutable $end): array
+    {
+        $row = Task::query()
+            ->where('organization_id', $organization->id)
+            ->where('status', TaskStatus::Pending)
+            ->selectRaw('count(*) as open')
+            ->selectRaw('count(*) filter (where due_at is null or due_at <= ?) as due', [$end])
+            ->selectRaw('count(*) filter (where due_at < ?) as overdue', [now()])
+            ->selectRaw('count(*) filter (where due_at > ?) as later', [$end])
+            ->toBase()
+            ->first();
+
+        return array_map('intval', (array) $row);
+    }
+
+    /**
+     * Open tasks to do today: overdue first, then by due time; undated tasks last.
+     *
+     * @return Collection<int, Task>
+     */
+    public function openTasks(Organization $organization, CarbonImmutable $end): Collection
+    {
+        return Task::query()
+            ->where('organization_id', $organization->id)
+            ->where('status', TaskStatus::Pending)
+            ->where(fn ($q) => $q->whereNull('due_at')->orWhere('due_at', '<=', $end))
+            ->with('customer:id,name')
+            ->orderByRaw('due_at asc nulls last')
+            ->orderBy('id')
+            ->limit((int) config('dashboard.limits.tasks'))
+            ->get(['id', 'organization_id', 'customer_id', 'conversation_id', 'title', 'priority', 'status', 'due_at', 'idempotency_key', 'created_at']);
+    }
+
+    /**
+     * Conversations waiting for the business, overdue and due follow-ups, and open tasks, most urgent first.
      *
      * @param  Collection<int, FollowUp>  $overdue
      * @param  Collection<int, FollowUp>  $today
+     * @param  Collection<int, Task>  $tasks
      * @return Collection<int, AttentionItem>
      */
-    public function attentionItems(Organization $organization, Collection $overdue, Collection $today): Collection
+    public function attentionItems(Organization $organization, Collection $overdue, Collection $today, Collection $tasks): Collection
     {
         $limit = (int) config('dashboard.limits.attention');
 
@@ -234,17 +278,46 @@ class DashboardService
             at: $followUp->due_at,
             url: route('follow-ups.index', ['filter' => $isOverdue ? 'overdue' : 'today']).'#follow-up-'.$followUp->id,
             actionLabel: 'View Follow-Up',
+            overdue: $isOverdue,
         );
+
+        // A task for a conversation that is already listed would only repeat it.
+        $listed = $conversations->pluck('id')->all();
+
+        $taskItems = $tasks
+            ->filter(fn (Task $t) => $t->customer_id !== null && ! in_array($t->conversation_id, $listed, true))
+            ->map(function (Task $task) {
+                $isOverdue = $task->due_at !== null && $task->due_at->lt(now());
+
+                return new AttentionItem(
+                    kind: 'task',
+                    priority: $this->priorities->forTask($task->priority, $isOverdue),
+                    customerId: $task->customer_id,
+                    customerName: $task->customer?->name ?? 'Customer',
+                    reason: ($isOverdue ? 'Overdue task: ' : 'Task: ').Str::limit($task->title, 120),
+                    excerpt: null,
+                    intent: null,
+                    confidence: null,
+                    at: $task->due_at ?? $task->created_at,
+                    url: $task->conversation_id
+                        ? route('inbox.show', $task->conversation_id).'#tasks-heading'
+                        : route('customers.show', $task->customer_id).'#tasks-heading',
+                    actionLabel: 'Open Task',
+                    overdue: $isOverdue,
+                );
+            });
 
         $items = $items
             ->concat($overdue->map(fn (FollowUp $f) => $followUpItem($f, true)))
             // Today's follow-ups whose time has come; later ones stay in "Today's follow-ups".
-            ->concat($today->filter(fn (FollowUp $f) => $f->due_at->lte(now()))->map(fn (FollowUp $f) => $followUpItem($f, false)));
+            ->concat($today->filter(fn (FollowUp $f) => $f->due_at->lte(now()))->map(fn (FollowUp $f) => $followUpItem($f, false)))
+            ->concat($taskItems);
 
         return $items
-            // Most urgent first, then most recent; name and kind keep equal items in a stable order.
+            // Most urgent first, then most recent (an overdue task before one not yet due); name and kind keep equal items in a stable order.
             ->sortBy([
                 fn (AttentionItem $a, AttentionItem $b) => $a->priority->rank() <=> $b->priority->rank(),
+                fn (AttentionItem $a, AttentionItem $b) => $a->kind === 'task' && $b->kind === 'task' ? $b->overdue <=> $a->overdue : 0,
                 fn (AttentionItem $a, AttentionItem $b) => $b->at <=> $a->at,
                 fn (AttentionItem $a, AttentionItem $b) => [$a->customerName, $a->kind] <=> [$b->customerName, $b->kind],
             ])

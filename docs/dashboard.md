@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | Header | Greeting, the date in the organization's timezone | `Organization::localNow()` |
 | Summary cards | Overdue follow-ups, Due today, Waiting for you, New customer replies (last 24 h) | One aggregate query per table |
-| Needs your attention | Up to 10 items, most urgent first: conversations waiting for the business, overdue follow-ups, and today's follow-ups whose time has come | `DashboardService::attentionItems()` |
+| Needs your attention | Up to 10 items, most urgent first (an overdue task before a task not yet due): conversations waiting for the business, overdue follow-ups, today's follow-ups whose time has come, and open tasks (below) | `DashboardService::attentionItems()` |
+| Tasks | Open tasks that are overdue, due today or undated, with Complete; tasks due later are only counted | `tasks`, `ORDER BY due_at LIMIT 8` |
 | Today's follow-ups | Overdue (separately), then today's, plus View All Follow-Ups | `follow_ups`, `ORDER BY due_at LIMIT 8` |
 | Recent customer replies | Latest 6 replies with intent and confidence; each opens the conversation | `messages`, `LIMIT 6` |
 | Quick actions | Add Customer (inline form), Schedule Follow-Up (`/follow-ups?schedule=1`), View Conversations, View Automations (admins) | Existing components |
@@ -29,6 +30,7 @@
   - its status is `waiting_business` (set by an automation or a person);
   - the AI flagged it for review;
   - the latest intent is ready_to_book, wants_callback, complaint, question, needs_more_information or price_objection.
+- **Tasks to do:** a pending task due by the end of today (overdue included) or with no due date. A task for a conversation that is already in the attention list is not listed twice there; it still appears under Tasks.
 - **New customer replies:** inbound messages attached to a conversation in the last `DASHBOARD_NEW_REPLIES_HOURS` (24).
 
 ### Conversation status now follows whose turn it is
@@ -43,9 +45,9 @@
 
 | Priority | When |
 | --- | --- |
-| High | ready_to_book, wants_callback, complaint; AI urgency "high"; overdue follow-up |
-| Medium | interested, question, needs_more_information, price_objection; a follow-up due now |
-| Low | everything else |
+| High | ready_to_book, wants_callback, complaint; AI urgency "high"; overdue follow-up; overdue task; high-priority task |
+| Medium | interested, question, needs_more_information, price_objection; a follow-up due now; medium-priority task |
+| Low | everything else, including low-priority tasks |
 
 The AI is not the only authority:
 - A high priority that comes from the AI needs at least 70% confidence (`dashboard.high_priority_min_confidence`); below that it is capped at medium.
@@ -53,7 +55,7 @@ The AI is not the only authority:
 
 ## Performance
 
-**Bounded queries:** `DashboardService::snapshot()` makes a fixed number of queries (about 23), whatever the data size.
+**Bounded queries:** `DashboardService::snapshot()` makes a fixed number of queries (about 26), whatever the data size.
 
 | Query type | How it's bounded |
 | --- | --- |
@@ -82,7 +84,7 @@ Tests assert that the query count doesn't grow with data and that every query is
 
 **Refresh:**
 - It re-renders every 60 seconds, only while the tab is visible (`wire:poll.60s.visible`).
-- Actions (dismiss notification, add customer) update in place.
+- Actions (dismiss notification, add customer, complete task) update in place.
 - There are no WebSockets.
 
 ## Security
@@ -90,6 +92,7 @@ Tests assert that the query count doesn't grow with data and that every query is
 - **Route:** requires sign-in and the `access-organization` gate (the user must belong to an organization). This is checked on the server for the initial request and again in the component.
 - **Data:** every query uses the signed-in user's organization; nothing comes from the URL or the form.
 - **Notifications:** they belong to the user, and only the user's own can be dismissed.
+- **Tasks:** Complete looks the task up in the user's organization (404 otherwise), and `TaskService::complete()` checks the organization again.
 
 ## Accessibility
 

@@ -6,15 +6,16 @@ use App\Enums\AttentionPriority;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
 use App\Enums\ReplyUrgency;
+use App\Enums\TaskPriority;
 use App\Models\Conversation;
 
 /**
- * Decides how urgent a conversation or follow-up is for the business.
+ * Decides how urgent a conversation, follow-up or task is for the business.
  *
  * The AI intent gives a starting point, but business rules have the last word:
  * a low-confidence classification can't make something HIGH, an explicit
  * "waiting on business" status or a review flag lifts an item to at least MEDIUM,
- * and overdue follow-ups are always HIGH.
+ * and overdue follow-ups and tasks are always HIGH.
  */
 class AttentionPriorityRules
 {
@@ -97,5 +98,21 @@ class AttentionPriorityRules
     public function forFollowUp(bool $overdue): AttentionPriority
     {
         return $overdue ? AttentionPriority::High : AttentionPriority::Medium;
+    }
+
+    /**
+     * A task keeps the priority it was given (by a person or an automation) until it is overdue.
+     */
+    public function forTask(TaskPriority $priority, bool $overdue): AttentionPriority
+    {
+        if ($overdue) {
+            return AttentionPriority::High;
+        }
+
+        return match ($priority) {
+            TaskPriority::High => AttentionPriority::High,
+            TaskPriority::Medium => AttentionPriority::Medium,
+            TaskPriority::Low => AttentionPriority::Low,
+        };
     }
 }

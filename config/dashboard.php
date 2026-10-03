@@ -23,6 +23,7 @@ return [
     'limits' => [
         'attention' => 10,
         'follow_ups' => 8,
+        'tasks' => 8,
         'replies' => 6,
         'automation_runs' => 5,
         'notifications' => 5,
