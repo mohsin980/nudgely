@@ -28,6 +28,8 @@ class AutomationRun extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'failed_at' => 'datetime',
+            'depth' => 'integer',
+            'context' => 'array',
         ];
     }
 

@@ -21,6 +21,23 @@ class Customer extends Model
     use HasFactory;
 
     /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_opted_out_at' => 'datetime',
+        ];
+    }
+
+    public function hasOptedOutOfEmail(): bool
+    {
+        return $this->email_opted_out_at !== null;
+    }
+
+    /**
      * @return BelongsTo<Organization, $this>
      */
     public function organization(): BelongsTo

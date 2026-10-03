@@ -15,6 +15,39 @@ class Organization extends Model
     use HasFactory;
 
     /**
+     * The model's default values for attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'automations_enabled' => true,
+        'automatic_email_enabled' => false,
+        'require_approval_for_email' => true,
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'automations_enabled' => 'boolean',
+            'automatic_email_enabled' => 'boolean',
+            'require_approval_for_email' => 'boolean',
+        ];
+    }
+
+    /**
+     * Automations may send email to customers without a person approving each one.
+     */
+    public function allowsUnattendedAutomatedEmail(): bool
+    {
+        return $this->automations_enabled && $this->automatic_email_enabled && ! $this->require_approval_for_email;
+    }
+
+    /**
      * @return HasMany<EmailConnection, $this>
      */
     public function emailConnections(): HasMany

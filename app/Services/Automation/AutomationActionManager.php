@@ -4,6 +4,8 @@ namespace App\Services\Automation;
 
 use App\Contracts\Automation\AutomationActionInterface;
 use App\Enums\Automation\AutomationActionType;
+use App\Exceptions\Automation\TransientAutomationException;
+use App\Exceptions\Email\EmailProviderException;
 use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Services\Automation\Actions\AddCustomerTagAction;
@@ -13,6 +15,8 @@ use App\Services\Automation\Actions\ScheduleFollowUpAction;
 use App\Services\Automation\Actions\SendEmailAction;
 use App\Services\Automation\Actions\UpdateConversationStatusAction;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Database\DeadlockException;
+use Illuminate\Database\LostConnectionException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -41,7 +45,8 @@ class AutomationActionManager
     }
 
     /**
-     * Run one action for an event. Never throws: every outcome is a result.
+     * Run one action for an event. Never throws: every outcome is a result. Temporary
+     * failures are marked with data.retryable so the engine can retry them.
      */
     public function execute(AutomationAction $action, AutomationContext $context): AutomationActionResult
     {
@@ -63,13 +68,29 @@ class AutomationActionManager
         try {
             return $this->handlerFor($type)->execute($action, $context);
         } catch (Throwable $e) {
+            $retryable = $this->isTransient($e);
+
             Log::error('Automation action failed unexpectedly.', [
                 'automation_action_id' => $action->id,
                 'action_type' => $type->value,
                 'exception' => $e::class,
+                'retryable' => $retryable,
             ]);
 
-            return AutomationActionResult::failed('The action failed unexpectedly.');
+            return $retryable
+                ? AutomationActionResult::failed('The action failed temporarily.', ['retryable' => true])
+                : AutomationActionResult::failed('The action failed unexpectedly.');
         }
+    }
+
+    /**
+     * Temporary infrastructure problems are worth retrying; everything else is permanent.
+     */
+    private function isTransient(Throwable $e): bool
+    {
+        return $e instanceof TransientAutomationException
+            || $e instanceof DeadlockException
+            || $e instanceof LostConnectionException
+            || ($e instanceof EmailProviderException && $e->isTransient());
     }
 }

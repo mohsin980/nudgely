@@ -326,17 +326,18 @@ class AutomationActionsTest extends TestCase
 
     // Future actions
 
-    public function test_schedule_follow_up_and_send_email_do_nothing_yet(): void
+    public function test_schedule_follow_up_does_nothing_yet_and_send_email_is_off_by_default(): void
     {
         Http::fake();
         Queue::fake();
 
-        foreach ([AutomationActionType::ScheduleFollowUp, AutomationActionType::SendEmail] as $type) {
-            $result = $this->manager->execute($this->action($type, ['delay_days' => 2, 'subject' => 'Hi']), $this->context());
+        $followUp = $this->manager->execute($this->action(AutomationActionType::ScheduleFollowUp, ['delay_days' => 2]), $this->context());
+        $email = $this->manager->execute($this->action(AutomationActionType::SendEmail, ['subject' => 'Hi', 'body' => 'Hello']), $this->context());
 
-            $this->assertSame(AutomationActionRunStatus::Skipped, $result->status, $type->value);
-            $this->assertSame('not_implemented', $result->data['reason']);
-        }
+        $this->assertSame(AutomationActionRunStatus::Skipped, $followUp->status);
+        $this->assertSame('not_implemented', $followUp->data['reason']);
+        $this->assertSame(AutomationActionRunStatus::Skipped, $email->status);
+        $this->assertSame('automatic_email_disabled', $email->data['reason']);
 
         Http::assertNothingSent();
         Queue::assertNotPushed(SendEmailJob::class);

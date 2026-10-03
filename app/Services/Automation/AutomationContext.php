@@ -41,11 +41,15 @@ final class AutomationContext
         public readonly ?int $classificationId = null,
         public readonly ?CustomerReplyIntent $intent = null,
         public readonly ?float $confidence = null,
+        public readonly int $depth = 0,
     ) {}
 
-    public static function fromEvent(AutomationEvent $event): self
+    /**
+     * @param  int  $depth  How many automations deep the event was raised (0 = by the app itself).
+     */
+    public static function fromEvent(AutomationEvent $event, int $depth = 0): self
     {
-        $base = [$event->organizationId(), $event->triggerType(), $event->eventId()];
+        $base = [$event->organizationId(), $event->triggerType(), $event->eventId(), 'depth' => $depth];
 
         return match (true) {
             $event instanceof CustomerReplyClassified => new self(...$base,
@@ -57,6 +61,50 @@ final class AutomationContext
                 customerId: $event->customerId, conversationId: $event->conversationId),
             default => new self(...$base),
         };
+    }
+
+    /**
+     * Rebuild a context stored on an automation run.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $int = fn (string $key) => isset($data[$key]) ? (int) $data[$key] : null;
+
+        return new self(
+            organizationId: (int) $data['organization_id'],
+            triggerType: AutomationTriggerType::from($data['trigger_type']),
+            eventId: isset($data['event_id']) ? (string) $data['event_id'] : null,
+            customerId: $int('customer_id'),
+            conversationId: $int('conversation_id'),
+            messageId: $int('message_id'),
+            classificationId: $int('classification_id'),
+            intent: isset($data['intent']) ? CustomerReplyIntent::tryFrom((string) $data['intent']) : null,
+            confidence: isset($data['confidence']) ? (float) $data['confidence'] : null,
+            depth: (int) ($data['depth'] ?? 0),
+        );
+    }
+
+    /**
+     * IDs and small facts only; safe to store on the run.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'organization_id' => $this->organizationId,
+            'trigger_type' => $this->triggerType->value,
+            'event_id' => $this->eventId,
+            'customer_id' => $this->customerId,
+            'conversation_id' => $this->conversationId,
+            'message_id' => $this->messageId,
+            'classification_id' => $this->classificationId,
+            'intent' => $this->intent?->value,
+            'confidence' => $this->confidence,
+            'depth' => $this->depth,
+        ];
     }
 
     public function customer(): ?Customer

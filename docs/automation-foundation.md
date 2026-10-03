@@ -62,7 +62,7 @@ Every event also implements `ShouldDispatchAfterCommit`: it is delivered only af
 | `EstimateSent` / `EstimateViewed` / `EstimateExpired` | organization, estimate, optional customer and conversation | No: there is no estimates feature yet |
 | `FollowUpDue` | organization, follow-up, optional conversation and customer | No: arrives with scheduled follow-ups |
 
-There are no listeners yet. The events only announce what happened.
+In 7A.1 there were no listeners. Since 7B.1, `QueueAutomationEvaluation` queues an evaluation job for every automation event (see below).
 
 # Conditions and actions framework (7A.2)
 
@@ -110,7 +110,7 @@ Rules:
 | `update_conversation_status` | `UpdateConversationStatusAction` | `status`: open, waiting_customer, waiting_business or closed | Setting the current status returns `skipped / unchanged` |
 | `notify_user` | `NotifyUserAction` | `message` (required, placeholders), `recipients` "admins" (default), "members" or a user ID in the organization, `channel` "in_app" only | Notification ID = UUIDv5(action + event + user), so a retry returns `skipped / already_exists` |
 | `schedule_follow_up` | `ScheduleFollowUpAction` | — | Registered; returns `skipped / not_implemented` |
-| `send_email` | `SendEmailAction` | — | Registered; returns `skipped / not_implemented`. It sends nothing; when built it must go through `EmailService` with opt-out, settings, approval and rate-limit checks. |
+| `send_email` | `SendEmailAction` | `subject`, `body` | See 7B.1: off by default, gated by `AutomatedEmailPolicy`, sends only through `EmailService`. |
 
 Every handler loads customers, conversations and users within the context's organization and fails safely on IDs from another tenant.
 
@@ -120,3 +120,96 @@ Every handler loads customers, conversations and users within the context's orga
 - `customer_tags` (unique per organization by slug) and the `customer_customer_tag` pivot
 - `notifications`: Laravel's standard database-notifications table
 - `ConversationStatus` gains `waiting_customer` and `waiting_business`
+
+# Execution engine, queues and safety (7B.1)
+
+```
+AutomationEvent (after commit)
+  ↓ QueueAutomationEvaluation listener
+EvaluateAutomationJob (queue)
+  ↓ AutomationEngine::evaluate()
+active automations for the trigger → conditions → AutomationRun (unique per event)
+  ↓ one AutomationActionRun per action (pending)
+ExecuteAutomationActionJob (queue, one action at a time, in order)
+  ↓ AutomationEngine::executeActionRun()
+re-check → AutomationActionManager → record result → queue next action → close run
+```
+
+Nothing runs on the request or webhook path.
+
+## Idempotency and concurrency
+
+- **Same event, twice:** the run insert hits the `automation_runs_idempotency_unique` index and is skipped. The insert runs in a savepoint, so concurrent workers are race-safe: one wins, and the other logs "already handled" and creates nothing.
+- **Same action job, twice:** the action run is claimed with an atomic `pending → running` update, so only one worker executes it. A run left `running` by a crashed worker can be reclaimed after `retries.stale_after_seconds`.
+- **Handlers:** each keeps its own idempotency (task key, tag pivot, notification UUID, the email `automation_key`).
+
+## Retries
+
+| Failure | Behaviour |
+| --- | --- |
+| Temporary: `TransientAutomationException`, database deadlock or lost connection, transient provider error | The action run goes back to `pending` and the job retries (`retries.tries`, default 3, with backoff 10 s then 60 s). On the last attempt it is recorded as `failed` with "The action failed temporarily." |
+| Permanent: bad configuration, other tenant, sender not verified, etc. | Recorded as `failed` at once with its reason; no retry |
+| Job gives up (timeout, worker crash) | `failed()` records "The action could not be completed after retrying." |
+
+One failed action doesn't stop the rest. A run ends `completed`, or `failed` with "N action(s) failed."
+
+## Loop protection and limits (`config/automation.php`)
+
+| Setting | Default | When exceeded |
+| --- | --- | --- |
+| `limits.max_chain_depth` | 10 | An event raised by an automation action is evaluated one level deeper (`AutomationExecutionScope`). At depth 10 a matching automation gets a `skipped` run: "Automation chain limit reached (depth 10)." It is logged and no actions run. |
+| `limits.max_automations_per_event` | 25 | Extra automations aren't evaluated; a warning is logged |
+| `limits.max_actions_per_run` | 10 | Extra actions are recorded as `skipped`: "Action limit reached for this run." |
+| `limits.max_automated_emails_per_hour` | 20 per organization | `send_email` is `skipped / rate_limited` |
+| `enabled` | true | A global kill switch |
+
+## Organization isolation
+
+The engine stops (logged, no runs) when:
+- the organization doesn't exist;
+- automations are disabled;
+- the event's customer or conversation isn't in the event's organization;
+- the customer doesn't own the conversation.
+
+Before **each** action, it re-checks:
+- that the run, the automation and the stored context share one organization;
+- that automations are still enabled and the automation is still active;
+- that the action still exists.
+
+The action manager checks the organization again.
+
+## Organization settings
+
+| Column | Default |
+| --- | --- |
+| `automations_enabled` | `true` |
+| `automatic_email_enabled` | `false` |
+| `require_approval_for_email` | `true` |
+
+`customers.email_opted_out_at` marks a customer who opted out. `EmailService::sendToConversation()` refuses opted-out customers for every caller.
+
+## Email safety (`AutomatedEmailPolicy`)
+
+`send_email` sends only if every check passes, in this order:
+1. The organization exists.
+2. Automations and automatic emails are on → else `skipped / automatic_email_disabled`.
+3. Neither the organization nor the action requires approval → else `skipped / approval_required`. The action's `requires_approval` defaults to true.
+4. The automation is active.
+5. The conversation and its customer are in the organization.
+6. The customer's email address is valid.
+7. The customer hasn't opted out → else `skipped / opted_out`.
+8. A default connection exists, its domain is verified and the sender is on that domain → else `failed`.
+9. The email wasn't already sent for this event → else `skipped / already_exists`. A partial unique index on `messages.metadata->>'automation_key'` backs this.
+10. The hourly rate limit isn't reached → else `skipped / rate_limited`.
+
+The email is then queued with `EmailService::sendToConversation()`, never through a provider directly.
+
+## Logging
+
+Logs carry IDs, statuses, trigger, depth and reasons only:
+- run created or duplicate;
+- action executed, retried or failed;
+- chain or limit reached;
+- isolation rejections.
+
+They never include message bodies, email addresses or secrets.
