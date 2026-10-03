@@ -9,4 +9,9 @@ enum AutomationActionRunStatus: string
     case Completed = 'completed';
     case Failed = 'failed';
     case Skipped = 'skipped';
+
+    public function label(): string
+    {
+        return ucfirst($this->value);
+    }
 }

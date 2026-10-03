@@ -99,7 +99,7 @@ class AiInsightTest extends TestCase
                 'Summary', 'Customer is interested but is negotiating the quoted price.',
                 'Needs attention', 'Yes',
                 'Neutral sentiment · Medium urgency',
-                'AI analysis only; no action has been taken.',
+                'AI analysis only; the AI itself takes no action.',
             ]);
     }
 

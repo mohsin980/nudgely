@@ -5,6 +5,8 @@ namespace App\Services\Automation;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\Automation;
 use App\Models\AutomationAction;
+use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Services\Email\EmailService;
@@ -45,7 +47,18 @@ class AutomatedEmailPolicy
         $conversation = $context->conversation();
         $customer = $context->customer() ?? ($conversation === null ? null : $organization->customers()->find($conversation->customer_id));
 
-        if ($conversation === null || $customer === null || $conversation->customer_id !== $customer->id) {
+        return $this->checkDelivery($organization, $conversation, $customer, $context->idempotencyKey($action));
+    }
+
+    /**
+     * The recipient, sender, duplicate and rate-limit checks shared by every automated email.
+     */
+    public function checkDelivery(Organization $organization, ?Conversation $conversation, ?Customer $customer, ?string $key): ?AutomationActionResult
+    {
+        if ($conversation === null || $customer === null
+            || $conversation->organization_id !== $organization->id
+            || $customer->organization_id !== $organization->id
+            || $conversation->customer_id !== $customer->id) {
             return AutomationActionResult::failed('An automated email needs a conversation and customer in this organization.');
         }
 
@@ -62,8 +75,6 @@ class AutomatedEmailPolicy
         } catch (EmailSendingNotAllowedException $e) {
             return AutomationActionResult::failed($e->getMessage(), ['reason' => 'sender_not_allowed']);
         }
-
-        $key = $context->idempotencyKey($action);
 
         if ($key !== null && ($messageId = $this->sentMessageId($organization, $key)) !== null) {
             return AutomationActionResult::skipped('Email already sent for this event.', ['reason' => 'already_exists', 'message_id' => $messageId]);

@@ -178,6 +178,8 @@ class AutomationEngine
                 $run->forceFill([
                     'organization_id' => $automation->organization_id,
                     'automation_id' => $automation->id,
+                    // Verified by eventBelongsToOrganization() before any run is created.
+                    'conversation_id' => $context->conversationId,
                     'event_type' => $context->triggerType,
                     'event_id' => $context->eventId,
                     'status' => $status,

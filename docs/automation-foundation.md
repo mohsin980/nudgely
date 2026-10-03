@@ -109,7 +109,7 @@ Rules:
 | `add_customer_tag` | `AddCustomerTagAction` | `tag` (normalized to a slug, max 50) | Unique `(organization_id, slug)` tag plus the pivot primary key; an existing tag returns `skipped / already_exists` |
 | `update_conversation_status` | `UpdateConversationStatusAction` | `status`: open, waiting_customer, waiting_business or closed | Setting the current status returns `skipped / unchanged` |
 | `notify_user` | `NotifyUserAction` | `message` (required, placeholders), `recipients` "admins" (default), "members" or a user ID in the organization, `channel` "in_app" only | Notification ID = UUIDv5(action + event + user), so a retry returns `skipped / already_exists` |
-| `schedule_follow_up` | `ScheduleFollowUpAction` | — | Registered; returns `skipped / not_implemented` |
+| `schedule_follow_up` | `ScheduleFollowUpAction` | `delay_days` 1–60, `subject`, `body` (email templates) | `follow_ups.idempotency_key`; see 7B.2 |
 | `send_email` | `SendEmailAction` | `subject`, `body` | See 7B.1: off by default, gated by `AutomatedEmailPolicy`, sends only through `EmailService`. |
 
 Every handler loads customers, conversations and users within the context's organization and fails safely on IDs from another tenant.
@@ -213,3 +213,125 @@ Logs carry IDs, statuses, trigger, depth and reasons only:
 - isolation rejections.
 
 They never include message bodies, email addresses or secrets.
+
+# Builder, templates, activity log and email action (7B.2)
+
+## Screens (organization admins only; members get 403)
+
+| Route | Component | What it does |
+| --- | --- | --- |
+| `/settings/automations` | `AutomationIndex` | Settings toggles; the list (name, trigger, status, last run, created) with Edit / Runs / Pause / Activate / Delete; templates |
+| `/settings/automations/create`, `/{id}/edit` | `AutomationEditor` | WHEN / IF / THEN builder |
+| `/settings/automations/{id}/runs[/{run}]` | `AutomationRunLog` | Run history, and per-run detail with each action's status and message |
+
+- Every ID is looked up inside the signed-in user's organization (`ResolvesAutomations`): another tenant's automation or run is a 404.
+- The organization and the user come from the session, never from form input. Unknown keys in an action's configuration (`organization_id` included) are dropped.
+
+## Builder rules (`AutomationBuilder`)
+
+The Livewire components only hold form state. `AutomationBuilder` validates and saves.
+
+**Triggers:** only those with `isAvailable()`: reply received, reply classified.
+
+**Conditions:** only implemented types, combined with AND, up to 10.
+
+| Condition | Input |
+| --- | --- |
+| Intent | equals / not equals |
+| Confidence | entered as %, stored as a 0–1 fraction |
+| Conversation status | equals / not equals |
+| Days since last message | a number of days |
+
+Values go through `ConditionEvaluator::assertValid`.
+
+**Actions:** each type's configuration is validated and reduced to its known keys.
+
+| Action | Configuration |
+| --- | --- |
+| Create task | title, description, priority, due in hours |
+| Add customer tag | tag |
+| Update conversation status | status |
+| Notify user | message; owners/admins or everyone |
+| Schedule follow-up | days, subject, body |
+| Send email | subject, body; "require approval" (on by default) |
+
+- **Save** stores the automation; a new one starts as a draft.
+- **Activate** also requires at least one action. An active automation can't be saved into an invalid state.
+
+## Templates (`AutomationTemplates`)
+
+"Use template" copies a template into the organization as a **draft**, through the builder. None of them email customers.
+
+| Template | When | Then |
+| --- | --- | --- |
+| Customer Ready to Book | intent = ready_to_book, confidence ≥ 80% | high-priority task, "Ready to book" tag, notify owner |
+| Price Objection | intent = price_objection | high-priority task, "Price objection" tag, notify owner |
+| Interested Customer | intent = interested, confidence ≥ 80% | follow-up in 2 days, "Interested" tag |
+| Customer Wants Callback | intent = wants_callback | high-priority task, notify owner, conversation status → waiting_business |
+
+## Email templates (`EmailTemplateRenderer`)
+
+**Allowed variables:**
+- `{{customer.first_name}}`
+- `{{customer.last_name}}`
+- `{{customer.email}}`
+- `{{business.name}}`
+
+**Rejected when saving:**
+- Known variables with no data yet, each with a reason: `{{business.phone}}`, `{{estimate.number}}`, `{{estimate.total}}`.
+- Anything else, such as `{{php_code}}`: "Unsupported variable".
+- Unbalanced braces.
+
+Rendering is a single plain substitution pass: values are never re-parsed or evaluated. The HTML part is escaped.
+
+## send_email
+
+Off by default. It sends only when:
+- the organization has automatic emails on and approval off;
+- the action itself doesn't require approval;
+- every `AutomatedEmailPolicy` check passes (7B.1).
+
+It then calls `EmailService::sendToConversation()`, never a provider. That means:
+- it sends from the verified sender (e.g. sales@example.com);
+- it uses a secure Reply-To;
+- it queues `SendEmailJob`;
+- the send counts against the hourly limit.
+
+Otherwise the action run is `skipped` with the reason, e.g. "Automatic emails are turned off for this organization."
+
+## Follow-ups (`schedule_follow_up`)
+
+```
+action → follow_ups row (pending, due_at = now + delay_days)
+customer replies (CustomerReplyReceived) → pending follow-ups of that conversation: skipped, "Follow-up skipped: Customer replied."
+scheduler (every minute): automations:process-follow-ups → ProcessFollowUpJob per due follow-up
+```
+
+At due time, `FollowUpProcessor` atomically claims the follow-up, then re-checks in order:
+1. Automations are on.
+2. The automation is still active.
+3. The conversation and customer are in the organization.
+4. There has been no inbound reply since scheduling. This also catches replies stored without the event.
+5. The customer hasn't opted out.
+
+Then it acts:
+- **If unattended email is allowed** and the email policy passes, it sends the follow-up through `EmailService`.
+- **Otherwise** it creates a "Follow up with {name}" reminder task, so the follow-up still happens, by a person.
+
+Outcomes are stored on the follow-up and shown in the conversation timeline. Production needs the scheduler running (`php artisan schedule:work`, or cron with `schedule:run`) and a queue worker.
+
+## Conversation timeline
+
+The conversation page shows an **Automation activity** section to anyone who can view the conversation:
+- each run on that conversation, with its status and each action's message;
+- each follow-up, scheduled or processed, with its outcome.
+
+`automation_runs.conversation_id` is set only after the engine verifies that the conversation belongs to the run's organization.
+
+## Not implemented (by design)
+
+- autonomous agents and AI-written replies
+- discounts and quote or price changes
+- booking, payments and refunds
+- SMS, WhatsApp and voice
+- arbitrary code or expressions in conditions and templates

@@ -118,4 +118,12 @@ class Organization extends Model
     {
         return $this->hasMany(CustomerTag::class);
     }
+
+    /**
+     * @return HasMany<FollowUp, $this>
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(FollowUp::class);
+    }
 }

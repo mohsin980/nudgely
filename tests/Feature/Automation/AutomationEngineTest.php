@@ -463,7 +463,7 @@ class AutomationEngineTest extends TestCase
 
     private function emailAutomation(bool $requiresApproval = false): Automation
     {
-        return $this->automation([[AutomationActionType::SendEmail, ['subject' => 'Booking your install', 'body' => 'Hi {customer_first_name}, we can book you in this week.'], $requiresApproval]]);
+        return $this->automation([[AutomationActionType::SendEmail, ['subject' => 'Booking your install', 'body' => 'Hi {{customer.first_name}}, we can book you in this week.'], $requiresApproval]]);
     }
 
     private function emailResult(): AutomationActionRun
