@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div>
         <a href="{{ route('inbox.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">&larr; Inbox</a>
-        <h1 class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{{ $this->conversation->customer->name }}</h1>
+        <h1 class="mt-2 text-2xl font-semibold tracking-tight text-gray-900"><a href="{{ route('customers.show', $this->conversation->customer_id) }}" wire:navigate class="hover:underline">{{ $this->conversation->customer->name }}</a></h1>
         <p class="text-sm text-gray-600">{{ $this->conversation->subject ?? '(no subject)' }} · {{ $this->conversation->customer->email }}</p>
     </div>
 
@@ -11,6 +11,33 @@
             <button type="button" wire:click="$set('statusMessage', null)" class="shrink-0 font-medium hover:underline">Dismiss</button>
         </div>
     @endif
+
+    {{-- Follow-up --}}
+    @php($organization = $this->conversation->organization)
+    <section aria-labelledby="follow-up-heading" class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            @php($latest = $this->conversationFollowUps->first())
+            <h2 id="follow-up-heading" class="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                {{ $latest && $latest->status === \App\Enums\FollowUpStatus::Skipped && $this->conversationFollowUps->count() === 1 ? 'Follow-up skipped' : 'Follow-up' }}
+            </h2>
+            @unless ($showScheduleForm)
+                <button type="button" wire:click="openScheduleForm" class="text-sm font-medium text-indigo-700 hover:underline">Schedule Follow-Up</button>
+            @endunless
+        </div>
+        @include('follow-ups.flash')
+        @if ($showScheduleForm)
+            @include('follow-ups.schedule-form')
+        @endif
+        @if ($this->conversationFollowUps->isEmpty())
+            <p class="text-sm text-gray-500">No follow-up scheduled.</p>
+        @else
+            <ul role="list" class="-mx-4 divide-y divide-gray-100">
+                @foreach ($this->conversationFollowUps as $followUp)
+                    @include('follow-ups.item', ['showCustomer' => false])
+                @endforeach
+            </ul>
+        @endif
+    </section>
 
     @if ($this->messages->isEmpty())
         <p class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">No messages yet.</p>

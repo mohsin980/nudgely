@@ -30,6 +30,28 @@
             <nav aria-label="Main" class="mb-6 lg:mb-0">
                 <ul class="flex gap-1 overflow-x-auto lg:flex-col">
                     <li>
+                        <a href="{{ route('dashboard') }}"
+                           @if (request()->routeIs('dashboard')) aria-current="page" @endif
+                           @class([
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                               'bg-indigo-50 text-indigo-700' => request()->routeIs('dashboard'),
+                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('dashboard'),
+                           ])>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('follow-ups.index') }}"
+                           @if (request()->routeIs('follow-ups.*')) aria-current="page" @endif
+                           @class([
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                               'bg-indigo-50 text-indigo-700' => request()->routeIs('follow-ups.*'),
+                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('follow-ups.*'),
+                           ])>
+                            Follow-Ups
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('inbox.index') }}"
                            @if (request()->routeIs('inbox.*')) aria-current="page" @endif
                            @class([
@@ -52,6 +74,19 @@
                             Email
                         </a>
                     </li>
+                    @can('create', \App\Models\Automation::class)
+                        <li>
+                        <a href="{{ route('settings.business') }}"
+                           @if (request()->routeIs('settings.business')) aria-current="page" @endif
+                           @class([
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                               'bg-indigo-50 text-indigo-700' => request()->routeIs('settings.business'),
+                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('settings.business'),
+                           ])>
+                            Business
+                        </a>
+                    </li>
+                    @endcan
                     @can('viewAny', \App\Models\Automation::class)
                         <li>
                             <a href="{{ route('settings.automations.index') }}"

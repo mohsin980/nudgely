@@ -5,6 +5,7 @@ namespace App\Livewire\Inbox;
 use App\Enums\ConfidenceLevel;
 use App\Enums\MessageDirection;
 use App\Jobs\ClassifyCustomerReplyJob;
+use App\Livewire\Concerns\ManagesFollowUps;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
 use App\Models\FollowUp;
@@ -25,6 +26,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class ShowConversation extends Component
 {
+    use ManagesFollowUps;
+
     #[Locked]
     public int $conversationId;
 
@@ -65,8 +68,8 @@ class ShowConversation extends Component
     }
 
     /**
-     * What automations did in this conversation, newest last: runs with their action results,
-     * and follow-ups (scheduled, then sent, skipped or turned into a task).
+     * What automations did in this conversation, newest last: runs with their action results.
+     * Follow-ups have their own panel.
      *
      * @return \Illuminate\Support\Collection<int, array{key: string, at: CarbonInterface, title: string, status: \BackedEnum, details: list<string>}>
      */
@@ -91,20 +94,25 @@ class ShowConversation extends Component
                     : $run->actionRuns->map(fn ($actionRun) => $actionRun->action_type->label().': '.($actionRun->result['message'] ?? $actionRun->status->label()))->all(),
             ]);
 
-        $followUps = $conversation->followUps()
-            ->where('organization_id', $conversation->organization_id)
-            ->latest()
-            ->limit(50)
-            ->get()
-            ->map(fn (FollowUp $followUp) => [
-                'key' => 'follow-up-'.$followUp->id,
-                'at' => $followUp->processed_at ?? $followUp->created_at,
-                'title' => 'Follow-up '.($followUp->processed_at ? 'due '.$followUp->due_at->format('M j') : 'scheduled for '.$followUp->due_at->format('M j, Y g:i A')),
-                'status' => $followUp->status,
-                'details' => array_filter([$followUp->outcome]),
-            ]);
+        return $runs->sortBy('at')->values();
+    }
 
-        return $runs->concat($followUps)->sortBy('at')->values();
+    /**
+     * Open follow-ups for this conversation, plus the latest finished one (e.g. "skipped: customer replied").
+     *
+     * @return Collection<int, FollowUp>
+     */
+    #[Computed]
+    public function conversationFollowUps(): Collection
+    {
+        $base = fn () => $this->conversation->followUps()
+            ->where('organization_id', $this->conversation->organization_id)
+            ->with('assignee:id,name');
+
+        $open = $base()->open()->orderBy('due_at')->get();
+        $latestClosed = $base()->whereNotIn('status', ['pending', 'due'])->latest('updated_at')->first();
+
+        return $latestClosed === null ? $open : $open->push($latestClosed);
     }
 
     /**
@@ -157,6 +165,16 @@ class ShowConversation extends Component
     public function safeHtml(?string $html): ?string
     {
         return app(EmailHtmlSanitizer::class)->sanitize($html);
+    }
+
+    protected function followUpTarget(): array
+    {
+        return [$this->conversation->customer, $this->conversation];
+    }
+
+    protected function followUpsChanged(): void
+    {
+        unset($this->conversationFollowUps);
     }
 
     public function render()

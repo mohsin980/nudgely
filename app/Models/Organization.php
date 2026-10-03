@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -45,6 +46,30 @@ class Organization extends Model
     public function allowsUnattendedAutomatedEmail(): bool
     {
         return $this->automations_enabled && $this->automatic_email_enabled && ! $this->require_approval_for_email;
+    }
+
+    /**
+     * The organization's timezone, or the documented default (config follow_ups.default_timezone).
+     */
+    public function timezone(): string
+    {
+        return $this->timezone ?: config('follow_ups.default_timezone');
+    }
+
+    /**
+     * A stored (UTC) time in the organization's timezone, for display.
+     */
+    public function localTime(\DateTimeInterface $time): CarbonImmutable
+    {
+        return CarbonImmutable::instance($time)->setTimezone($this->timezone());
+    }
+
+    /**
+     * "Now" in the organization's timezone, e.g. to find today's start and end.
+     */
+    public function localNow(): CarbonImmutable
+    {
+        return CarbonImmutable::now($this->timezone());
     }
 
     /**

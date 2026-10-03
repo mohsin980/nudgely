@@ -2,13 +2,14 @@
 
 namespace App\Jobs;
 
-use App\Services\Automation\FollowUpProcessor;
+use App\Services\FollowUps\FollowUpProcessor;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 /**
- * Processes one due follow-up. Safe to deliver twice: the follow-up is claimed atomically.
+ * Processes one due follow-up. Safe to run twice or concurrently: the processor works on
+ * the locked row and returns "already_processed" for a follow-up that was handled.
  */
 class ProcessFollowUpJob implements ShouldQueue
 {
@@ -33,6 +34,6 @@ class ProcessFollowUpJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        app(FollowUpProcessor::class)->markFailed($this->followUpId, 'Follow-up failed: it could not be processed.');
+        app(FollowUpProcessor::class)->failAfterRetries($this->followUpId);
     }
 }
