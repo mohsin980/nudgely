@@ -2,6 +2,7 @@
 
 namespace App\Services\Email;
 
+use App\Enums\ConversationStatus;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
@@ -91,7 +92,8 @@ class EmailService
                 conversationId: $conversation->id,
             );
 
-            $conversation->recordActivity(now());
+            // The business has replied: it's now the customer's turn.
+            $conversation->recordActivity(now(), ConversationStatus::WaitingCustomer);
 
             return $message;
         });

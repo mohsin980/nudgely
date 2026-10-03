@@ -6,6 +6,7 @@ use App\Enums\FollowUpCancelReason;
 use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\FollowUpType;
+use App\Services\FollowUps\FollowUpNotifier;
 use Database\Factories\FollowUpFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -46,6 +47,16 @@ class FollowUp extends Model
             'due_notified_at' => 'datetime',
             'overdue_notified_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Leaving "due" (done, cancelled, skipped, failed or rescheduled) clears its unread reminders.
+        static::updated(function (FollowUp $followUp) {
+            if ($followUp->wasChanged('status') && $followUp->status !== FollowUpStatus::Due) {
+                app(FollowUpNotifier::class)->resolve($followUp);
+            }
+        });
     }
 
     /**

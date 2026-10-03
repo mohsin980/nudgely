@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
+use App\Services\Dashboard\AttentionPriorityRules;
 use Database\Factories\ConversationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * An email thread between an organization and one of its customers.
@@ -97,11 +100,63 @@ class Conversation extends Model
         return $this->hasMany(FollowUp::class);
     }
 
-    public function recordActivity(\DateTimeInterface $at): void
+    /**
+     * The business owes the customer something: not closed, not waiting on the customer, and either
+     * marked "waiting on business", flagged for review by the AI, or the customer's latest intent
+     * calls for action (ready to book, callback, question, …).
+     *
+     * @return array{0: string, 1: list<string>} SQL condition and bindings (shared by the scope and dashboard counts).
+     */
+    public static function waitingForBusinessSql(): array
+    {
+        $intents = array_map(fn ($intent) => $intent->value, AttentionPriorityRules::ACTION_INTENTS);
+        $placeholders = implode(', ', array_fill(0, count($intents), '?'));
+
+        return [
+            "(status not in ('closed', 'waiting_customer') and (status = 'waiting_business' or needs_attention = true or latest_intent in ({$placeholders})))",
+            $intents,
+        ];
+    }
+
+    /**
+     * @param  Builder<Conversation>  $query
+     */
+    public function scopeWaitingForBusiness(Builder $query): void
+    {
+        [$sql, $bindings] = self::waitingForBusinessSql();
+
+        $query->whereRaw($sql, $bindings);
+    }
+
+    /**
+     * A message was sent or received. A customer reply re-opens the conversation (it is now the
+     * business's turn); an email from the business leaves it waiting on the customer.
+     */
+    public function recordActivity(\DateTimeInterface $at, ConversationStatus $status = ConversationStatus::Open): void
     {
         $this->forceFill([
             'last_message_at' => $this->last_message_at === null || $this->last_message_at->lt($at) ? $at : $this->last_message_at,
-            'status' => ConversationStatus::Open,
+            'status' => $status,
         ])->save();
+    }
+
+    /**
+     * The customer's most recent message (eager-loadable without N+1).
+     *
+     * @return HasOne<Message, $this>
+     */
+    public function latestInboundMessage(): HasOne
+    {
+        return $this->hasOne(Message::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('direction', 'inbound'));
+    }
+
+    /**
+     * The most recent successful AI classification in this conversation.
+     *
+     * @return HasOne<MessageClassification, $this>
+     */
+    public function latestClassification(): HasOne
+    {
+        return $this->hasOne(MessageClassification::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('status', 'succeeded'));
     }
 }

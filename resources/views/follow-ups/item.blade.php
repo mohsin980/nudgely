@@ -2,7 +2,7 @@
 @php($open = $followUp->status->isOpen())
 @php($ready = $open && $followUp->status === \App\Enums\FollowUpStatus::Due && $followUp->isAutomated() && $followUp->hasEmail() && $followUp->due_notified_at)
 @php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
-<li wire:key="follow-up-{{ $followUp->id }}" data-follow-up="{{ $followUp->id }}" class="space-y-3 p-4">
+<li wire:key="follow-up-{{ $followUp->id }}" id="follow-up-{{ $followUp->id }}" data-follow-up="{{ $followUp->id }}" class="space-y-3 p-4">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0 space-y-1">
             <div class="flex flex-wrap items-center gap-2">

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -77,6 +78,16 @@ class Message extends Model
     public function classifications(): HasMany
     {
         return $this->hasMany(MessageClassification::class)->latest('id');
+    }
+
+    /**
+     * The most recent successful AI classification of this message.
+     *
+     * @return HasOne<MessageClassification, $this>
+     */
+    public function latestClassification(): HasOne
+    {
+        return $this->hasOne(MessageClassification::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('status', 'succeeded'));
     }
 
     public function isInbound(): bool
