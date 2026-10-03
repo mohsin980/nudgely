@@ -155,4 +155,14 @@ class FollowUp extends Model
     {
         $query->whereIn('status', [FollowUpStatus::Pending, FollowUpStatus::Due]);
     }
+
+    /**
+     * The estimate this follow-up is about, if any.
+     *
+     * @return BelongsTo<Estimate, $this>
+     */
+    public function estimate(): BelongsTo
+    {
+        return $this->belongsTo(Estimate::class);
+    }
 }

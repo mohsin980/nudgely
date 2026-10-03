@@ -67,6 +67,8 @@ class ScheduleFollowUpAction implements AutomationActionInterface
             $body,
             $context->idempotencyKey($action),
             [
+                // Linked to the estimate it is about, so accepting or declining it stops the follow-up.
+                'estimate_id' => $context->estimate()?->id,
                 'automation_action_id' => $action->id,
                 'automation_run_id' => $context->eventId === null ? null : AutomationRun::query()
                     ->where('organization_id', $context->organizationId)

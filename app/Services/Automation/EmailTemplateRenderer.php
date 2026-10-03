@@ -4,6 +4,7 @@ namespace App\Services\Automation;
 
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\Customer;
+use App\Models\Estimate;
 use App\Models\Organization;
 
 /**
@@ -23,6 +24,10 @@ class EmailTemplateRenderer
         'customer.last_name' => 'Customer last name',
         'customer.email' => 'Customer email',
         'business.name' => 'Business name',
+        'estimate.number' => 'Estimate number',
+        'estimate.title' => 'Estimate title',
+        'estimate.total' => 'Estimate total',
+        'estimate.valid_until' => 'Estimate valid until',
     ];
 
     /**
@@ -30,8 +35,6 @@ class EmailTemplateRenderer
      */
     public const UNAVAILABLE = [
         'business.phone' => 'Business phone numbers are not stored yet.',
-        'estimate.number' => 'Estimates are not available yet.',
-        'estimate.total' => 'Estimates are not available yet.',
     ];
 
     private const PLACEHOLDER = '/\{\{\s*([^{}]*?)\s*\}\}/';
@@ -62,21 +65,34 @@ class EmailTemplateRenderer
     }
 
     /**
+     * Estimate variables need an estimate; without one the template can't be sent.
+     *
      * @throws InvalidEmailTemplateException
      */
-    public function render(string $template, Customer $customer, Organization $organization): string
+    public function render(string $template, Customer $customer, Organization $organization, ?Estimate $estimate = null): string
     {
         $this->validate($template);
 
-        $values = $this->values($customer, $organization);
+        if ($estimate === null && $this->usesEstimate($template)) {
+            throw InvalidEmailTemplateException::missingEstimate();
+        }
+
+        $values = $this->values($customer, $organization, $estimate);
 
         return preg_replace_callback(self::PLACEHOLDER, fn (array $match) => $values[$match[1]], $template);
+    }
+
+    public function usesEstimate(string $template): bool
+    {
+        preg_match_all(self::PLACEHOLDER, $template, $matches);
+
+        return collect($matches[1])->contains(fn (string $variable) => str_starts_with($variable, 'estimate.'));
     }
 
     /**
      * @return array<string, string>
      */
-    private function values(Customer $customer, Organization $organization): array
+    private function values(Customer $customer, Organization $organization, ?Estimate $estimate): array
     {
         $name = trim(preg_replace('/\s+/', ' ', $customer->name));
         $firstName = strtok($name, ' ') ?: '';
@@ -86,6 +102,10 @@ class EmailTemplateRenderer
             'customer.last_name' => trim(mb_substr($name, mb_strlen($firstName))),
             'customer.email' => $customer->email,
             'business.name' => $organization->name,
+            'estimate.number' => $estimate?->displayNumber() ?? '',
+            'estimate.title' => $estimate?->title ?? '',
+            'estimate.total' => $estimate?->money('total') ?? '',
+            'estimate.valid_until' => $estimate?->valid_until?->format('F j, Y') ?? 'no expiry date',
         ];
     }
 }

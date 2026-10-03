@@ -120,4 +120,12 @@ class Customer extends Model
     {
         return Attribute::make(set: fn (string $value) => self::normalizeEmail($value));
     }
+
+    /**
+     * @return HasMany<Estimate, $this>
+     */
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(Estimate::class);
+    }
 }

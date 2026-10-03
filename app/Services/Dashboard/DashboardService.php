@@ -8,6 +8,7 @@ use App\Enums\MessageDirection;
 use App\Enums\TaskStatus;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\Organization;
@@ -70,6 +71,7 @@ class DashboardService
             todaysFollowUps: $today,
             tasks: $tasks,
             taskCounts: $this->taskCounts($organization, $end),
+            estimates: $this->estimateCounts($organization, $start, $end),
             recentReplies: $this->recentReplies($organization),
             automationRuns: $this->automationActivity($organization),
             notifications: $user->unreadNotifications()->limit((int) config('dashboard.limits.notifications'))->get(['id', 'data', 'created_at']),
@@ -175,6 +177,25 @@ class DashboardService
         }
 
         return ['by_status' => $byStatus, 'waiting' => $waiting];
+    }
+
+    /**
+     * Estimates sent and accepted today (the organization's day), and how many await a decision.
+     *
+     * @return array{sent_today: int, awaiting: int, accepted_today: int}
+     */
+    public function estimateCounts(Organization $organization, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $row = Estimate::query()
+            ->where('organization_id', $organization->id)
+            ->where(fn ($q) => $q->whereIn('status', ['sent', 'viewed'])->orWhere('sent_at', '>=', $start)->orWhere('accepted_at', '>=', $start))
+            ->selectRaw('count(*) filter (where sent_at between ? and ?) as sent_today', [$start, $end])
+            ->selectRaw("count(*) filter (where status in ('sent', 'viewed')) as awaiting")
+            ->selectRaw('count(*) filter (where accepted_at between ? and ?) as accepted_today', [$start, $end])
+            ->toBase()
+            ->first();
+
+        return array_map('intval', (array) $row);
     }
 
     /**

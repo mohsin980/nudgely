@@ -151,4 +151,12 @@ class Organization extends Model
     {
         return $this->hasMany(FollowUp::class);
     }
+
+    /**
+     * @return HasMany<Estimate, $this>
+     */
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(Estimate::class);
+    }
 }

@@ -8,10 +8,9 @@ use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * An estimate passed its expiry date without a decision.
+ * An estimate passed its "valid until" date without a decision.
  *
- * Not dispatched yet: QuoteFollow has no estimates feature. Defined so the automation
- * trigger has a stable contract when estimates are built.
+ * Dispatched by EstimateService after the change is committed, once per estimate.
  */
 final class EstimateExpired implements AutomationEvent, ShouldDispatchAfterCommit
 {

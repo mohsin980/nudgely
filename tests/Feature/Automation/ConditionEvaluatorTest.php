@@ -137,7 +137,7 @@ class ConditionEvaluatorTest extends TestCase
             'negative days' => ['days_since_last_message', 'greater_than', '-1'],
             'fractional days' => ['days_since_last_message', 'greater_than', '2.5'],
             'customer status (no data yet)' => ['customer_status_equals', 'equals', 'lead'],
-            'estimate status (no data yet)' => ['estimate_status_equals', 'equals', 'sent'],
+            'unknown estimate status' => ['estimate_status_equals', 'equals', 'paid'],
         ];
     }
 

@@ -38,5 +38,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('access-organization', fn (User $user) => $user->organization_id !== null && $user->organization()->exists());
 
         RateLimiter::for('email-webhooks', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
+        // Customer estimate links: generous for people, slow for anyone guessing tokens.
+        RateLimiter::for('public-estimates', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
     }
 }

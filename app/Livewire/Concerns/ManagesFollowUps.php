@@ -6,6 +6,7 @@ use App\Enums\FollowUpCancelReason;
 use App\Exceptions\FollowUps\InvalidFollowUpException;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Organization;
 use App\Models\User;
@@ -57,11 +58,19 @@ trait ManagesFollowUps
     public string $followUpMessageType = 'success';
 
     /**
-     * The customer (and optional conversation) a new follow-up is for on this page.
+     * The customer (and optional conversation and estimate) a new follow-up is for on this page.
      *
-     * @return array{0: Customer, 1: ?Conversation}
+     * @return array{0: Customer, 1: ?Conversation, 2?: ?Estimate}
      */
     abstract protected function followUpTarget(): array;
+
+    /**
+     * Notes a new follow-up starts with; pages override (e.g. "Follow up on Estimate EST-1024").
+     */
+    protected function defaultFollowUpNotes(): string
+    {
+        return '';
+    }
 
     public function openFollowUpForm(int $followUpId, string $form): void
     {
@@ -145,7 +154,7 @@ trait ManagesFollowUps
         $this->showScheduleForm = true;
         $this->scheduleDate = $this->organization()->localNow()->addDay()->format('Y-m-d');
         $this->scheduleTime = '10:00';
-        $this->scheduleNotes = '';
+        $this->scheduleNotes = $this->defaultFollowUpNotes();
         $this->scheduleAssignee = (string) Auth::id();
     }
 
@@ -158,9 +167,10 @@ trait ManagesFollowUps
             : (User::query()->where('organization_id', $this->organization()->id)->find((int) $this->scheduleAssignee) ?? abort(404));
 
         try {
-            [$customer, $conversation] = $this->followUpTarget();
+            $target = $this->followUpTarget();
+            [$customer, $conversation] = $target;
             $dueAt = $followUps->parseLocal($this->organization(), $this->scheduleDate, $this->scheduleTime);
-            $followUps->scheduleManual($this->actor(), $customer, $dueAt, $this->scheduleNotes, $conversation, $assignee);
+            $followUps->scheduleManual($this->actor(), $customer, $dueAt, $this->scheduleNotes, $conversation, $assignee, $target[2] ?? null);
         } catch (InvalidFollowUpException $e) {
             $this->addError('schedule', $e->getMessage());
 

@@ -243,6 +243,22 @@
                     </dl>
                 </section>
 
+                {{-- Estimates --}}
+                <section aria-labelledby="estimates-heading" class="{{ $card }}">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h2 id="estimates-heading" class="{{ $heading }}">Estimates</h2>
+                        <a href="{{ route('estimates.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">View Estimates</a>
+                    </div>
+                    <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="estimates">
+                        <dt class="text-gray-600">Sent today</dt>
+                        <dd class="text-right font-semibold text-gray-900" data-estimates="sent_today">{{ $d->estimates['sent_today'] }}</dd>
+                        <dt class="text-gray-600"><a href="{{ route('estimates.index', ['status' => 'awaiting']) }}" wire:navigate class="hover:underline">Awaiting customer</a></dt>
+                        <dd class="text-right font-semibold text-gray-900" data-estimates="awaiting">{{ $d->estimates['awaiting'] }}</dd>
+                        <dt class="text-gray-600">Accepted today</dt>
+                        <dd class="text-right font-semibold text-gray-900" data-estimates="accepted_today">{{ $d->estimates['accepted_today'] }}</dd>
+                    </dl>
+                </section>
+
                 {{-- Conversations --}}
                 <section aria-labelledby="conversations-heading" class="{{ $card }}">
                     <h2 id="conversations-heading" class="{{ $heading }}">Conversations</h2>

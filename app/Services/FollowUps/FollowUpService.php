@@ -10,6 +10,7 @@ use App\Exceptions\FollowUps\InvalidFollowUpException;
 use App\Models\Automation;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Organization;
 use App\Models\User;
@@ -36,7 +37,7 @@ class FollowUpService
      *
      * @throws InvalidFollowUpException
      */
-    public function scheduleManual(User $actor, Customer $customer, DateTimeInterface $dueAt, ?string $notes = null, ?Conversation $conversation = null, ?User $assignee = null): FollowUp
+    public function scheduleManual(User $actor, Customer $customer, DateTimeInterface $dueAt, ?string $notes = null, ?Conversation $conversation = null, ?User $assignee = null, ?Estimate $estimate = null): FollowUp
     {
         $organizationId = $actor->organization_id ?? throw new InvalidFollowUpException('You are not part of an organization.');
 
@@ -46,6 +47,10 @@ class FollowUpService
 
         if ($conversation !== null && ($conversation->organization_id !== $organizationId || $conversation->customer_id !== $customer->id)) {
             throw new InvalidFollowUpException('That conversation does not belong to this customer.');
+        }
+
+        if ($estimate !== null && ($estimate->organization_id !== $organizationId || $estimate->customer_id !== $customer->id)) {
+            throw new InvalidFollowUpException('That estimate does not belong to this customer.');
         }
 
         if ($assignee !== null && $assignee->organization_id !== $organizationId) {
@@ -60,6 +65,7 @@ class FollowUpService
             'organization_id' => $organizationId,
             'customer_id' => $customer->id,
             'conversation_id' => $conversation?->id,
+            'estimate_id' => $estimate?->id,
             'type' => FollowUpType::Manual,
             'status' => FollowUpStatus::Pending,
             'created_by' => $actor->id,
@@ -225,6 +231,24 @@ class FollowUpService
             ->pluck('id');
 
         return $ids->filter(fn (int $id) => $this->skip($id, FollowUpSkipReason::CustomerReplied))->count();
+    }
+
+    /**
+     * The estimate was accepted, declined or cancelled: its open automated follow-ups are no
+     * longer needed. Manual reminders stay.
+     *
+     * @return int How many were skipped.
+     */
+    public function skipForEstimate(int $organizationId, int $estimateId): int
+    {
+        $ids = FollowUp::query()
+            ->forOrganization($organizationId)
+            ->where('estimate_id', $estimateId)
+            ->where('type', FollowUpType::Automated)
+            ->open()
+            ->pluck('id');
+
+        return $ids->filter(fn (int $id) => $this->skip($id, FollowUpSkipReason::EstimateClosed))->count();
     }
 
     /**

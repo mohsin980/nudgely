@@ -7,6 +7,8 @@ use App\Enums\Automation\AutomationTriggerType;
 use App\Enums\CustomerReplyIntent;
 use App\Events\CustomerReplyClassified;
 use App\Events\CustomerReplyReceived;
+use App\Events\EstimateAccepted;
+use App\Events\EstimateDeclined;
 use App\Events\EstimateExpired;
 use App\Events\EstimateSent;
 use App\Events\EstimateViewed;
@@ -14,6 +16,7 @@ use App\Events\FollowUpDue;
 use App\Models\AutomationAction;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\Estimate;
 
 /**
  * What an automation knows about the event it is reacting to.
@@ -31,6 +34,10 @@ final class AutomationContext
 
     private bool $conversationLoaded = false;
 
+    private ?Estimate $estimate = null;
+
+    private bool $estimateLoaded = false;
+
     public function __construct(
         public readonly int $organizationId,
         public readonly AutomationTriggerType $triggerType,
@@ -42,6 +49,7 @@ final class AutomationContext
         public readonly ?CustomerReplyIntent $intent = null,
         public readonly ?float $confidence = null,
         public readonly int $depth = 0,
+        public readonly ?int $estimateId = null,
     ) {}
 
     /**
@@ -57,7 +65,10 @@ final class AutomationContext
                 classificationId: $event->classificationId, intent: $event->intent, confidence: $event->confidence),
             $event instanceof CustomerReplyReceived => new self(...$base,
                 customerId: $event->customerId, conversationId: $event->conversationId, messageId: $event->messageId),
-            $event instanceof EstimateSent, $event instanceof EstimateViewed, $event instanceof EstimateExpired, $event instanceof FollowUpDue => new self(...$base,
+            $event instanceof EstimateSent, $event instanceof EstimateViewed, $event instanceof EstimateExpired,
+            $event instanceof EstimateAccepted, $event instanceof EstimateDeclined => new self(...$base,
+                customerId: $event->customerId, conversationId: $event->conversationId, estimateId: $event->estimateId),
+            $event instanceof FollowUpDue => new self(...$base,
                 customerId: $event->customerId, conversationId: $event->conversationId),
             default => new self(...$base),
         };
@@ -83,6 +94,7 @@ final class AutomationContext
             intent: isset($data['intent']) ? CustomerReplyIntent::tryFrom((string) $data['intent']) : null,
             confidence: isset($data['confidence']) ? (float) $data['confidence'] : null,
             depth: (int) ($data['depth'] ?? 0),
+            estimateId: $int('estimate_id'),
         );
     }
 
@@ -104,6 +116,7 @@ final class AutomationContext
             'intent' => $this->intent?->value,
             'confidence' => $this->confidence,
             'depth' => $this->depth,
+            'estimate_id' => $this->estimateId,
         ];
     }
 
@@ -129,6 +142,27 @@ final class AutomationContext
         }
 
         return $this->conversation;
+    }
+
+    /**
+     * The estimate the event is about; for other events, the conversation's most recent sent
+     * estimate (so "{{estimate.number}}" works in a follow-up to a customer reply).
+     */
+    public function estimate(): ?Estimate
+    {
+        if (! $this->estimateLoaded) {
+            $this->estimateLoaded = true;
+            $query = Estimate::query()->where('organization_id', $this->organizationId);
+
+            $this->estimate = match (true) {
+                $this->estimateId !== null => $query->find($this->estimateId),
+                $this->conversationId !== null => $query->where('conversation_id', $this->conversationId)
+                    ->whereNotIn('status', ['draft', 'cancelled'])->latest('sent_at')->latest('id')->first(),
+                default => null,
+            };
+        }
+
+        return $this->estimate;
     }
 
     /**

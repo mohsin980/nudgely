@@ -204,4 +204,12 @@ class Conversation extends Model
     {
         return $this->hasOne(MessageClassification::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('status', 'succeeded'));
     }
+
+    /**
+     * @return HasMany<Estimate, $this>
+     */
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(Estimate::class);
+    }
 }

@@ -12,6 +12,7 @@ use App\Exceptions\Conversations\ConversationActionException;
 use App\Jobs\ClassifyCustomerReplyJob;
 use App\Livewire\Concerns\ManagesFollowUps;
 use App\Models\Conversation;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\MessageClassification;
@@ -179,6 +180,22 @@ class ShowConversation extends Component
         $latestClosed = $base()->whereNotIn('status', ['pending', 'due'])->latest('updated_at')->first();
 
         return $latestClosed === null ? $open : $open->push($latestClosed);
+    }
+
+    /**
+     * Estimates linked to this conversation, newest first.
+     *
+     * @return Collection<int, Estimate>
+     */
+    #[Computed]
+    public function estimates(): Collection
+    {
+        return Estimate::query()
+            ->where('organization_id', $this->conversation->organization_id)
+            ->where('conversation_id', $this->conversation->id)
+            ->latest()->latest('id')
+            ->limit(10)
+            ->get(['id', 'estimate_number', 'revision', 'status', 'title', 'total', 'currency']);
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Enums\Automation\AutomationConditionOperator;
 use App\Enums\Automation\AutomationConditionType;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
+use App\Enums\EstimateStatus;
 use App\Exceptions\Automation\InvalidAutomationConditionException;
 use App\Models\Automation;
 use App\Models\AutomationCondition;
@@ -94,7 +95,7 @@ class ConditionEvaluator
             throw new InvalidAutomationConditionException("The \"{$operator->label()}\" operator cannot be used with {$type->label()}.");
         }
 
-        if (in_array($type, [AutomationConditionType::CustomerStatusEquals, AutomationConditionType::EstimateStatusEquals], true)) {
+        if ($type === AutomationConditionType::CustomerStatusEquals) {
             throw new InvalidAutomationConditionException("{$type->label()} conditions are not available yet.");
         }
 
@@ -113,6 +114,8 @@ class ConditionEvaluator
                 ?? throw new InvalidAutomationConditionException('Unknown intent.'),
             AutomationConditionType::ConversationStatusEquals => (is_string($value) ? ConversationStatus::tryFrom($value)?->value : null)
                 ?? throw new InvalidAutomationConditionException('Unknown conversation status.'),
+            AutomationConditionType::EstimateStatusEquals => (is_string($value) ? EstimateStatus::tryFrom($value)?->value : null)
+                ?? throw new InvalidAutomationConditionException('Unknown estimate status.'),
             AutomationConditionType::ConfidenceGreaterThan => $this->confidence($value),
             AutomationConditionType::DaysSinceLastMessage => $this->days($value),
             default => throw new InvalidAutomationConditionException("{$type->label()} conditions are not available yet."),
@@ -125,6 +128,8 @@ class ConditionEvaluator
             AutomationConditionType::IntentEquals => $context->intent?->value,
             AutomationConditionType::ConfidenceGreaterThan => $context->confidence,
             AutomationConditionType::ConversationStatusEquals => $context->conversation()?->status?->value,
+            // Read when the automation runs, so "still sent" means not accepted/declined in the meantime.
+            AutomationConditionType::EstimateStatusEquals => $context->estimate()?->status?->value,
             AutomationConditionType::DaysSinceLastMessage => ($last = $context->conversation()?->last_message_at) === null
                 ? null
                 : (int) floor($last->diffInDays(now(), absolute: true)),

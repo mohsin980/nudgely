@@ -154,6 +154,30 @@
                 @endif
             </section>
 
+            {{-- Estimates --}}
+            <section aria-labelledby="estimates-heading" class="{{ $card }}" data-section="estimates">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 id="estimates-heading" class="{{ $heading }}">Estimate</h2>
+                    <a href="{{ route('estimates.create', ['conversation' => $conversation->id]) }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">Create Estimate</a>
+                </div>
+                @if ($this->estimates->isEmpty())
+                    <p class="mt-2 text-sm text-gray-500">No estimate for this conversation.</p>
+                @else
+                    <ul role="list" class="mt-2 divide-y divide-gray-100">
+                        @foreach ($this->estimates as $estimate)
+                            <li wire:key="estimate-{{ $estimate->id }}" class="flex items-start justify-between gap-2 py-2 text-sm">
+                                <div class="min-w-0">
+                                    <p class="font-semibold text-gray-900">{{ $estimate->displayNumber() }} <span class="font-normal text-gray-900">{{ $estimate->money('total') }}</span></p>
+                                    <p class="truncate text-gray-600">{{ $estimate->title }}</p>
+                                    <x-estimate-status-badge :status="$estimate->status" class="mt-1" />
+                                </div>
+                                <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50">View Estimate</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+
             {{-- Follow-up --}}
             <section aria-labelledby="follow-up-heading" class="{{ $card }} space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2">

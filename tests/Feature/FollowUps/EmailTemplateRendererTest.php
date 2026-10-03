@@ -23,6 +23,6 @@ test('unsupported template variables are rejected', function (string $template, 
     ['{{php_code}}', 'Unsupported variable {{php_code}}.'],
     ['{{ system("ls") }}', 'Unsupported variable {{system("ls")}}.'],
     ['{{business.phone}}', '{{business.phone}} cannot be used yet'],
-    ['{{estimate.total}}', '{{estimate.total}} cannot be used yet'],
+    ['{{estimate.paid_at}}', 'Unsupported variable {{estimate.paid_at}}.'],
     ['Hi {{customer.first_name}', 'The template has unmatched {{ or }} braces.'],
 ]);

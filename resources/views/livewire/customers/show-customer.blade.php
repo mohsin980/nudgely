@@ -25,6 +25,7 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <button type="button" wire:click="openEmailForm" class="{{ $button }} bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-500">Send Email</button>
+                <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="{{ $button }}">Create Estimate</a>
                 <button type="button" wire:click="openScheduleForm" class="{{ $button }}">Schedule Follow-Up</button>
                 <a href="{{ route('customers.edit', $this->customer->id) }}" wire:navigate class="{{ $button }}">Edit</a>
             </div>
@@ -77,6 +78,34 @@
                                     @if ($conversation->latestMessage?->excerpt)
                                         <p class="truncate text-sm text-gray-600">{{ $conversation->latestMessage->direction->value === 'inbound' ? 'Customer' : 'You' }}: {{ \Illuminate\Support\Str::limit(trim(strtok($conversation->latestMessage->excerpt, "\n")), 120) }}</p>
                                     @endif
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+
+            {{-- Estimates --}}
+            <section aria-labelledby="estimates-heading" class="{{ $card }}">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 id="estimates-heading" class="{{ $heading }}">Estimates</h2>
+                    <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">Create Estimate</a>
+                </div>
+                @if ($this->estimates->isEmpty())
+                    <p class="mt-3 text-sm text-gray-600">{{ "This customer doesn't have any estimates yet." }}</p>
+                @else
+                    <ul role="list" class="mt-2 divide-y divide-gray-100" data-section="estimates">
+                        @foreach ($this->estimates as $estimate)
+                            <li wire:key="estimate-{{ $estimate->id }}">
+                                <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                                    <span class="min-w-0">
+                                        <span class="block font-medium text-gray-900">{{ $estimate->displayNumber() }}</span>
+                                        <span class="block truncate text-sm text-gray-600">{{ $estimate->title }}</span>
+                                    </span>
+                                    <span class="flex shrink-0 flex-col items-end gap-1">
+                                        <span class="text-sm font-semibold text-gray-900">{{ $estimate->money('total') }}</span>
+                                        <x-estimate-status-badge :status="$estimate->status" />
+                                    </span>
                                 </a>
                             </li>
                         @endforeach

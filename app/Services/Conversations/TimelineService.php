@@ -7,6 +7,7 @@ use App\Enums\FollowUpStatus;
 use App\Models\AutomationRun;
 use App\Models\ConversationEvent;
 use App\Models\Customer;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\MessageClassification;
@@ -51,7 +52,11 @@ class TimelineService
                 $entries->push(new TimelineEntry(
                     at: $m->received_at ?? $m->sent_at ?? $m->created_at,
                     kind: $inbound ? 'customer' : 'business',
-                    title: $inbound ? 'Customer replied' : ($m->status->value === 'failed' ? 'Email not delivered' : (($m->metadata['type'] ?? null) === 'follow_up' ? 'Follow-up email sent' : 'Business sent email')),
+                    title: $inbound ? 'Customer replied' : ($m->status->value === 'failed' ? 'Email not delivered' : match ($m->metadata['type'] ?? null) {
+                        'follow_up' => 'Follow-up email sent',
+                        'estimate' => 'Estimate email sent',
+                        default => 'Business sent email',
+                    }),
                     body: $this->excerpt($m->excerpt),
                     conversationId: $m->conversation_id,
                 ));
@@ -102,27 +107,7 @@ class TimelineService
             ->when($conversationId, fn ($q) => $q->where('conversation_id', $conversationId))
             ->latest('updated_at')->limit($limit)->get();
 
-        foreach ($followUps as $f) {
-            $what = $f->isAutomated() ? 'Automated follow-up' : 'Follow-up';
-            $entries->push(new TimelineEntry(at: $f->created_at, kind: $f->isAutomated() ? 'automation' : 'business', title: "{$what} scheduled", body: $f->reason(), conversationId: $f->conversation_id));
-
-            $closedAt = match ($f->status) {
-                FollowUpStatus::Completed => $f->completed_at,
-                FollowUpStatus::Cancelled => $f->cancelled_at,
-                FollowUpStatus::Skipped, FollowUpStatus::Failed => $f->processed_at ?? $f->updated_at,
-                default => null,
-            };
-
-            if ($closedAt !== null) {
-                $entries->push(new TimelineEntry(
-                    at: $closedAt,
-                    kind: $f->status === FollowUpStatus::Completed ? 'business' : 'system',
-                    title: "{$what} ".strtolower($f->status->label()),
-                    body: $f->skip_reason?->label() ?? $f->cancelled_reason?->label() ?? $f->outcome,
-                    conversationId: $f->conversation_id,
-                ));
-            }
-        }
+        $entries = $entries->concat($this->followUpEntries($followUps));
 
         $tasks = Task::query()
             ->where('organization_id', $customer->organization_id)
@@ -146,7 +131,7 @@ class TimelineService
             ->latest('id')->limit($limit)->get();
 
         foreach ($events as $e) {
-            $entries->push(new TimelineEntry(at: $e->created_at, kind: $e->user_id ? 'business' : 'system', title: $this->eventTitle($e), body: $e->data['note'] ?? ($e->data['reason'] ?? null), conversationId: $e->conversation_id));
+            $entries->push($this->eventEntry($e));
         }
 
         if ($conversationId === null) {
@@ -156,11 +141,97 @@ class TimelineService
         return $entries->sortByDesc(fn (TimelineEntry $e) => $e->at->getTimestamp())->take($limit)->values();
     }
 
+    /**
+     * An estimate's own activity (created, sent, viewed, accepted, …) and its follow-ups, newest first.
+     *
+     * @return Collection<int, TimelineEntry>
+     */
+    public function forEstimate(Estimate $estimate, int $limit = 50): Collection
+    {
+        $events = ConversationEvent::query()
+            ->where('organization_id', $estimate->organization_id)
+            ->where('estimate_id', $estimate->id)
+            ->with('user:id,name')
+            ->latest('id')->limit($limit)->get()
+            ->map(fn (ConversationEvent $e) => $this->eventEntry($e));
+
+        $followUps = FollowUp::query()
+            ->where('organization_id', $estimate->organization_id)
+            ->where('estimate_id', $estimate->id)
+            ->latest('updated_at')->limit($limit)->get();
+
+        return $events->concat($this->followUpEntries($followUps))
+            ->sortByDesc(fn (TimelineEntry $e) => $e->at->getTimestamp())->take($limit)->values();
+    }
+
+    private function eventEntry(ConversationEvent $e): TimelineEntry
+    {
+        $byCustomer = in_array($e->type, ['estimate_viewed', 'estimate_accepted', 'estimate_declined'], true);
+        $body = $e->type === 'estimate_declined'
+            ? (collect([$e->data['reason'] ?? null, $e->data['note'] ?? null])->filter()->implode(' — ') ?: null)
+            : ($e->data['note'] ?? ($e->data['reason'] ?? null));
+
+        return new TimelineEntry(
+            at: $e->created_at,
+            kind: $byCustomer ? 'customer' : ($e->user_id ? 'business' : 'system'),
+            title: $this->eventTitle($e),
+            body: $body,
+            conversationId: $e->conversation_id,
+        );
+    }
+
+    /**
+     * Scheduled, and (when it happened) completed / skipped / cancelled.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, FollowUp>  $followUps
+     * @return Collection<int, TimelineEntry>
+     */
+    private function followUpEntries($followUps): Collection
+    {
+        $entries = collect();
+
+        foreach ($followUps as $f) {
+            $what = $f->isAutomated() ? 'Automated follow-up' : 'Follow-up';
+            $entries->push(new TimelineEntry(at: $f->created_at, kind: $f->isAutomated() ? 'automation' : 'business', title: "{$what} scheduled", body: $f->reason(), conversationId: $f->conversation_id));
+
+            $closedAt = match ($f->status) {
+                FollowUpStatus::Completed => $f->completed_at,
+                FollowUpStatus::Cancelled => $f->cancelled_at,
+                FollowUpStatus::Skipped, FollowUpStatus::Failed => $f->processed_at ?? $f->updated_at,
+                default => null,
+            };
+
+            if ($closedAt !== null) {
+                $entries->push(new TimelineEntry(
+                    at: $closedAt,
+                    kind: $f->status === FollowUpStatus::Completed ? 'business' : 'system',
+                    title: "{$what} ".strtolower($f->status->label()),
+                    body: $f->skip_reason?->label() ?? $f->cancelled_reason?->label() ?? $f->outcome,
+                    conversationId: $f->conversation_id,
+                ));
+            }
+        }
+
+        return $entries;
+    }
+
     private function eventTitle(ConversationEvent $event): string
     {
         $by = $event->user?->name;
+        $number = $event->data['number'] ?? 'Estimate';
+        $total = isset($event->data['total']) ? ' ('.$event->data['total'].')' : '';
 
         return match ($event->type) {
+            'estimate_created' => "Estimate {$number} created{$total}".($by ? " by {$by}" : ''),
+            'estimate_revised' => "Revision {$number} created from ".($event->data['from'] ?? 'the sent estimate').($by ? " by {$by}" : ''),
+            'estimate_sent' => "Estimate {$number} sent{$total}".(isset($event->data['to']) ? ' to '.$event->data['to'] : '').(isset($event->data['from']) ? ' from '.$event->data['from'] : ''),
+            'estimate_send_failed' => "Estimate {$number} could not be sent",
+            'estimate_viewed' => "Customer viewed estimate {$number}",
+            'estimate_accepted' => "Customer accepted estimate {$number}{$total}",
+            'estimate_declined' => "Customer declined estimate {$number}",
+            'estimate_expired' => "Estimate {$number} expired",
+            'estimate_cancelled' => "Estimate {$number} cancelled".($by ? " by {$by}" : ''),
+            'estimate_replaced' => "Estimate {$number} replaced by ".($event->data['replaced_by'] ?? 'a revision'),
             'closed' => 'Conversation closed'.($by ? " by {$by}" : '').(isset($event->data['reason']) ? ' ('.str_replace('_', ' ', $event->data['reason']).')' : ''),
             'reopened' => ($event->data['by'] ?? null) === 'message' ? 'Conversation reopened by a customer reply' : 'Conversation reopened'.($by ? " by {$by}" : ''),
             'status_changed' => 'Status changed to '.str_replace('_', ' ', $event->data['to'] ?? '').($by ? " by {$by}" : ''),
