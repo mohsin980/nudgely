@@ -72,7 +72,7 @@ function classifiedReply(Conversation $conversation, string $text, ?CustomerRepl
 
 function customerWithConversation(Organization $organization, string $name): Conversation
 {
-    $customer = Customer::factory()->for($organization)->create(['name' => $name, 'email' => Str::slug($name).'@example.com']);
+    $customer = Customer::factory()->for($organization)->create(['name' => $name, 'email' => Str::slug($name).'-'.Str::lower(Str::random(6)).'@example.com']);
 
     return Conversation::factory()->for($customer)->create(['organization_id' => $organization->id, 'subject' => 'Estimate', 'last_message_at' => now()]);
 }
@@ -430,8 +430,8 @@ test('quick actions: add a customer, schedule a follow-up, conversations and aut
         ->assertSeeLivewire('customers.create-customer-form');
 
     Livewire::actingAs($this->admin)->test(CreateCustomerForm::class)
-        ->set('name', 'Sarah Wilson')->set('email', 'not-an-email')->call('save')->assertHasErrors('email')
-        ->set('email', 'JOHN@example.com')->call('save')->assertHasErrors('email') // already a customer
+        ->set('first_name', 'Sarah')->set('last_name', 'Wilson')->set('email', 'not-an-email')->call('save')->assertHasErrors('email')
+        ->set('email', ' JOHN@Example.com ')->call('save')->assertHasErrors('email')->assertSee('Customer already exists.')->assertSee('View Customer') // already a customer
         ->set('email', 'sarah@example.com')->call('save')->assertHasNoErrors()->assertRedirect();
 
     expect(Customer::where('email', 'sarah@example.com')->sole()->organization_id)->toBe($this->organization->id);

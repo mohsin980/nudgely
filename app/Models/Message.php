@@ -42,6 +42,7 @@ class Message extends Model
             'metadata' => 'array',
             'sent_at' => 'datetime',
             'received_at' => 'datetime',
+            'read_at' => 'datetime',
             'failed_at' => 'datetime',
         ];
     }

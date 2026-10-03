@@ -32,6 +32,7 @@ class MessageClassification extends Model
             'urgency' => ReplyUrgency::class,
             'requires_human_review' => 'boolean',
             'classified_at' => 'datetime',
+            'previous_intent' => CustomerReplyIntent::class,
         ];
     }
 
@@ -49,5 +50,21 @@ class MessageClassification extends Model
     public function scopeSucceeded(Builder $query): void
     {
         $query->where('status', ClassificationStatus::Succeeded);
+    }
+
+    /**
+     * A person corrected the AI's intent (the AI's own classification is kept as history).
+     */
+    public function isManual(): bool
+    {
+        return $this->source === 'manual';
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function overrider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'overridden_by');
     }
 }

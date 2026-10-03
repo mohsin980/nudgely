@@ -3,7 +3,8 @@
 @php($ready = $open && $followUp->status === \App\Enums\FollowUpStatus::Due && $followUp->isAutomated() && $followUp->hasEmail() && $followUp->due_notified_at)
 @php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
 <li wire:key="follow-up-{{ $followUp->id }}" id="follow-up-{{ $followUp->id }}" data-follow-up="{{ $followUp->id }}" class="space-y-3 p-4">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    {{-- $compact: narrow side panels stack the actions under the details. --}}
+    <div @class(['flex flex-col gap-3', 'sm:flex-row sm:items-start sm:justify-between' => ! ($compact ?? false)])>
         <div class="min-w-0 space-y-1">
             <div class="flex flex-wrap items-center gap-2">
                 @if ($showCustomer ?? true)
@@ -45,7 +46,7 @@
         </div>
 
         @if ($open)
-            <div class="flex flex-wrap gap-2 sm:justify-end">
+            <div @class(['flex flex-wrap gap-2', 'sm:justify-end' => ! ($compact ?? false)])>
                 @if ($ready)
                     <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-md bg-indigo-600 px-2.5 py-1 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">Send Follow-Up</button>
                 @endif

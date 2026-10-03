@@ -24,4 +24,9 @@ class CustomerPolicy
     {
         return $user->organization_id !== null;
     }
+
+    public function update(User $user, Customer $customer): bool
+    {
+        return $this->view($user, $customer);
+    }
 }

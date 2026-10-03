@@ -346,6 +346,6 @@ class AutomationBuilderTest extends TestCase
         $this->runWithActions($this->automation(['name' => 'Customer Ready to Book']), $conversation);
 
         Livewire::actingAs($this->admin)->test(ShowConversation::class, ['conversationId' => $conversation->id])
-            ->assertSeeInOrder(['Automation activity', 'Automation “Customer Ready to Book”', 'Completed', 'Create task: Task created: Book John Smith', 'Send email: Automatic emails are turned off']);
+            ->assertSeeInOrder(['Automation', 'Automation: Customer Ready to Book', '✓', 'Task created: Book John Smith', '–', 'Automatic emails are turned off']);
     }
 }
