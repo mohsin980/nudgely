@@ -63,3 +63,60 @@ Every event also implements `ShouldDispatchAfterCommit`: it is delivered only af
 | `FollowUpDue` | organization, follow-up, optional conversation and customer | No: arrives with scheduled follow-ups |
 
 There are no listeners yet. The events only announce what happened.
+
+# Conditions and actions framework (7A.2)
+
+There is still no engine, queue execution, UI or automated email. These are the reusable building blocks the engine will call.
+
+## Context
+
+`App\Services\Automation\AutomationContext` holds what an automation knows about an event:
+- organization, trigger, event ID
+- customer, conversation, message and classification IDs
+- intent and confidence
+
+`AutomationContext::fromEvent($event)` builds it from any `AutomationEvent`. `customer()` and `conversation()` always load **within the context's organization**, so another tenant's ID resolves to `null`.
+
+`render()` fills `{customer_name}`, `{customer_first_name}`, `{intent}` and `{conversation_subject}` by plain text substitution; nothing is evaluated.
+
+## Conditions: `ConditionEvaluator`
+
+`matches($automation, $context)` returns true only when **all** conditions pass (AND). An automation with no conditions matches every event.
+
+| Type | Operators | Value | Compared with |
+| --- | --- | --- | --- |
+| `intent_equals` | equals, not_equals | a `CustomerReplyIntent` value | the event's intent |
+| `confidence_greater_than` | >, ≥, <, ≤ | `0`–`1` (up to 4 decimals) | the event's confidence |
+| `conversation_status_equals` | equals, not_equals | `open`, `waiting_customer`, `waiting_business`, `closed` | the conversation's status |
+| `days_since_last_message` | >, ≥, <, ≤ | whole days, 0–9999 | days since the conversation's `last_message_at` |
+| `customer_status_equals`, `estimate_status_equals` | — | — | **Rejected:** customers have no status and estimates don't exist yet |
+
+Rules:
+- **Missing data never matches.** For example, a confidence condition on a "reply received" event is false.
+- **Invalid conditions throw `InvalidAutomationConditionException`** with a safe message: unknown type or operator, an operator not allowed for the type, or a value that doesn't parse strictly. `assertValid()` runs the same checks without evaluating, for the builder.
+- **Values are parsed with strict patterns and compared with plain PHP operators.** The evaluator contains no `eval` or dynamic calls, and a test checks this.
+
+## Actions: `AutomationActionManager`
+
+`AutomationActionManager::execute($action, $context)` returns an `AutomationActionResult`: `success`, `status` (`completed`, `skipped` or `failed`), a `message` safe to show in logs, and small `data`. It never throws:
+- An unknown stored action type fails as "Unsupported action."
+- An action whose automation belongs to a different organization than the event fails before any handler runs.
+- An unexpected exception becomes "The action failed unexpectedly." and is logged with the exception class only.
+
+| Type | Handler | Configuration | Idempotency |
+| --- | --- | --- | --- |
+| `create_task` | `CreateTaskAction` | `title` (required, placeholders), `description`, `priority` low/medium/high, `due_in_hours` 0–8760, `assign_to` (user in the same organization) | `tasks.idempotency_key` = hash(organization, action, trigger, event) is unique, so a retry returns `skipped / already_exists` |
+| `add_customer_tag` | `AddCustomerTagAction` | `tag` (normalized to a slug, max 50) | Unique `(organization_id, slug)` tag plus the pivot primary key; an existing tag returns `skipped / already_exists` |
+| `update_conversation_status` | `UpdateConversationStatusAction` | `status`: open, waiting_customer, waiting_business or closed | Setting the current status returns `skipped / unchanged` |
+| `notify_user` | `NotifyUserAction` | `message` (required, placeholders), `recipients` "admins" (default), "members" or a user ID in the organization, `channel` "in_app" only | Notification ID = UUIDv5(action + event + user), so a retry returns `skipped / already_exists` |
+| `schedule_follow_up` | `ScheduleFollowUpAction` | — | Registered; returns `skipped / not_implemented` |
+| `send_email` | `SendEmailAction` | — | Registered; returns `skipped / not_implemented`. It sends nothing; when built it must go through `EmailService` with opt-out, settings, approval and rate-limit checks. |
+
+Every handler loads customers, conversations and users within the context's organization and fails safely on IDs from another tenant.
+
+## New data
+
+- `tasks`: organization, customer, conversation, assignee, title, description, priority, status (`pending`/`completed`/`cancelled`), `due_at`, `completed_at`, `idempotency_key`
+- `customer_tags` (unique per organization by slug) and the `customer_customer_tag` pivot
+- `notifications`: Laravel's standard database-notifications table
+- `ConversationStatus` gains `waiting_customer` and `waiting_business`

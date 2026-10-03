@@ -69,4 +69,20 @@ class Organization extends Model
     {
         return $this->hasMany(AutomationRun::class);
     }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
+
+    /**
+     * @return HasMany<CustomerTag, $this>
+     */
+    public function customerTags(): HasMany
+    {
+        return $this->hasMany(CustomerTag::class);
+    }
 }
