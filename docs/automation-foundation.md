@@ -301,6 +301,8 @@ Otherwise the action run is `skipped` with the reason, e.g. "Automatic emails ar
 
 ## Follow-ups (`schedule_follow_up`)
 
+> Superseded by Task 8: see `docs/follow-ups.md`. A due follow-up that may not be emailed now stays **due** for a person ("Follow-up ready"), with a notification, instead of creating a reminder task.
+
 ```
 action → follow_ups row (pending, due_at = now + delay_days)
 customer replies (CustomerReplyReceived) → pending follow-ups of that conversation: skipped, "Follow-up skipped: Customer replied."

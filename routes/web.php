@@ -1,21 +1,37 @@
 <?php
 
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
+use App\Livewire\Customers\ShowCustomer;
+use App\Livewire\Dashboard;
+use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
 use App\Livewire\Settings\Automations\AutomationEditor;
 use App\Livewire\Settings\Automations\AutomationIndex;
 use App\Livewire\Settings\Automations\AutomationRunLog;
+use App\Livewire\Settings\BusinessSettings;
 use App\Livewire\Settings\EmailSettings;
 use App\Models\Automation;
 use App\Models\EmailConnection;
+use App\Models\FollowUp;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    Route::get('/follow-ups', FollowUpIndex::class)->middleware('can:viewAny,'.FollowUp::class)->name('follow-ups.index');
+    // Looked up inside the user's organization by the component.
+    Route::get('/customers/{customerId}', ShowCustomer::class)->whereNumber('customerId')->name('customers.show');
+});
+
 Route::middleware('auth')->prefix('settings')->name('settings.')->group(function () {
+    Route::get('/business', BusinessSettings::class)
+        ->middleware('can:create,'.Automation::class)
+        ->name('business');
+
     Route::get('/email', EmailSettings::class)
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');

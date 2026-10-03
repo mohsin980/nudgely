@@ -3,29 +3,30 @@
 namespace App\Services\Automation\Actions;
 
 use App\Contracts\Automation\AutomationActionInterface;
-use App\Enums\FollowUpStatus;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
+use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Models\AutomationRun;
-use App\Models\FollowUp;
 use App\Services\Automation\AutomationActionResult;
 use App\Services\Automation\AutomationContext;
 use App\Services\Automation\EmailTemplateRenderer;
-use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Facades\DB;
+use App\Services\FollowUps\FollowUpService;
 
 /**
  * schedule_follow_up: plans a follow-up for the conversation, processed by the scheduler when due.
  *
  * Configuration: delay_days (1–60), subject and body (email templates with {{variables}}).
- * When due, FollowUpProcessor re-checks everything; a customer reply first cancels it.
- * Idempotent per action and event through follow_ups.idempotency_key.
+ * Creates an automated FollowUp (Task 8). When due, FollowUpProcessor re-checks everything;
+ * a customer reply first skips it. Idempotent per action and event through follow_ups.idempotency_key.
  */
 class ScheduleFollowUpAction implements AutomationActionInterface
 {
     public const MAX_DELAY_DAYS = 60;
 
-    public function __construct(private readonly EmailTemplateRenderer $templates) {}
+    public function __construct(
+        private readonly EmailTemplateRenderer $templates,
+        private readonly FollowUpService $followUps,
+    ) {}
 
     public function execute(AutomationAction $action, AutomationContext $context): AutomationActionResult
     {
@@ -56,38 +57,28 @@ class ScheduleFollowUpAction implements AutomationActionInterface
             return AutomationActionResult::failed('A follow-up needs a conversation and customer in this organization.');
         }
 
-        $key = $context->idempotencyKey($action);
+        $automation = Automation::query()->where('organization_id', $context->organizationId)->findOrFail($action->automation_id);
 
-        if ($key !== null && ($existing = FollowUp::query()->where('idempotency_key', $key)->value('id')) !== null) {
-            return AutomationActionResult::skipped('Follow-up already scheduled.', ['reason' => 'already_exists', 'follow_up_id' => $existing]);
-        }
+        [$followUp, $created] = $this->followUps->scheduleAutomated(
+            $automation,
+            $conversation,
+            now()->addDays($delayDays),
+            $subject,
+            $body,
+            $context->idempotencyKey($action),
+            [
+                'automation_action_id' => $action->id,
+                'automation_run_id' => $context->eventId === null ? null : AutomationRun::query()
+                    ->where('organization_id', $context->organizationId)
+                    ->where('automation_id', $action->automation_id)
+                    ->where('event_type', $context->triggerType)
+                    ->where('event_id', $context->eventId)
+                    ->value('id'),
+            ],
+        );
 
-        try {
-            $followUp = DB::transaction(function () use ($action, $context, $conversation, $customer, $subject, $body, $delayDays, $key) {
-                $followUp = new FollowUp;
-                $followUp->forceFill([
-                    'organization_id' => $context->organizationId,
-                    'customer_id' => $customer->id,
-                    'conversation_id' => $conversation->id,
-                    'automation_id' => $action->automation_id,
-                    'automation_action_id' => $action->id,
-                    'automation_run_id' => $context->eventId === null ? null : AutomationRun::query()
-                        ->where('organization_id', $context->organizationId)
-                        ->where('automation_id', $action->automation_id)
-                        ->where('event_type', $context->triggerType)
-                        ->where('event_id', $context->eventId)
-                        ->value('id'),
-                    'subject' => $subject,
-                    'body' => $body,
-                    'status' => FollowUpStatus::Pending,
-                    'due_at' => now()->addDays($delayDays),
-                    'idempotency_key' => $key,
-                ])->save();
-
-                return $followUp;
-            });
-        } catch (UniqueConstraintViolationException) {
-            return AutomationActionResult::skipped('Follow-up already scheduled.', ['reason' => 'already_exists', 'follow_up_id' => FollowUp::query()->where('idempotency_key', $key)->value('id')]);
+        if (! $created) {
+            return AutomationActionResult::skipped('Follow-up already scheduled.', ['reason' => 'already_exists', 'follow_up_id' => $followUp->id]);
         }
 
         return AutomationActionResult::completed('Follow-up scheduled for '.$followUp->due_at->format('M j, Y').'.', ['follow_up_id' => $followUp->id]);

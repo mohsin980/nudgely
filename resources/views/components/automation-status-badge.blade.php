@@ -6,7 +6,7 @@
     $label = method_exists($status, 'label') ? $status->label() : ucfirst($value);
     $classes = match ($value) {
         'active', 'completed' => 'bg-green-50 text-green-700 ring-green-600/20',
-        'paused', 'skipped' => 'bg-amber-50 text-amber-800 ring-amber-600/20',
+        'paused', 'skipped', 'due' => 'bg-amber-50 text-amber-800 ring-amber-600/20',
         'failed' => 'bg-red-50 text-red-700 ring-red-600/20',
         'running', 'pending', 'processing' => 'bg-blue-50 text-blue-700 ring-blue-600/20',
         default => 'bg-gray-50 text-gray-700 ring-gray-500/20',

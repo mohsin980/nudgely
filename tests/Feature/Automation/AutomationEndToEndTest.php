@@ -6,6 +6,7 @@ use App\Enums\Automation\AutomationActionRunStatus;
 use App\Enums\Automation\AutomationRunStatus;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
+use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\TaskPriority;
 use App\Events\CustomerReplyClassified;
@@ -23,7 +24,6 @@ use App\Models\User;
 use App\Services\AI\ReplyClassifierManager;
 use App\Services\Automation\AutomationBuilder;
 use App\Services\Automation\AutomationTemplates;
-use App\Services\Automation\FollowUpProcessor;
 use App\Services\Email\ReplyRouteService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -141,11 +141,11 @@ class AutomationEndToEndTest extends TestCase
         $this->travel(1)->day();
         $this->customerReplies(CustomerReplyIntent::Question, 0.9);
         $this->travel(2)->days();
-        $this->artisan('automations:process-follow-ups')->assertSuccessful();
+        $this->artisan('follow-ups:process-due')->assertSuccessful();
 
         $followUp->refresh();
         $this->assertSame(FollowUpStatus::Skipped, $followUp->status);
-        $this->assertSame(FollowUpProcessor::CUSTOMER_REPLIED, $followUp->outcome);
+        $this->assertSame(FollowUpSkipReason::CustomerReplied, $followUp->skip_reason);
         $this->assertSame(0, Message::where('direction', 'outbound')->count());
     }
 

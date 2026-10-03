@@ -61,6 +61,14 @@ class Customer extends Model
         return $this->belongsToMany(CustomerTag::class)->withPivot('created_at');
     }
 
+    /**
+     * @return HasMany<FollowUp, $this>
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(FollowUp::class);
+    }
+
     protected function email(): Attribute
     {
         return Attribute::make(set: fn (string $value) => strtolower(trim($value)));
