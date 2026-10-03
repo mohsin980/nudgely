@@ -53,4 +53,20 @@ class Organization extends Model
     {
         return $this->hasMany(Conversation::class);
     }
+
+    /**
+     * @return HasMany<Automation, $this>
+     */
+    public function automations(): HasMany
+    {
+        return $this->hasMany(Automation::class);
+    }
+
+    /**
+     * @return HasMany<AutomationRun, $this>
+     */
+    public function automationRuns(): HasMany
+    {
+        return $this->hasMany(AutomationRun::class);
+    }
 }

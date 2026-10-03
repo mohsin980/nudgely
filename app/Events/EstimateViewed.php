@@ -1,0 +1,41 @@
+<?php
+
+namespace App\Events;
+
+use App\Contracts\Automation\AutomationEvent;
+use App\Enums\Automation\AutomationTriggerType;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
+use Illuminate\Foundation\Events\Dispatchable;
+
+/**
+ * A customer opened an estimate.
+ *
+ * Not dispatched yet: QuoteFollow has no estimates feature. Defined so the automation
+ * trigger has a stable contract when estimates are built.
+ */
+final class EstimateViewed implements AutomationEvent, ShouldDispatchAfterCommit
+{
+    use Dispatchable;
+
+    public function __construct(
+        public readonly int $organizationId,
+        public readonly int $estimateId,
+        public readonly ?int $customerId = null,
+        public readonly ?int $conversationId = null,
+    ) {}
+
+    public function organizationId(): int
+    {
+        return $this->organizationId;
+    }
+
+    public function triggerType(): AutomationTriggerType
+    {
+        return AutomationTriggerType::EstimateViewed;
+    }
+
+    public function eventId(): string
+    {
+        return 'estimate:'.$this->estimateId;
+    }
+}
