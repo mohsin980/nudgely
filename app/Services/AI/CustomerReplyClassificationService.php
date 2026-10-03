@@ -5,6 +5,7 @@ namespace App\Services\AI;
 use App\Enums\ClassificationStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Events\CustomerReplyClassified;
 use App\Exceptions\AI\ClassificationFailedException;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Classification is analysis only: the only writes are a classification row and the
  * conversation's latest_intent / needs_attention flags. Nothing is sent, booked or changed.
+ * A successful classification is announced with CustomerReplyClassified (after commit).
  */
 class CustomerReplyClassificationService
 {
@@ -74,7 +76,10 @@ class CustomerReplyClassificationService
                 }
 
                 $classification = $this->recordSuccess($message, $requestId, $result);
-                $this->updateConversation($message, $classification);
+                $conversation = $this->updateConversation($message, $classification);
+
+                // Announce only; dispatched after this transaction commits, never if it rolls back.
+                event(CustomerReplyClassified::fromClassification($classification, $conversation->customer_id));
 
                 return $classification;
             });
@@ -161,24 +166,26 @@ class CustomerReplyClassificationService
     /**
      * Reflect the classification on the conversation, only if it is for the latest customer reply.
      */
-    private function updateConversation(Message $message, MessageClassification $classification): void
+    private function updateConversation(Message $message, MessageClassification $classification): Conversation
     {
         $conversation = Conversation::query()
             ->where('organization_id', $message->organization_id)
             ->lockForUpdate()
-            ->find($message->conversation_id);
+            ->findOrFail($message->conversation_id);
 
-        $latestInboundId = $conversation?->messages()
+        $latestInboundId = $conversation->messages()
             ->where('direction', MessageDirection::Inbound)
             ->orderByRaw('coalesce(received_at, created_at) desc')
             ->orderByDesc('id')
             ->value('id');
 
-        if ($conversation !== null && $latestInboundId === $message->id) {
+        if ($latestInboundId === $message->id) {
             $conversation->forceFill([
                 'latest_intent' => $classification->intent,
                 'needs_attention' => $classification->requires_human_review,
             ])->save();
         }
+
+        return $conversation;
     }
 }

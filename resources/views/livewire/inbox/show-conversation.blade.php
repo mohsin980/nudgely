@@ -93,7 +93,7 @@
                                 </dl>
 
                                 <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
-                                    <p>AI analysis only; no action has been taken. {{ $current->model }} · {{ $current->classified_at?->diffForHumans() }}</p>
+                                    <p>AI analysis only; the AI itself takes no action. {{ $current->model }} · {{ $current->classified_at?->diffForHumans() }}</p>
                                     @if ($this->canReclassify())
                                         <button type="button" wire:click="reclassify({{ $message->id }})" wire:loading.attr="disabled" wire:target="reclassify({{ $message->id }})"
                                                 class="rounded-md bg-white px-2 py-1 font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 disabled:opacity-50">
@@ -140,5 +140,29 @@
                 </li>
             @endforeach
         </ol>
+    @endif
+
+    @if ($this->automationActivity->isNotEmpty())
+        <section aria-labelledby="automation-activity-heading" class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 id="automation-activity-heading" class="text-xs font-semibold tracking-wide text-gray-500 uppercase">Automation activity</h2>
+            <ol role="list" class="mt-3 space-y-3">
+                @foreach ($this->automationActivity as $entry)
+                    <li wire:key="{{ $entry['key'] }}" class="text-sm">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="font-medium text-gray-900">{{ $entry['title'] }}</p>
+                            <x-automation-status-badge :status="$entry['status']" />
+                            <time class="text-xs text-gray-500" datetime="{{ $entry['at']->toIso8601String() }}">{{ $entry['at']->format('M j, Y g:i A') }}</time>
+                        </div>
+                        @if ($entry['details'])
+                            <ul role="list" class="mt-1 space-y-0.5 text-gray-700">
+                                @foreach ($entry['details'] as $detail)
+                                    <li>{{ $detail }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </li>
+                @endforeach
+            </ol>
+        </section>
     @endif
 </div>

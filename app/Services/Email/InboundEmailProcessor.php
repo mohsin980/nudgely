@@ -5,6 +5,7 @@ namespace App\Services\Email;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Events\CustomerReplyReceived;
 use App\Exceptions\Email\InvalidInboundEmailException;
 use App\Jobs\ClassifyCustomerReplyJob;
 use App\Models\Conversation;
@@ -96,6 +97,9 @@ class InboundEmailProcessor
 
         if ($senderMatches) {
             $conversation->recordActivity($message->received_at);
+
+            // Announce only; dispatched after the transaction commits.
+            event(new CustomerReplyReceived($route->organization_id, $message->id, $conversation->id, $customer->id));
 
             // Analysis only, after commit and off the webhook path. Held-for-review replies are not classified.
             if (config('ai.classification.enabled')) {

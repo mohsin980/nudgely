@@ -81,6 +81,22 @@ class Conversation extends Model
     /**
      * Move last_message_at forward (never backwards) and reopen the conversation.
      */
+    /**
+     * @return HasMany<AutomationRun, $this>
+     */
+    public function automationRuns(): HasMany
+    {
+        return $this->hasMany(AutomationRun::class);
+    }
+
+    /**
+     * @return HasMany<FollowUp, $this>
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(FollowUp::class);
+    }
+
     public function recordActivity(\DateTimeInterface $at): void
     {
         $this->forceFill([

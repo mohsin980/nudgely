@@ -65,21 +65,29 @@ class EmailService
 
     /**
      * Queue an email to a conversation's customer with a fresh secure Reply-To address,
-     * so the customer's reply is routed back into this conversation.
+     * so the customer's reply is routed back into this conversation. Customers who opted out are never emailed.
+     *
+     * @param  array<string, string>  $metadata
      *
      * @throws EmailSendingNotAllowedException
      */
-    public function sendToConversation(Conversation $conversation, string $subject, ?string $html = null, ?string $text = null): Message
+    public function sendToConversation(Conversation $conversation, string $subject, ?string $html = null, ?string $text = null, array $metadata = []): Message
     {
         $organization = $conversation->organization;
         $customer = $organization->customers()->findOrFail($conversation->customer_id);
+
+        if ($customer->hasOptedOutOfEmail()) {
+            throw EmailSendingNotAllowedException::optedOut();
+        }
+
         $connection = $this->defaultConnection($organization);
 
-        $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text) {
+        $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text, $metadata) {
             $message = $this->createMessage(
                 $connection, $customer->email, $subject, $html, $text,
                 replyTo: $this->replyRoutes->createFor($conversation),
                 toName: $customer->name,
+                metadata: $metadata,
                 conversationId: $conversation->id,
             );
 
