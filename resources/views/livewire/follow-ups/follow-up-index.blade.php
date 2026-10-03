@@ -15,7 +15,11 @@
         @include('follow-ups.schedule-form', ['customers' => $this->customers])
     @endif
 
-    @foreach (['overdue' => 'Overdue', 'due_today' => 'Due today', 'upcoming' => 'Upcoming'] as $key => $heading)
+    @if ($filter !== '')
+        <p class="text-sm text-gray-600">Showing {{ $filter === 'overdue' ? 'overdue' : 'today’s' }} follow-ups only. <a href="{{ route('follow-ups.index') }}" wire:navigate class="font-medium text-indigo-700 hover:underline">Show all follow-ups</a></p>
+    @endif
+
+    @foreach (array_filter(['overdue' => 'Overdue', 'due_today' => 'Due today', 'upcoming' => 'Upcoming'], fn ($heading, $key) => $filter === '' || ['overdue' => 'overdue', 'today' => 'due_today'][$filter] === $key, ARRAY_FILTER_USE_BOTH) as $key => $heading)
         <section aria-labelledby="{{ $key }}-heading" class="space-y-2" data-section="{{ $key }}">
             <h2 id="{{ $key }}-heading" @class(['text-sm font-semibold tracking-wide uppercase', 'text-red-700' => $key === 'overdue', 'text-gray-500' => $key !== 'overdue'])>
                 {{ $heading }} <span class="font-normal">({{ $this->sections[$key]->count() }})</span>
@@ -32,7 +36,7 @@
         </section>
     @endforeach
 
-    @foreach (['completed' => ['Completed', $this->completed], 'closed' => ['Cancelled & skipped', $this->closed]] as $key => [$heading, $items])
+    @foreach ($filter === '' ? ['completed' => ['Completed', $this->completed], 'closed' => ['Cancelled & skipped', $this->closed]] : [] as $key => [$heading, $items])
         <section aria-labelledby="{{ $key }}-heading" class="space-y-2" data-section="{{ $key }}">
             <h2 id="{{ $key }}-heading" class="text-sm font-semibold tracking-wide text-gray-500 uppercase">{{ $heading }}</h2>
             @if ($items->isEmpty())

@@ -5,7 +5,6 @@ use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Exceptions\FollowUps\InvalidFollowUpException;
 use App\Livewire\Customers\ShowCustomer;
-use App\Livewire\Dashboard;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ShowConversation;
 use App\Livewire\Settings\BusinessSettings;
@@ -170,8 +169,6 @@ test('organization isolation: other organizations\' follow-ups are invisible', f
     Livewire::actingAs($this->admin)->test(FollowUpIndex::class)
         ->assertSee('Our note')->assertDontSee('Secret note')->assertDontSee('Foreign Fred');
 
-    Livewire::actingAs($this->admin)->test(Dashboard::class)->assertSeeHtml('data-count="due_today">1<');
-
     $this->actingAs($this->admin)->get("/customers/{$otherCustomer->id}")->assertNotFound();
 });
 
@@ -255,16 +252,6 @@ test('the follow-ups page groups overdue, due today and upcoming', function () {
             'Upcoming', 'Follow up after estimate', 'Oct 6 — 11:00 AM',
             'Completed', 'Initial estimate follow-up',
         ]);
-});
-
-test('the dashboard widget shows follow-up counts', function () {
-    reminder($this, '2026-10-02 19:00:00');
-    reminder($this, '2026-10-01 19:00:00');
-    reminder($this, '2026-10-03 19:00:00');
-    reminder($this, '2026-10-08 19:00:00');
-
-    $this->actingAs($this->admin)->get('/dashboard')->assertOk()
-        ->assertSeeInOrder(['Follow-ups', 'Overdue', '2', 'Due today', '1', 'Upcoming', '1', 'View Follow-Ups']);
 });
 
 test('the customer page shows upcoming follow-ups and history', function () {

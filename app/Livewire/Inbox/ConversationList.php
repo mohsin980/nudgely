@@ -24,6 +24,7 @@ class ConversationList extends Component
      */
     public const FILTERS = [
         'all' => 'All',
+        'waiting' => 'Waiting for you',
         'needs_attention' => 'Needs attention',
         'ready_to_book' => 'Ready to book',
         'price_objection' => 'Price objection',
@@ -55,6 +56,7 @@ class ConversationList extends Component
 
         return $this->organization->conversations()
             ->with('customer')
+            ->when($filter === 'waiting', fn ($query) => $query->waitingForBusiness())
             ->when($filter === 'needs_attention', fn ($query) => $query->where('needs_attention', true))
             ->when(CustomerReplyIntent::tryFrom($filter), fn ($query, CustomerReplyIntent $intent) => $query->where('latest_intent', $intent))
             ->orderByRaw('last_message_at desc nulls last')

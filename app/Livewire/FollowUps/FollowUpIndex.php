@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
@@ -22,9 +23,23 @@ class FollowUpIndex extends Component
 {
     use ManagesFollowUps;
 
+    /**
+     * Optional section filter from the dashboard cards: "overdue" or "today".
+     */
+    #[Url(except: '')]
+    public string $filter = '';
+
     public function mount(): void
     {
         $this->authorize('viewAny', FollowUp::class);
+
+        if (! in_array($this->filter, ['', 'overdue', 'today'], true)) {
+            $this->filter = '';
+        }
+
+        if (request()->boolean('schedule')) {
+            $this->openScheduleForm();
+        }
     }
 
     /**

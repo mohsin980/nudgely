@@ -50,6 +50,14 @@ class AutomationRun extends Model
     }
 
     /**
+     * @return BelongsTo<Conversation, $this>
+     */
+    public function conversation(): BelongsTo
+    {
+        return $this->belongsTo(Conversation::class);
+    }
+
+    /**
      * @return HasMany<AutomationActionRun, $this>
      */
     public function actionRuns(): HasMany
