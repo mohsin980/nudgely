@@ -54,6 +54,19 @@ class FollowUpNotifier
     }
 
     /**
+     * The follow-up was dealt with (completed, cancelled, skipped, failed or rescheduled):
+     * its unread reminders no longer need anyone's attention.
+     */
+    public function resolve(FollowUp $followUp): int
+    {
+        return DB::table('notifications')
+            ->where('type', FollowUpNotification::class)
+            ->whereNull('read_at')
+            ->whereRaw("(data::jsonb ->> 'follow_up_id') = ?", [(string) $followUp->id])
+            ->update(['read_at' => now(), 'updated_at' => now()]);
+    }
+
+    /**
      * @return Collection<int, User>
      */
     private function recipients(FollowUp $followUp): Collection

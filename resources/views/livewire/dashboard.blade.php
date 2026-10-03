@@ -50,7 +50,7 @@
         </section>
 
         <div class="grid gap-6 lg:grid-cols-3">
-            <div class="space-y-6 lg:col-span-2">
+            <div class="min-w-0 space-y-6 lg:col-span-2">
                 {{-- Needs your attention --}}
                 <section aria-labelledby="attention-heading" class="{{ $card }}">
                     <h2 id="attention-heading" class="{{ $heading }}">Needs your attention</h2>
@@ -148,7 +148,7 @@
                 </section>
             </div>
 
-            <div class="space-y-6">
+            <div class="min-w-0 space-y-6">
                 {{-- Quick actions --}}
                 <section aria-labelledby="quick-heading" class="{{ $card }}">
                     <h2 id="quick-heading" class="{{ $heading }}">Quick actions</h2>

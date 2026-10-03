@@ -8,6 +8,7 @@ use App\Jobs\ProcessFollowUpJob;
 use App\Jobs\SendEmailJob;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\FollowUp;
 use App\Models\Message;
 use App\Notifications\FollowUpNotification;
 use App\Services\Email\EmailService;
@@ -336,4 +337,24 @@ test('an unverified sender fails the follow-up and tells the owner', function ()
     expect($followUp->fresh())->status->toBe(FollowUpStatus::Failed)->outcome->toContain('must be verified')
         ->and(DB::table('notifications')->count())->toBe(1)
         ->and(outboundEmails())->toBe(0);
+});
+
+test('a follow-up\'s reminders are cleared once it is dealt with', function () {
+    Queue::fake([SendEmailJob::class]);
+    allowAutomaticFollowUpEmail($this->organization);
+    $this->organization->forceFill(['require_approval_for_email' => true])->save();
+    $sent = automatedFollowUp($this->conversation);
+    $rescheduled = app(FollowUpService::class)->scheduleManual($this->admin, $this->customer, now()->addHour(), 'Call John');
+    $unread = fn (FollowUp $f) => $this->admin->unreadNotifications()->get()->where('data.follow_up_id', $f->id)->count();
+
+    makeDue($sent);
+    makeDue($rescheduled);
+    $this->processor->process($rescheduled->id);
+    expect($unread($sent))->toBe(1)->and($unread($rescheduled))->toBe(1);
+
+    $this->processor->sendNow($sent, $this->admin);
+    app(FollowUpService::class)->reschedule($rescheduled, $this->admin, now()->addDay());
+
+    expect($unread($sent))->toBe(0)->and($unread($rescheduled))->toBe(0)
+        ->and($this->admin->notifications()->count())->toBe(2); // kept as history, just read
 });
