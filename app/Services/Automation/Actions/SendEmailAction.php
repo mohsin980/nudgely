@@ -3,18 +3,17 @@
 namespace App\Services\Automation\Actions;
 
 use App\Contracts\Automation\AutomationActionInterface;
-use App\Enums\OrganizationRole;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Models\Organization;
-use App\Models\User;
 use App\Services\Automation\AutomatedEmailPolicy;
 use App\Services\Automation\AutomationActionResult;
 use App\Services\Automation\AutomationContext;
 use App\Services\Automation\EmailTemplateRenderer;
 use App\Services\Email\EmailService;
+use App\Services\Team\TeamDirectory;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
@@ -105,8 +104,8 @@ class SendEmailAction implements AutomationActionInterface
     {
         $organization = Organization::findOrFail($context->organizationId);
         $automation = Automation::query()->forOrganization($organization)->find($action->automation_id);
-        $owner = $automation?->created_by === null ? null : User::query()->where('organization_id', $organization->id)->find($automation->created_by);
-        $owner ??= User::query()->where('organization_id', $organization->id)->where('role', OrganizationRole::Admin)->orderBy('id')->first();
+        // The creator while active, else the default automation owner, else the business owner.
+        $owner = $automation === null ? app(TeamDirectory::class)->owner($organization->id) : app(TeamDirectory::class)->automationOwner($automation);
 
         if ($owner === null || ! filter_var($owner->email, FILTER_VALIDATE_EMAIL)) {
             return AutomationActionResult::failed('There is no one at the business to email.');

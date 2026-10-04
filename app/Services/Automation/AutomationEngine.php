@@ -14,6 +14,7 @@ use App\Models\AutomationAction;
 use App\Models\AutomationActionRun;
 use App\Models\AutomationRun;
 use App\Models\Organization;
+use App\Services\Team\ActivityNotifications;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -236,6 +237,10 @@ class AutomationEngine
 
         Log::info('Automation run finished without actions.', ['automation_run_id' => $run->id, 'status' => $status->value]);
 
+        if ($status === AutomationRunStatus::Failed) {
+            app(ActivityNotifications::class)->automationFailed($run->id);
+        }
+
         return $run;
     }
 
@@ -309,6 +314,10 @@ class AutomationEngine
             Log::info('Automation run skipped: this event was already handled.', ['automation_id' => $automation->id, 'event_id' => $context->eventId]);
 
             return null;
+        }
+
+        if ($status === AutomationRunStatus::Failed) {
+            app(ActivityNotifications::class)->automationFailed($run->id);
         }
 
         Log::info('Automation run created.', [
@@ -475,11 +484,16 @@ class AutomationEngine
 
         $failed = $run->actionRuns()->where('status', AutomationActionRunStatus::Failed)->count();
 
-        AutomationRun::query()
+        $finished = AutomationRun::query()
             ->whereKey($run->id)
             ->where('status', AutomationRunStatus::Running)
             ->update($failed > 0
                 ? ['status' => AutomationRunStatus::Failed, 'failed_at' => now(), 'failure_reason' => $failed === 1 ? '1 action failed.' : "{$failed} actions failed.", 'updated_at' => now()]
                 : ['status' => AutomationRunStatus::Completed, 'completed_at' => now(), 'updated_at' => now()]);
+
+        // Only the call that actually finished the run notifies (once).
+        if ($finished > 0 && $failed > 0) {
+            app(ActivityNotifications::class)->automationFailed($run->id);
+        }
     }
 }

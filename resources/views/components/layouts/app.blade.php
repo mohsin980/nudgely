@@ -21,7 +21,13 @@
                 </a>
 
                 @auth
-                    <span class="truncate text-sm text-gray-600">{{ auth()->user()->organization?->name }}</span>
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="truncate text-sm text-gray-600">{{ auth()->user()->organization?->name }}</span>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="text-sm font-medium text-gray-700 hover:underline">Sign out</button>
+                        </form>
+                    </div>
                 @endauth
             </div>
         </header>
@@ -97,31 +103,17 @@
                             </a>
                         </li>
                     @endcan
-                    <li class="hidden px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase lg:block" aria-hidden="true">Settings</li>
                     <li>
-                        <a href="{{ route('settings.email') }}"
-                           @if (request()->routeIs('settings.email')) aria-current="page" @endif
+                        <a href="{{ route('settings.index') }}"
+                           @if (request()->routeIs('settings.*')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('settings.email'),
-                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('settings.email'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 lg:mt-4',
+                               'bg-indigo-50 text-indigo-700' => request()->routeIs('settings.*'),
+                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('settings.*'),
                            ])>
-                            Email
+                            Settings
                         </a>
                     </li>
-                    @can('create', \App\Models\Automation::class)
-                        <li>
-                        <a href="{{ route('settings.business') }}"
-                           @if (request()->routeIs('settings.business')) aria-current="page" @endif
-                           @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('settings.business'),
-                               'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('settings.business'),
-                           ])>
-                            Business
-                        </a>
-                    </li>
-                    @endcan
 
                 </ul>
             </nav>

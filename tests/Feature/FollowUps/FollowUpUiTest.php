@@ -7,7 +7,7 @@ use App\Exceptions\FollowUps\InvalidFollowUpException;
 use App\Livewire\Customers\ShowCustomer;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ShowConversation;
-use App\Livewire\Settings\BusinessSettings;
+use App\Livewire\Settings\BusinessPreferences;
 use App\Models\FollowUp;
 use App\Models\User;
 use App\Services\FollowUps\FollowUpService;
@@ -225,15 +225,15 @@ test('"today" follows the organization\'s timezone', function () {
     Livewire::actingAs($this->admin->fresh())->test(FollowUpIndex::class)->assertSeeInOrder(['Upcoming', 'Late evening call', 'Completed']);
 });
 
-test('admins can set the business timezone; only US zones are accepted', function () {
-    Livewire::actingAs($this->admin)->test(BusinessSettings::class)
+test('the owner can set the business timezone; only real IANA zones are accepted', function () {
+    Livewire::actingAs($this->admin)->test(BusinessPreferences::class)
         ->assertSet('timezone', 'America/Chicago')
-        ->set('timezone', 'Asia/Karachi')->call('save')->assertHasErrors('timezone')
+        ->set('timezone', 'Mars/Phobos')->call('save')->assertHasErrors('timezone')
         ->set('timezone', 'America/Denver')->call('save')->assertHasNoErrors();
 
     expect($this->admin->organization->fresh()->timezone)->toBe('America/Denver');
 
-    $this->actingAs(User::factory()->for($this->admin->organization)->create())->get('/settings/business')->assertForbidden();
+    $this->actingAs(User::factory()->staff()->for($this->admin->organization)->create())->get('/settings/preferences')->assertForbidden();
 });
 
 // Pages

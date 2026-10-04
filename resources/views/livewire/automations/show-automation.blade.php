@@ -13,6 +13,9 @@
                 <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600"><x-automation-status-badge :status="$automation->status" />@if ($automation->description)<span>{{ $automation->description }}</span>@endif</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                @cannot('update', $automation)
+                    <a href="{{ route('automations.logs', $automation->id) }}" wire:navigate class="{{ $button }}">View Logs</a>
+                @else
                 @unless ($archived)
                     <a href="{{ route('automations.edit', $automation->id) }}" wire:navigate class="{{ $button }}">Edit</a>
                     @if ($automation->isActive())
@@ -28,6 +31,7 @@
                 @else
                     <button type="button" wire:click="$set('confirmArchive', true)" class="{{ $button }}">Archive</button>
                 @endif
+                @endcannot
             </div>
         </div>
     </div>
@@ -98,7 +102,7 @@
                         <p class="text-gray-700">Delete this automation? This can’t be undone.</p>
                         <div class="mt-2 flex gap-2"><button type="button" wire:click="delete" class="rounded-md bg-red-600 px-3 py-1.5 font-semibold text-white hover:bg-red-500">Delete</button><button type="button" wire:click="$set('confirmDelete', false)" class="px-2 font-medium text-gray-700 hover:underline">Cancel</button></div>
                     @else
-                        <button type="button" wire:click="$set('confirmDelete', true)" class="font-medium text-red-700 hover:underline">Delete automation</button>
+                        @can('delete', $automation)<button type="button" wire:click="$set('confirmDelete', true)" class="font-medium text-red-700 hover:underline">Delete automation</button>@endcan
                     @endif
                 </div>
             @endif

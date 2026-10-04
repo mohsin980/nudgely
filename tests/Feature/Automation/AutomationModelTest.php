@@ -27,7 +27,7 @@ class AutomationModelTest extends TestCase
     private function automation(?Organization $organization = null): Automation
     {
         $organization ??= Organization::factory()->create();
-        $creator = User::factory()->admin()->for($organization)->create();
+        $creator = User::factory()->manager()->for($organization)->create();
 
         $automation = new Automation(['name' => 'Customer Ready to Book', 'status' => AutomationStatus::Active, 'trigger_type' => AutomationTriggerType::CustomerReplyClassified]);
         $automation->forceFill(['organization_id' => $organization->id, 'created_by' => $creator->id])->save();
@@ -221,16 +221,16 @@ class AutomationModelTest extends TestCase
         $this->assertNull($automation->updated_by);
     }
 
-    public function test_policy_limits_automations_to_admins_of_the_same_organization(): void
+    public function test_policy_limits_automations_to_managers_of_the_same_organization(): void
     {
         $automation = $this->automation();
-        $admin = User::factory()->admin()->for($automation->organization)->create();
-        $member = User::factory()->for($automation->organization)->create();
+        $admin = User::factory()->manager()->for($automation->organization)->create();
+        $member = User::factory()->staff()->for($automation->organization)->create();
         $outsider = User::factory()->admin()->create();
 
         foreach (['view', 'update', 'delete'] as $ability) {
             $this->assertTrue($admin->can($ability, $automation), $ability);
-            $this->assertFalse($member->can($ability, $automation), $ability);
+            $this->assertSame($ability === 'view', $member->can($ability, $automation), $ability); // staff: read-only
             $this->assertFalse($outsider->can($ability, $automation), $ability);
         }
 

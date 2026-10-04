@@ -11,7 +11,12 @@
 <body class="h-full font-sans text-gray-900 antialiased">
     @php($status = $estimate->status)
     <main class="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:py-10">
-        <p class="text-sm text-gray-600">Estimate from <span class="font-semibold text-gray-900">{{ $document->organization->name }}</span></p>
+        <div class="flex items-center gap-3">
+            @if ($document->organization->logoUrl())
+                <img src="{{ $document->organization->logoUrl() }}" alt="{{ $document->organization->name }} logo" class="h-10 max-w-40 object-contain">
+            @endif
+            <p class="text-sm text-gray-600">Estimate from <span class="font-semibold text-gray-900">{{ $document->organization->name }}</span></p>
+        </div>
 
         @if (session('estimate-status'))
             <div role="status" class="rounded-md bg-green-50 p-4 text-sm text-green-800">{{ session('estimate-status') }}</div>

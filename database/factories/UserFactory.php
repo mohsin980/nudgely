@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\OrganizationRole;
+use App\Enums\Team\MemberStatus;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,7 +29,8 @@ class UserFactory extends Factory
     {
         return [
             'organization_id' => Organization::factory(),
-            'role' => OrganizationRole::Member,
+            'role' => OrganizationRole::Staff,
+            'status' => MemberStatus::Active,
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
@@ -48,12 +50,33 @@ class UserFactory extends Factory
     }
 
     /**
-     * Indicate that the user administers their organization.
+     * The organization's owner (each organization has exactly one).
+     */
+    public function owner(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => OrganizationRole::Owner]);
+    }
+
+    /**
+     * Alias of owner(): the person who runs the business account.
      */
     public function admin(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'role' => OrganizationRole::Admin,
-        ]);
+        return $this->owner();
+    }
+
+    public function manager(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => OrganizationRole::Manager]);
+    }
+
+    public function staff(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => OrganizationRole::Staff]);
+    }
+
+    public function suspended(): static
+    {
+        return $this->state(fn (array $attributes) => ['status' => MemberStatus::Suspended, 'suspended_at' => now()]);
     }
 }

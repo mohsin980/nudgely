@@ -8,10 +8,13 @@ use App\Enums\TaskStatus;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\Automation;
 use App\Models\AutomationAction;
+use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Automation\AutomationActionResult;
 use App\Services\Automation\AutomationContext;
+use App\Services\Team\ActivityNotifications;
+use App\Services\Team\TeamDirectory;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -51,13 +54,20 @@ class CreateTaskAction implements AutomationActionInterface
         }
 
         $assigneeId = $config['assign_to'] ?? null;
-        // "owner": the person who created the automation (unassigned if they left).
-        if ($assigneeId === 'owner') {
-            $assigneeId = Automation::query()->whereKey($action->automation_id)->value('created_by');
-        }
+        $team = app(TeamDirectory::class);
 
-        if ($assigneeId !== null && ! User::query()->whereKey($assigneeId)->where('organization_id', $context->organizationId)->exists()) {
-            return AutomationActionResult::failed('The assigned user is not a member of this organization.');
+        if ($assigneeId === 'owner') {
+            // The automation's owner: its creator while active, else the default automation owner.
+            $automation = Automation::query()->where('organization_id', $context->organizationId)->find($action->automation_id);
+            $assigneeId = $automation === null ? null : $team->automationOwner($automation)?->id;
+        } elseif ($assigneeId === null) {
+            // Not chosen in the automation: the business's default task assignee, if any.
+            $organization = Organization::find($context->organizationId);
+            $assigneeId = $organization === null ? null : $team->defaultTaskAssignee($organization)?->id;
+        } elseif ($team->activeMember($context->organizationId, $assigneeId) === null) {
+            return AutomationActionResult::failed(User::query()->whereKey($assigneeId)->where('organization_id', $context->organizationId)->exists()
+                ? 'The assigned person is suspended or no longer on the team.'
+                : 'The assigned user is not a member of this organization.');
         }
 
         if (($context->customerId !== null && $context->customer() === null) || ($context->conversationId !== null && $context->conversation() === null)) {
@@ -91,6 +101,8 @@ class CreateTaskAction implements AutomationActionInterface
         } catch (UniqueConstraintViolationException) {
             return AutomationActionResult::skipped('Task already created.', ['reason' => 'already_exists', 'task_id' => Task::query()->where('idempotency_key', $key)->value('id')]);
         }
+
+        app(ActivityNotifications::class)->taskAssigned($task);
 
         return AutomationActionResult::completed("Task created: {$task->title}", ['task_id' => $task->id]);
     }

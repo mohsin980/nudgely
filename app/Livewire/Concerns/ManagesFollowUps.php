@@ -12,6 +12,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
+use App\Services\Team\TeamDirectory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Locked;
@@ -40,6 +41,8 @@ trait ManagesFollowUps
     public string $cancelNote = '';
 
     public string $completionNotes = '';
+
+    public string $assignTo = '';
 
     public bool $showScheduleForm = false;
 
@@ -74,7 +77,7 @@ trait ManagesFollowUps
 
     public function openFollowUpForm(int $followUpId, string $form): void
     {
-        abort_unless(in_array($form, ['complete', 'reschedule', 'cancel'], true), 422);
+        abort_unless(in_array($form, ['complete', 'reschedule', 'cancel', 'assign'], true), 422);
         $followUp = $this->findFollowUp($followUpId);
 
         $this->resetErrorBag();
@@ -86,6 +89,7 @@ trait ManagesFollowUps
         $this->cancelReason = FollowUpCancelReason::ManuallyCancelled->value;
         $this->cancelNote = '';
         $this->completionNotes = '';
+        $this->assignTo = (string) ($followUp->assigned_to ?? '');
     }
 
     public function closeFollowUpForm(): void
@@ -93,6 +97,23 @@ trait ManagesFollowUps
         $this->activeFollowUpId = null;
         $this->followUpForm = '';
         $this->resetErrorBag();
+    }
+
+    /**
+     * Give the open follow-up to another active team member, or nobody.
+     */
+    public function assignFollowUp(FollowUpService $followUps): void
+    {
+        $assignee = $this->assignTo === '' ? null : app(TeamDirectory::class)->activeMember($this->organization()->id, $this->assignTo);
+
+        if ($this->assignTo !== '' && $assignee === null) {
+            $this->addError('followUp', 'Choose an active member of your team.');
+
+            return;
+        }
+
+        $this->runFollowUpAction(fn (FollowUp $followUp) => $followUps->assign($followUp, $this->actor(), $assignee),
+            $assignee ? "Follow-up assigned to {$assignee->name}." : 'Follow-up unassigned.');
     }
 
     public function completeFollowUp(FollowUpService $followUps): void
@@ -152,8 +173,10 @@ trait ManagesFollowUps
 
         $this->resetErrorBag();
         $this->showScheduleForm = true;
-        $this->scheduleDate = $this->organization()->localNow()->addDay()->format('Y-m-d');
-        $this->scheduleTime = '10:00';
+        // Business defaults (Settings → Follow-ups); the person can change both before saving.
+        $defaults = $this->organization()->businessSettings();
+        $this->scheduleDate = $this->organization()->localNow()->addDays($defaults->followUpDelayDays())->format('Y-m-d');
+        $this->scheduleTime = $defaults->followUpTime();
         $this->scheduleNotes = $this->defaultFollowUpNotes();
         $this->scheduleAssignee = (string) Auth::id();
     }
@@ -163,8 +186,14 @@ trait ManagesFollowUps
         $this->authorize('create', FollowUp::class);
         $this->resetErrorBag();
 
-        $assignee = $this->scheduleAssignee === '' ? null
-            : (User::query()->where('organization_id', $this->organization()->id)->find((int) $this->scheduleAssignee) ?? abort(404));
+        // Only active members of this organization can be given a follow-up.
+        $assignee = null;
+
+        if ($this->scheduleAssignee !== '' && ($assignee = app(TeamDirectory::class)->activeMember($this->organization()->id, $this->scheduleAssignee)) === null) {
+            $this->addError('scheduleAssignee', 'Choose an active member of your team.');
+
+            return;
+        }
 
         try {
             $target = $this->followUpTarget();
@@ -189,7 +218,7 @@ trait ManagesFollowUps
      */
     public function assignableUsers(): Collection
     {
-        return User::query()->where('organization_id', $this->organization()->id)->orderBy('name')->pluck('name', 'id');
+        return app(TeamDirectory::class)->assignableOptions($this->organization()->id);
     }
 
     /**

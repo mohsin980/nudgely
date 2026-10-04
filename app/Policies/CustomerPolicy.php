@@ -12,17 +12,17 @@ class CustomerPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isActiveMember();
     }
 
     public function view(User $user, Customer $customer): bool
     {
-        return $user->organization_id !== null && $customer->organization_id === $user->organization_id;
+        return $user->isActiveMember() && $customer->organization_id === $user->organization_id;
     }
 
     public function create(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isActiveMember();
     }
 
     public function update(User $user, Customer $customer): bool

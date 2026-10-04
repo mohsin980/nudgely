@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\Auth\RegistrationController;
+use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
+use App\Http\Controllers\Settings\LogoController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Livewire\Automations\AutomationForm;
 use App\Livewire\Automations\AutomationIndex;
@@ -16,13 +19,23 @@ use App\Livewire\Estimates\ShowEstimate;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
-use App\Livewire\Settings\BusinessSettings;
+use App\Livewire\Settings\AccountSecurity;
+use App\Livewire\Settings\AutomationDefaults;
+use App\Livewire\Settings\BusinessPreferences;
+use App\Livewire\Settings\BusinessProfile;
 use App\Livewire\Settings\EmailSettings;
+use App\Livewire\Settings\EstimateDefaults;
+use App\Livewire\Settings\FollowUpDefaults;
+use App\Livewire\Settings\NotificationSettings;
+use App\Livewire\Settings\RolesPermissions;
+use App\Livewire\Settings\TeamMembers;
+use App\Livewire\Team\AcceptInvitation;
 use App\Models\Automation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
 use App\Models\Estimate;
 use App\Models\FollowUp;
+use App\Support\Settings\SettingsNavigation;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -41,14 +54,41 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-Route::middleware('auth')->prefix('settings')->name('settings.')->group(function () {
-    Route::get('/business', BusinessSettings::class)
-        ->middleware('can:create,'.Automation::class)
-        ->name('business');
+// Sign in / out (plain Laravel session authentication).
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [SessionController::class, 'create'])->name('login');
+    Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:login');
+    Route::get('/register', [RegistrationController::class, 'create'])->name('register');
+    Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:login');
+});
+Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
+
+// Team invitation links: the unguessable token is the only credential.
+Route::get('/invitations/{token}', AcceptInvitation::class)->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:invitations')->name('invitations.show');
+
+// Business logos (shown on estimates): only a business's current logo file is served.
+Route::get('/logos/{file}', LogoController::class)->where('file', '[a-z0-9]{40}\.(png|jpg|webp)')->name('logos.show');
+
+// Settings: each page is limited to the roles allowed to use it (and re-checked by its component and services).
+Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name('settings.')->group(function () {
+    Route::get('/', fn () => redirect()->route(SettingsNavigation::home(auth()->user())))->name('index');
+
+    Route::get('/business', BusinessProfile::class)->middleware('can:manage-business-profile')->name('business');
+    Route::get('/preferences', BusinessPreferences::class)->middleware('can:manage-business-profile')->name('preferences');
 
     Route::get('/email', EmailSettings::class)
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');
+    Route::get('/notifications', NotificationSettings::class)->name('notifications');
+
+    Route::get('/team', TeamMembers::class)->middleware('can:manage-team')->name('team');
+    Route::get('/roles', RolesPermissions::class)->name('roles');
+
+    Route::get('/estimates', EstimateDefaults::class)->middleware('can:manage-business-defaults')->name('estimates');
+    Route::get('/follow-ups', FollowUpDefaults::class)->middleware('can:manage-business-defaults')->name('follow-ups');
+    Route::get('/automation', AutomationDefaults::class)->middleware('can:manage-business-defaults')->name('automation');
+
+    Route::get('/security', AccountSecurity::class)->name('security');
 
     // Automations moved to /automations (Task 12); old links keep working.
     Route::get('/automations/{path?}', fn (?string $path = null) => redirect('/automations'.($path ? '/'.str_replace('/runs', '/logs', $path) : ''), 301))->where('path', '.*')->name('automations.legacy');

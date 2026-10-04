@@ -75,7 +75,11 @@ class EstimateForm extends Component
         }
 
         $this->authorize('create', Estimate::class);
-        $this->validUntil = $organization->localNow()->addDays((int) config('estimates.default_valid_days'))->toDateString();
+        // Business defaults (Settings → Estimates) pre-fill a new estimate; anything typed replaces them.
+        $defaults = $organization->businessSettings();
+        $this->validUntil = $organization->localNow()->addDays($defaults->estimateValidDays())->toDateString();
+        $this->notes = $defaults->estimateNotes() ?? '';
+        $this->taxRate = $defaults->estimateTaxRate() ?? '';
         $this->items = [$this->blankItem()];
 
         // Pre-filled from a customer or conversation page; both looked up in this organization.
@@ -296,7 +300,7 @@ class EstimateForm extends Component
 
     private function currency(): string
     {
-        return $this->estimateId ? ($this->organization()->estimates()->whereKey($this->estimateId)->value('currency') ?? 'USD') : config('estimates.currency', 'USD');
+        return $this->estimateId ? ($this->organization()->estimates()->whereKey($this->estimateId)->value('currency') ?? 'USD') : $this->organization()->currencyCode();
     }
 
     private function organization(): Organization

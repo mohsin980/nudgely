@@ -141,8 +141,8 @@ class InboxTest extends TestCase
 
     public function test_guests_and_users_without_an_organization_are_kept_out(): void
     {
-        $this->get(route('inbox.index'))->assertRedirect('/');
-        $this->get(route('inbox.show', $this->conversation->id))->assertRedirect('/');
+        $this->get(route('inbox.index'))->assertRedirect(route('login'));
+        $this->get(route('inbox.show', $this->conversation->id))->assertRedirect(route('login'));
 
         $loner = User::factory()->create(['organization_id' => null]);
         $this->actingAs($loner)->get(route('inbox.index'))->assertForbidden();

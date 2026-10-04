@@ -61,7 +61,7 @@ class EmailSettingsTest extends TestCase
 
     public function test_guest_is_redirected_away_from_email_settings(): void
     {
-        $this->get(route('settings.email'))->assertRedirect('/');
+        $this->get(route('settings.email'))->assertRedirect(route('login'));
     }
 
     public function test_non_admin_member_cannot_view_email_settings(): void
@@ -84,7 +84,7 @@ class EmailSettingsTest extends TestCase
         $connection = EmailConnection::factory()->for($this->organization)->create();
         $component = $this->settings();
 
-        $this->admin->forceFill(['role' => 'member'])->save();
+        $this->admin->forceFill(['role' => 'staff'])->save();
 
         $component->call('confirmDelete', $connection->id)->assertForbidden();
         $this->assertModelExists($connection);

@@ -52,13 +52,14 @@
                 @endif
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'complete')" class="rounded-md bg-white px-2.5 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50">Complete</button>
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'reschedule')" class="rounded-md bg-white px-2.5 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50">Reschedule</button>
+                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'assign')" class="rounded-md bg-white px-2.5 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50">Assign</button>
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'cancel')" class="rounded-md px-2.5 py-1 text-sm font-medium text-red-700 hover:underline">Cancel</button>
             </div>
         @endif
     </div>
 
     @if ($activeFollowUpId === $followUp->id)
-        <form wire:submit="{{ ['complete' => 'completeFollowUp', 'reschedule' => 'rescheduleFollowUp', 'cancel' => 'cancelFollowUp'][$followUpForm] }}"
+        <form wire:submit="{{ ['complete' => 'completeFollowUp', 'reschedule' => 'rescheduleFollowUp', 'cancel' => 'cancelFollowUp', 'assign' => 'assignFollowUp'][$followUpForm] }}"
               class="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
             @error('followUp') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
 
@@ -71,6 +72,14 @@
                     <div><label for="reschedule-time-{{ $followUp->id }}" class="block text-sm font-medium text-gray-700">Time</label><input id="reschedule-time-{{ $followUp->id }}" type="time" wire:model="rescheduleTime" class="mt-1 {{ $field }}"></div>
                     <p class="pb-2 text-xs text-gray-500">{{ $organization->timezone() }}</p>
                 </div>
+            @elseif ($followUpForm === 'assign')
+                <label for="assign-to-{{ $followUp->id }}" class="block text-sm font-medium text-gray-700">Assign to</label>
+                <select id="assign-to-{{ $followUp->id }}" wire:model="assignTo" class="{{ $field }}">
+                    <option value="">Unassigned</option>
+                    @foreach ($this->assignableUsers() as $userId => $userName)
+                        <option value="{{ $userId }}">{{ $userName }}</option>
+                    @endforeach
+                </select>
             @else
                 <div class="flex flex-wrap items-end gap-3">
                     <div><label for="cancel-reason-{{ $followUp->id }}" class="block text-sm font-medium text-gray-700">Reason</label>
@@ -87,7 +96,7 @@
 
             <div class="flex gap-2">
                 <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">
-                    {{ ['complete' => 'Mark completed', 'reschedule' => 'Save new time', 'cancel' => 'Cancel follow-up'][$followUpForm] }}
+                    {{ ['complete' => 'Mark completed', 'reschedule' => 'Save new time', 'cancel' => 'Cancel follow-up', 'assign' => 'Save assignee'][$followUpForm] }}
                 </button>
                 <button type="button" wire:click="closeFollowUpForm" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Close</button>
             </div>

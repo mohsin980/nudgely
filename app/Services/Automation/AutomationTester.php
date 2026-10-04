@@ -7,7 +7,6 @@ use App\Enums\Automation\AutomationTriggerType as T;
 use App\Enums\ConversationStatus;
 use App\Enums\FollowUpStatus;
 use App\Enums\MessageDirection;
-use App\Enums\OrganizationRole;
 use App\Exceptions\Automation\InvalidAutomationConditionException;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\Automation;
@@ -23,6 +22,7 @@ use App\Models\User;
 use App\Services\Automation\Registry\ActionRegistry;
 use App\Services\Automation\Registry\TriggerDefinition;
 use App\Services\Automation\Registry\TriggerRegistry;
+use App\Services\Team\TeamDirectory;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -264,11 +264,11 @@ class AutomationTester
 
     private function recipientCount(Organization $organization, mixed $recipients): string
     {
-        $query = User::query()->where('organization_id', $organization->id);
+        $query = User::query()->activeIn($organization->id);
         $count = match (true) {
             $recipients === 'members' => $query->count(),
             is_int($recipients) => $query->whereKey($recipients)->count(),
-            default => $query->where('role', OrganizationRole::Admin)->count(),
+            default => app(TeamDirectory::class)->businessRecipients($organization)->count(),
         };
 
         return $count.' '.Str::plural('person', $count);

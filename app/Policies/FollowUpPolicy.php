@@ -12,12 +12,12 @@ class FollowUpPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isActiveMember();
     }
 
     public function create(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isActiveMember();
     }
 
     public function view(User $user, FollowUp $followUp): bool
@@ -35,6 +35,6 @@ class FollowUpPolicy
 
     private function sameOrganization(User $user, FollowUp $followUp): bool
     {
-        return $user->organization_id !== null && $followUp->organization_id === $user->organization_id;
+        return $user->isActiveMember() && $followUp->organization_id === $user->organization_id;
     }
 }

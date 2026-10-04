@@ -29,7 +29,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team');
 
 /*
 |--------------------------------------------------------------------------
@@ -214,4 +214,31 @@ function sentEstimate(User $actor, Customer $customer, array $overrides = []): E
     app(EstimateService::class)->send($actor, $estimate);
 
     return $estimate->refresh();
+}
+
+/*
+|--------------------------------------------------------------------------
+| Team helpers
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Dallas HVAC (America/Chicago, USD) with owner John Smith, manager Sarah Wilson, staff Mike Johnson,
+ * a verified sender (hello@dallashvac.com) and one customer.
+ *
+ * @return array{owner: User, manager: User, staff: User, organization: Organization, customer: Customer}
+ */
+function teamBusiness(string $name = 'Dallas HVAC'): array
+{
+    $owner = User::factory()->owner()->create(['name' => 'John Smith', 'email' => strtolower(str_replace(' ', '', $name)).'-john@example.com']);
+    $organization = $owner->organization;
+    $organization->forceFill(['name' => $name, 'timezone' => 'America/Chicago', 'automations_enabled' => true])->save();
+    $manager = User::factory()->manager()->for($organization)->create(['name' => 'Sarah Wilson']);
+    $staff = User::factory()->staff()->for($organization)->create(['name' => 'Mike Johnson']);
+    EmailConnection::factory()->verified()->default()->create([
+        'organization_id' => $organization->id, 'domain' => 'dallashvac.com', 'sender_email' => 'hello@dallashvac.com', 'sender_name' => $name,
+    ]);
+    $customer = Customer::factory()->for($organization)->create(['name' => 'Pat Customer', 'email' => 'pat@example.com']);
+
+    return ['owner' => $owner, 'manager' => $manager, 'staff' => $staff, 'organization' => $organization->refresh(), 'customer' => $customer];
 }

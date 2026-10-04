@@ -96,7 +96,7 @@ final class ActionRegistry
             ),
             new ActionDefinition(A::NotifyUser, 'Notify my team', 'Show an in-app notification (no email is sent).', [
                 new Field('message', 'Message', 'template', required: true, help: 'e.g. {{customer.name}} is ready to book.', max: 500),
-                new Field('recipients', 'Notify', 'select', options: ['admins' => 'Owners and admins', 'members' => 'Everyone in the business'], default: 'admins'),
+                new Field('recipients', 'Notify', 'select', options: ['admins' => 'The business (default recipient, or the owner and managers)', 'members' => 'Everyone on the team'], default: 'admins'),
             ],
                 requires: $none,
                 rules: fn (array $c, ActionValidation $v) => [

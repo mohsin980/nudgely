@@ -109,8 +109,8 @@ final class ActionValidation
         }
 
         if (! ctype_digit((string) $value) || ($this->organization !== null
-            && ! User::query()->where('organization_id', $this->organization->id)->whereKey((int) $value)->exists())) {
-            throw new InvalidArgumentException('Choose a person in your organization.');
+            && ! User::query()->activeIn($this->organization->id)->whereKey((int) $value)->exists())) {
+            throw new InvalidArgumentException('Choose an active person in your organization.');
         }
 
         return (int) $value;

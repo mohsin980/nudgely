@@ -74,7 +74,7 @@ class EstimateService
                 'estimate_number' => $this->nextNumber($organization),
                 'revision' => 1,
                 'status' => EstimateStatus::Draft,
-                'currency' => config('estimates.currency', 'USD'),
+                'currency' => $organization->currencyCode(),
                 'created_by' => $actor->id,
             ]);
             $this->fill($estimate, $data);
@@ -353,7 +353,7 @@ class EstimateService
             ]);
 
             if ($revision->isPastValidUntil($organization)) {
-                $revision->valid_until = $organization->localNow()->addDays((int) config('estimates.default_valid_days'))->toDateString();
+                $revision->valid_until = $organization->localNow()->addDays($organization->businessSettings()->estimateValidDays())->toDateString();
             }
 
             $revision->save();
