@@ -58,9 +58,9 @@
                                     <p class="truncate text-sm text-gray-700">{{ $estimate->customer?->name }} · {{ $estimate->title }}</p>
                                 </div>
                                 <p class="text-xs text-gray-600 sm:text-right">
-                                    Created {{ $organization->localTime($estimate->created_at)->format('M j, Y') }}
-                                    @if ($estimate->sent_at)<br class="hidden sm:inline"><span class="sm:hidden"> · </span>Sent {{ $organization->localTime($estimate->sent_at)->format('M j') }}@endif
-                                    @if ($estimate->valid_until)<br class="hidden sm:inline"><span class="sm:hidden"> · </span>Valid until {{ $estimate->valid_until->format('M j') }}@endif
+                                    Created {{ $organization->formatDate($estimate->created_at) }}
+                                    @if ($estimate->sent_at)<br class="hidden sm:inline"><span class="sm:hidden"> · </span>Sent {{ $organization->formatDate($estimate->sent_at) }}@endif
+                                    @if ($estimate->valid_until)<br class="hidden sm:inline"><span class="sm:hidden"> · </span>Valid until {{ $organization->formatCalendarDate($estimate->valid_until) }}@endif
                                 </p>
                                 <p class="text-base font-semibold text-gray-900 sm:text-right">{{ $estimate->money('total') }}</p>
                             </a>

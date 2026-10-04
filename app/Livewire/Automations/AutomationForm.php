@@ -284,7 +284,7 @@ class AutomationForm extends Component
             'fields' => ConditionFieldRegistry::all(),
             'actionDefinitions' => ActionRegistry::for($trigger),
             'variables' => $trigger?->variables() ?? [],
-            'users' => User::query()->where('organization_id', $organization->id)->orderBy('name')->pluck('name', 'id'),
+            'users' => User::query()->activeIn($organization->id)->orderBy('name')->pluck('name', 'id'),
             'summary' => AutomationSummary::fromInput($this->input()),
             'problems' => $this->step === 5 ? $builder->problems($organization, $this->input()) : [],
             'samples' => $this->step === 5 && $trigger !== null ? $tester->samples($organization, $trigger) : [],
@@ -382,7 +382,16 @@ class AutomationForm extends Component
      */
     private function stringDefaults(array $defaults): array
     {
-        return array_map(fn ($v) => $v === null ? '' : (string) $v, $defaults);
+        $defaults = array_map(fn ($v) => $v === null ? '' : (string) $v, $defaults);
+
+        // A new "Create follow-up" starts from the business's default delay (Settings → Follow-ups) when it's offered.
+        $delay = (string) $this->currentOrganization()->businessSettings()->followUpDelayDays();
+
+        if (array_key_exists('delay_days', $defaults) && array_key_exists($delay, ActionRegistry::FOLLOW_UP_DELAYS)) {
+            $defaults['delay_days'] = $delay;
+        }
+
+        return $defaults;
     }
 
     /**

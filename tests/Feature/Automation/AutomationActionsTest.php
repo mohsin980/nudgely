@@ -290,7 +290,7 @@ class AutomationActionsTest extends TestCase
     public function test_notify_user_creates_in_app_notifications_for_admins(): void
     {
         $member = User::factory()->for($this->admin->organization)->create();
-        $secondAdmin = User::factory()->admin()->for($this->admin->organization)->create();
+        $secondAdmin = User::factory()->manager()->for($this->admin->organization)->create();
 
         $result = $this->manager->execute($this->action(AutomationActionType::NotifyUser, ['message' => '{customer_name} is ready to book.']), $this->context());
 

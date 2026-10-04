@@ -66,18 +66,19 @@ class AutomationBuilderTest extends TestCase
         $this->actingAs($this->admin)->get("/settings/automations/{$automation->id}/runs")->assertRedirect("/automations/{$automation->id}/logs");
     }
 
-    public function test_members_and_guests_cannot_manage_automations(): void
+    public function test_staff_can_view_but_not_manage_automations_and_guests_cannot_see_them(): void
     {
-        $member = User::factory()->for($this->admin->organization)->create();
+        $member = User::factory()->staff()->for($this->admin->organization)->create();
         $automation = $this->automation();
 
         $this->get('/automations')->assertRedirect();
-        $this->actingAs($member)->get('/automations')->assertForbidden();
+        $this->actingAs($member)->get('/automations')->assertOk()->assertDontSee('Create Automation')->assertDontSee('Use template');
         $this->actingAs($member)->get('/automations/create')->assertForbidden();
-        $this->actingAs($member)->get("/automations/{$automation->id}")->assertForbidden();
+        $this->actingAs($member)->get("/automations/{$automation->id}")->assertOk()->assertDontSee('>Edit<', false);
         $this->actingAs($member)->get("/automations/{$automation->id}/edit")->assertForbidden();
-        $this->actingAs($member)->get("/automations/{$automation->id}/logs")->assertForbidden();
-        $this->actingAs($member)->get('/conversations')->assertDontSee('href="'.route('automations.index').'"', false);
+        $this->actingAs($member)->get("/automations/{$automation->id}/logs")->assertOk();
+        Livewire::actingAs($member)->test(ShowAutomation::class, ['automationId' => $automation->id])->call('pause')->assertForbidden();
+        Livewire::actingAs($member)->test(AutomationIndex::class)->call('installTemplate', 'ready_to_book')->assertForbidden();
     }
 
     public function test_another_organizations_automation_is_not_found(): void

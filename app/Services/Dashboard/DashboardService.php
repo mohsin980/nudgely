@@ -230,11 +230,11 @@ class DashboardService
             ->where('organization_id', $organization->id)
             ->where('status', TaskStatus::Pending)
             ->where(fn ($q) => $q->whereNull('due_at')->orWhere('due_at', '<=', $end))
-            ->with('customer:id,name')
+            ->with(['customer:id,name', 'assignee:id,name'])
             ->orderByRaw('due_at asc nulls last')
             ->orderBy('id')
             ->limit((int) config('dashboard.limits.tasks'))
-            ->get(['id', 'organization_id', 'customer_id', 'conversation_id', 'title', 'priority', 'status', 'due_at', 'idempotency_key', 'created_at']);
+            ->get(['id', 'organization_id', 'customer_id', 'conversation_id', 'assigned_to', 'title', 'priority', 'status', 'due_at', 'idempotency_key', 'created_at']);
     }
 
     /**

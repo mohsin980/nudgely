@@ -3,13 +3,14 @@
 namespace App\Services\Automation\Actions;
 
 use App\Contracts\Automation\AutomationActionInterface;
-use App\Enums\OrganizationRole;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\AutomationAction;
+use App\Models\Organization;
 use App\Models\User;
 use App\Notifications\AutomationNotification;
 use App\Services\Automation\AutomationActionResult;
 use App\Services\Automation\AutomationContext;
+use App\Services\Team\TeamDirectory;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -94,10 +95,11 @@ class NotifyUserAction implements AutomationActionInterface
      */
     private function recipients(mixed $recipients, int $organizationId): ?Collection
     {
-        $query = User::query()->where('organization_id', $organizationId)->orderBy('id');
+        // Only active members are notified; suspended and removed people never are.
+        $query = User::query()->activeIn($organizationId)->orderBy('id');
 
         return match (true) {
-            $recipients === 'admins' => $query->where('role', OrganizationRole::Admin)->get(),
+            $recipients === 'admins' => app(TeamDirectory::class)->businessRecipients(Organization::findOrFail($organizationId)),
             $recipients === 'members' => $query->get(),
             is_int($recipients) => ($user = $query->whereKey($recipients)->first()) ? collect([$user]) : null,
             default => null,

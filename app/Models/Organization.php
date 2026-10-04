@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Settings\OrganizationSettings;
 use Carbon\CarbonImmutable;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,7 +25,19 @@ class Organization extends Model
         'automations_enabled' => true,
         'automatic_email_enabled' => false,
         'require_approval_for_email' => true,
+        'country' => 'US',
+        'currency' => 'USD',
+        'date_format' => 'M j, Y',
+        'time_format' => '12h',
     ];
+
+    /** Supported currencies (no conversion): amounts are shown in this currency on new estimates. */
+    public const CURRENCIES = ['USD' => 'US dollar (USD)', 'CAD' => 'Canadian dollar (CAD)'];
+
+    /** PHP date formats offered to businesses. */
+    public const DATE_FORMATS = ['M j, Y' => 'Mon D, YYYY (Oct 4, 2026)', 'm/d/Y' => 'MM/DD/YYYY (10/04/2026)'];
+
+    public const TIME_FORMATS = ['12h' => '12-hour (2:30 PM)', '24h' => '24-hour (14:30)'];
 
     /**
      * Get the attributes that should be cast.
@@ -37,7 +50,60 @@ class Organization extends Model
             'automations_enabled' => 'boolean',
             'automatic_email_enabled' => 'boolean',
             'require_approval_for_email' => 'boolean',
+            'settings' => 'array',
         ];
+    }
+
+    /**
+     * Business defaults with built-in fallbacks (see OrganizationSettings).
+     */
+    public function businessSettings(): OrganizationSettings
+    {
+        return OrganizationSettings::fromArray($this->settings);
+    }
+
+    /**
+     * The one place dates are formatted with the business's preferences (timezone and format).
+     */
+    public function formatDate(?\DateTimeInterface $time): string
+    {
+        return $time === null ? '' : $this->localTime($time)->format($this->dateFormat());
+    }
+
+    public function formatTime(?\DateTimeInterface $time): string
+    {
+        return $time === null ? '' : $this->localTime($time)->format($this->time_format === '24h' ? 'H:i' : 'g:i A');
+    }
+
+    public function formatDateTime(?\DateTimeInterface $time): string
+    {
+        return $time === null ? '' : $this->formatDate($time).' '.$this->formatTime($time);
+    }
+
+    /**
+     * A calendar date (e.g. an estimate's valid-until date) without timezone conversion.
+     */
+    public function formatCalendarDate(?\DateTimeInterface $date): string
+    {
+        return $date === null ? '' : CarbonImmutable::instance($date)->format($this->dateFormat());
+    }
+
+    public function dateFormat(): string
+    {
+        return array_key_exists((string) $this->date_format, self::DATE_FORMATS) ? $this->date_format : 'M j, Y';
+    }
+
+    public function currencyCode(): string
+    {
+        return array_key_exists((string) $this->currency, self::CURRENCIES) ? $this->currency : 'USD';
+    }
+
+    /**
+     * Public URL of the uploaded logo (served by LogoController), or null.
+     */
+    public function logoUrl(): ?string
+    {
+        return $this->logo_path === null ? null : route('logos.show', basename($this->logo_path));
     }
 
     /**

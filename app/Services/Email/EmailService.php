@@ -198,6 +198,7 @@ class EmailService
             'from_name' => $connection->sender_name,
             'sent_at' => now(),
         ])->save();
+        $this->redactIfSensitive($message);
 
         Log::info('Email sent.', [
             'organization_id' => $message->organization_id,
@@ -303,6 +304,17 @@ class EmailService
         return $message;
     }
 
+    /**
+     * Messages whose body is a credential (e.g. an invitation link) keep only a placeholder once
+     * the provider has it, so the link isn't left in the database.
+     */
+    private function redactIfSensitive(Message $message): void
+    {
+        if (($message->metadata['redact_after_send'] ?? null) === '1') {
+            $message->forceFill(['body_text' => '[Removed after sending: this email contained a private link.]', 'body_html' => null])->save();
+        }
+    }
+
     private function markFailed(Message $message, EmailSendResult $result): EmailSendResult
     {
         $message->forceFill([
@@ -310,6 +322,7 @@ class EmailService
             'failed_at' => now(),
             'failure_reason' => $result->errorMessage,
         ])->save();
+        $this->redactIfSensitive($message);
 
         Log::warning('Email failed.', [
             'organization_id' => $message->organization_id,

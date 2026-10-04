@@ -560,8 +560,8 @@ test('quick actions: add a customer, schedule a follow-up, conversations and aut
     Livewire::withQueryParams(['filter' => 'overdue'])->actingAs($this->admin)->test(FollowUpIndex::class)
         ->assertSee('Overdue thing')->assertDontSee('Later thing')->assertSee('Show all follow-ups');
 
-    // Members don't manage automations, so the link is hidden for them.
-    dashboard(User::factory()->for($this->organization)->create())->assertDontSee('View Automations');
+    // Staff can view automations (read-only), so they see the link too.
+    dashboard(User::factory()->staff()->for($this->organization)->create())->assertSee('View Automations');
 });
 
 test('the inbox "Waiting for you" filter matches the dashboard card', function () {

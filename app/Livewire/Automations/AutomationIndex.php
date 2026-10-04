@@ -4,6 +4,7 @@ namespace App\Livewire\Automations;
 
 use App\Enums\Automation\AutomationRunStatus;
 use App\Enums\Automation\AutomationStatus;
+use App\Enums\Team\Permission;
 use App\Models\Automation;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationTemplates;
@@ -91,7 +92,7 @@ class AutomationIndex extends Component
 
     public function toggleSetting(string $setting): void
     {
-        $this->authorize('create', Automation::class);
+        $this->authorize(Permission::ManageEmail->value); // automatic-email safety is the owner's call
         abort_unless(in_array($setting, self::SETTINGS, true), 422);
 
         $organization = $this->currentOrganization();

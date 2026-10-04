@@ -23,6 +23,7 @@ use App\Services\Conversations\ConversationService;
 use App\Services\Conversations\TimelineService;
 use App\Services\Email\EmailHtmlSanitizer;
 use App\Services\Tasks\TaskService;
+use App\Services\Team\TeamDirectory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -82,6 +83,8 @@ class ShowConversation extends Component
 
     public string $taskPriority = 'medium';
 
+    public string $taskAssignee = '';
+
     public function mount(int $conversationId, ConversationService $conversations): void
     {
         $this->conversationId = $conversationId;
@@ -90,6 +93,9 @@ class ShowConversation extends Component
         $subject = (string) $this->conversation->subject;
         $this->replySubject = $subject === '' ? '' : (str_starts_with(strtolower($subject), 're:') ? $subject : 'Re: '.$subject);
         $this->composerOpen = request()->boolean('compose');
+        // New tasks: the business's default priority, assigned to me unless I choose someone else.
+        $this->taskPriority = $this->conversation->organization->businessSettings()->taskPriority()->value;
+        $this->taskAssignee = (string) Auth::id();
 
         // Reading the conversation marks only its own customer replies as read.
         $conversations->markRead(Auth::user(), $this->conversation);
@@ -205,6 +211,7 @@ class ShowConversation extends Component
     public function tasks(): Collection
     {
         return Task::query()
+            ->with('assignee:id,name')
             ->where('organization_id', $this->conversation->organization_id)
             ->where('conversation_id', $this->conversation->id)
             ->orderByRaw("case when status = 'pending' then 0 else 1 end")
@@ -313,7 +320,10 @@ class ShowConversation extends Component
         $this->resetErrorBag();
 
         try {
-            $tasks->create(Auth::user(), $this->conversation->customer, $this->taskTitle, TaskPriority::tryFrom($this->taskPriority) ?? TaskPriority::Medium, $this->conversation);
+            // Only an active member of this organization can be chosen (checked again by TaskService).
+            $assignee = $this->taskAssignee === '' ? null
+                : (app(TeamDirectory::class)->activeMember($this->conversation->organization_id, $this->taskAssignee) ?? throw ConversationActionException::invalid(['taskAssignee' => 'Choose an active member of your team.']));
+            $tasks->create(Auth::user(), $this->conversation->customer, $this->taskTitle, TaskPriority::tryFrom($this->taskPriority) ?? TaskPriority::Medium, $this->conversation, assignee: $assignee);
         } catch (ConversationActionException $e) {
             $this->failWith($e, 'taskTitle');
 
@@ -322,8 +332,33 @@ class ShowConversation extends Component
 
         $this->showTaskForm = false;
         $this->taskTitle = '';
+        $this->taskAssignee = (string) Auth::id();
         unset($this->tasks);
         $this->resetFeed();
+    }
+
+    public function assignTask(int $taskId, string $userId, TaskService $tasks): void
+    {
+        $this->authorize('update', $this->conversation);
+        $task = Task::query()->where('organization_id', $this->conversation->organization_id)->where('conversation_id', $this->conversation->id)->whereKey($taskId)->first() ?? abort(404);
+        $assignee = $userId === '' ? null : app(TeamDirectory::class)->activeMember($this->conversation->organization_id, $userId);
+
+        if ($userId !== '' && $assignee === null) {
+            $this->flash('Choose an active member of your team.', 'error');
+
+            return;
+        }
+
+        try {
+            $tasks->assign(Auth::user(), $task, $assignee);
+        } catch (ConversationActionException $e) {
+            $this->flash($e->getMessage(), 'error');
+
+            return;
+        }
+
+        $this->flash($assignee ? "Task assigned to {$assignee->name}." : 'Task unassigned.', 'success');
+        unset($this->tasks);
     }
 
     public function completeTask(int $taskId, TaskService $tasks): void

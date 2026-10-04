@@ -2,42 +2,43 @@
 
 namespace App\Policies;
 
+use App\Enums\Team\Permission;
 use App\Models\Automation;
 use App\Models\User;
 
 /**
- * Automations (and their conditions, actions and run logs) are managed by organization
- * admins, only within their own organization.
+ * Everyone in the organization can see its automations and their logs; owners and managers
+ * build and run them. Never across organizations.
  */
 class AutomationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOrganizationAdmin();
+        return $user->hasPermission(Permission::ViewAutomations);
     }
 
     public function view(User $user, Automation $automation): bool
     {
-        return $this->ownsAutomation($user, $automation);
+        return $user->hasPermission(Permission::ViewAutomations) && $automation->organization_id === $user->organization_id;
     }
 
     public function create(User $user): bool
     {
-        return $user->isOrganizationAdmin();
+        return $user->hasPermission(Permission::ManageAutomations);
     }
 
     public function update(User $user, Automation $automation): bool
     {
-        return $this->ownsAutomation($user, $automation);
+        return $this->manages($user, $automation);
     }
 
     public function delete(User $user, Automation $automation): bool
     {
-        return $this->ownsAutomation($user, $automation);
+        return $this->manages($user, $automation);
     }
 
-    private function ownsAutomation(User $user, Automation $automation): bool
+    private function manages(User $user, Automation $automation): bool
     {
-        return $user->isOrganizationAdmin() && $automation->organization_id === $user->organization_id;
+        return $user->hasPermission(Permission::ManageAutomations) && $automation->organization_id === $user->organization_id;
     }
 }

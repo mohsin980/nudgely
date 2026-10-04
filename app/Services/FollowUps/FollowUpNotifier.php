@@ -2,10 +2,15 @@
 
 namespace App\Services\FollowUps;
 
-use App\Enums\OrganizationRole;
+use App\Enums\Team\NotificationChannel;
+use App\Enums\Team\NotificationType;
 use App\Models\FollowUp;
+use App\Models\Organization;
 use App\Models\User;
 use App\Notifications\FollowUpNotification;
+use App\Services\Team\NotificationPreferences;
+use App\Services\Team\TeamDirectory;
+use App\Services\Team\TeamNotifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -16,6 +21,8 @@ use Ramsey\Uuid\Uuid;
  */
 class FollowUpNotifier
 {
+    public function __construct(private readonly NotificationPreferences $preferences) {}
+
     public const DUE = 'due';
 
     public const READY = 'ready';
@@ -36,8 +43,18 @@ class FollowUpNotifier
         };
 
         $sent = 0;
+        $recipients = $this->recipients($followUp);
+        $organization = Organization::findOrFail($followUp->organization_id);
 
-        foreach ($this->recipients($followUp) as $user) {
+        // Email, for people who asked for follow-up emails (once per follow-up, kind and due time).
+        app(TeamNotifier::class)->notify($organization, NotificationType::FollowUpDue, $recipients, $message, route('follow-ups.index'),
+            "follow-up:{$followUp->id}:{$kind}:{$followUp->due_at->timestamp}", inApp: false);
+
+        foreach ($recipients as $user) {
+            if (! $this->preferences->enabled($user, NotificationType::FollowUpDue, NotificationChannel::InApp, $organization)) {
+                continue;
+            }
+
             $notification = new FollowUpNotification($message, route('follow-ups.index'), $followUp->id, $kind);
             // Deterministic: a retried job can't notify twice, but a rescheduled follow-up can notify again.
             $notification->id = Uuid::uuid5(Uuid::NAMESPACE_URL, "follow-up|{$followUp->id}|{$kind}|{$followUp->due_at->timestamp}|{$user->id}")->toString();
@@ -71,12 +88,10 @@ class FollowUpNotifier
      */
     private function recipients(FollowUp $followUp): Collection
     {
-        $query = User::query()->where('organization_id', $followUp->organization_id);
+        $team = app(TeamDirectory::class);
+        $assignee = $team->activeMember($followUp->organization_id, $followUp->assigned_to);
 
-        if ($followUp->assigned_to !== null && ($assignee = (clone $query)->whereKey($followUp->assigned_to)->first()) !== null) {
-            return collect([$assignee]);
-        }
-
-        return $query->where('role', OrganizationRole::Admin)->get();
+        // The assignee while active, else the owner and managers.
+        return $assignee !== null ? collect([$assignee]) : $team->leaders($followUp->organization_id);
     }
 }

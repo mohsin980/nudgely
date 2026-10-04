@@ -53,9 +53,7 @@ class FollowUpService
             throw new InvalidFollowUpException('That estimate does not belong to this customer.');
         }
 
-        if ($assignee !== null && $assignee->organization_id !== $organizationId) {
-            throw new InvalidFollowUpException('Follow-ups can only be assigned to people in your organization.');
-        }
+        $this->assertAssignable($assignee, $organizationId);
 
         $notes = $this->notes($notes);
         $dueAt = $this->validDueAt($dueAt);
@@ -210,6 +208,44 @@ class FollowUpService
 
             return $notes;
         });
+    }
+
+    /**
+     * Give an open follow-up to someone else on the team (or nobody).
+     *
+     * @throws InvalidFollowUpException
+     */
+    public function assign(FollowUp $followUp, User $actor, ?User $assignee): FollowUp
+    {
+        if ($followUp->organization_id !== $actor->organization_id) {
+            throw new InvalidFollowUpException('Follow-up not found.');
+        }
+
+        if (! $followUp->status->isOpen()) {
+            throw new InvalidFollowUpException('Only open follow-ups can be reassigned.');
+        }
+
+        $this->assertAssignable($assignee, $followUp->organization_id);
+        $followUp->forceFill(['assigned_to' => $assignee?->id])->save();
+        Log::info('Follow-up assigned.', ['organization_id' => $followUp->organization_id, 'follow_up_id' => $followUp->id, 'user_id' => $actor->id]);
+
+        return $followUp;
+    }
+
+    /**
+     * Only active members of the same organization can be given a follow-up.
+     *
+     * @throws InvalidFollowUpException
+     */
+    private function assertAssignable(?User $assignee, int $organizationId): void
+    {
+        if ($assignee !== null && $assignee->organization_id !== $organizationId) {
+            throw new InvalidFollowUpException('Follow-ups can only be assigned to people in your organization.');
+        }
+
+        if ($assignee !== null && ! $assignee->isActiveMember()) {
+            throw new InvalidFollowUpException('Follow-ups can only be assigned to active team members.');
+        }
     }
 
     /**

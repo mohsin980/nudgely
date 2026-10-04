@@ -217,6 +217,9 @@
                         <div><label for="task-title" class="block text-sm font-medium text-gray-700">Task</label><input id="task-title" type="text" wire:model="taskTitle" maxlength="255" placeholder="Call John about the install date" class="{{ $field }}">@error('taskTitle') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                         <div><label for="task-priority" class="block text-sm font-medium text-gray-700">Priority</label>
                             <select id="task-priority" wire:model="taskPriority" class="{{ $field }}">@foreach (\App\Enums\TaskPriority::cases() as $p)<option value="{{ $p->value }}">{{ ucfirst($p->value) }}</option>@endforeach</select></div>
+                        <div><label for="task-assignee" class="block text-sm font-medium text-gray-700">Assign to</label>
+                            <select id="task-assignee" wire:model="taskAssignee" class="{{ $field }}">@foreach ($this->assignableUsers() as $userId => $userName)<option value="{{ $userId }}">{{ $userName }}{{ $userId === auth()->id() ? ' (me)' : '' }}</option>@endforeach</select>
+                            @error('taskAssignee') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                         <div class="flex gap-2">
                             <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">Add task</button>
                             <button type="button" wire:click="$set('showTaskForm', false)" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
@@ -228,7 +231,7 @@
                 @else
                     <ul role="list" class="mt-2 divide-y divide-gray-100 text-sm" data-section="tasks">
                         @foreach ($this->tasks as $task)
-                            @include('livewire.partials.task-row')
+                            @include('livewire.partials.task-row', ['assignable' => $this->assignableUsers()])
                         @endforeach
                     </ul>
                 @endif

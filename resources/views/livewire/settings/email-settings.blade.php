@@ -1,8 +1,5 @@
+<x-settings.shell title="Email Settings" description="Configure the email address QuoteFlow will use when communicating with your customers.">
 <div class="space-y-8">
-    <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Email Settings</h1>
-        <p class="mt-1 text-sm text-gray-600">Configure the email address QuoteFlow will use when communicating with your customers.</p>
-    </div>
 
     @if ($statusMessage)
         <div wire:key="status-{{ md5($statusMessage) }}"
@@ -379,3 +376,4 @@
         </div>
     @endif
 </div>
+</x-settings.shell>

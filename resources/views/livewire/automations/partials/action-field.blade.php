@@ -13,7 +13,7 @@
             @break
         @case('user')
             <select id="{{ $id }}" wire:model="{{ $model }}" class="{{ $fieldClass }}">
-                <option value="">Unassigned (anyone on the team)</option>
+                <option value="">Default task assignee (see Automation defaults)</option>
                 <option value="owner">The automation owner</option>
                 @foreach ($users as $userId => $userName)
                     <option value="{{ $userId }}">{{ $userName }}</option>

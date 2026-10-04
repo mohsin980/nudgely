@@ -114,13 +114,13 @@
             <section aria-labelledby="status-heading" class="{{ $card }}">
                 <h2 id="status-heading" class="{{ $heading }}">Status</h2>
                 <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                    <dt class="text-gray-600">Created</dt><dd class="text-gray-900">{{ $organization->localTime($estimate->created_at)->format('M j, Y g:i A') }}</dd>
+                    <dt class="text-gray-600">Created</dt><dd class="text-gray-900">{{ $organization->formatDateTime($estimate->created_at) }}</dd>
                     @foreach (['sent_at' => 'Sent', 'viewed_at' => 'Viewed', 'accepted_at' => 'Accepted', 'declined_at' => 'Declined', 'expired_at' => 'Expired', 'cancelled_at' => 'Cancelled'] as $column => $label)
                         @if ($estimate->{$column})
-                            <dt class="text-gray-600">{{ $label }}</dt><dd class="text-gray-900">{{ $organization->localTime($estimate->{$column})->format('M j, Y g:i A') }}</dd>
+                            <dt class="text-gray-600">{{ $label }}</dt><dd class="text-gray-900">{{ $organization->formatDateTime($estimate->{$column}) }}</dd>
                         @endif
                     @endforeach
-                    <dt class="text-gray-600">Valid until</dt><dd class="text-gray-900">{{ $estimate->valid_until?->format('M j, Y') ?? 'No expiry' }}</dd>
+                    <dt class="text-gray-600">Valid until</dt><dd class="text-gray-900">{{ $estimate->valid_until ? $organization->formatCalendarDate($estimate->valid_until) : 'No expiry' }}</dd>
                     @if ($estimate->decline_reason || $estimate->decline_note)
                         <dt class="text-gray-600">Reason</dt><dd class="text-gray-900">{{ collect([$estimate->decline_reason?->label(), $estimate->decline_note])->filter()->implode(' — ') }}</dd>
                     @endif

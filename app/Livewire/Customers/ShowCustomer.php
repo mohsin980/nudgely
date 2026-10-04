@@ -106,6 +106,7 @@ class ShowCustomer extends Component
     public function tasks(): Collection
     {
         return $this->customer->tasks()
+            ->with('assignee:id,name')
             ->where('organization_id', $this->organization()->id)
             ->orderByRaw("case when status = 'pending' then 0 else 1 end")
             ->latest('id')

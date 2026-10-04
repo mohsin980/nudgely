@@ -2,22 +2,23 @@
 
 namespace App\Policies;
 
+use App\Enums\Team\Permission;
 use App\Models\EmailConnection;
 use App\Models\User;
 
 /**
- * Email settings are managed by organization admins, and only for their own organization.
+ * Email settings are managed by the owner, and only for their own organization.
  */
 class EmailConnectionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOrganizationAdmin();
+        return $user->hasPermission(Permission::ManageEmail);
     }
 
     public function create(User $user): bool
     {
-        return $user->isOrganizationAdmin();
+        return $user->hasPermission(Permission::ManageEmail);
     }
 
     public function update(User $user, EmailConnection $connection): bool
@@ -53,6 +54,6 @@ class EmailConnectionPolicy
 
     private function managesConnection(User $user, EmailConnection $connection): bool
     {
-        return $user->isOrganizationAdmin() && $connection->organization_id === $user->organization_id;
+        return $user->hasPermission(Permission::ManageEmail) && $connection->organization_id === $user->organization_id;
     }
 }

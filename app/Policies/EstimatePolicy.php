@@ -12,17 +12,17 @@ class EstimatePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isActiveMember();
     }
 
     public function view(User $user, Estimate $estimate): bool
     {
-        return $user->organization_id !== null && $estimate->organization_id === $user->organization_id;
+        return $user->isActiveMember() && $estimate->organization_id === $user->organization_id;
     }
 
     public function create(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isActiveMember();
     }
 
     public function update(User $user, Estimate $estimate): bool
