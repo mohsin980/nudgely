@@ -31,6 +31,7 @@ class Automation extends Model
      */
     protected $attributes = [
         'status' => 'draft',
+        'condition_match' => 'all',
     ];
 
     /**
@@ -43,6 +44,8 @@ class Automation extends Model
         return [
             'status' => AutomationStatus::class,
             'trigger_type' => AutomationTriggerType::class,
+            'wait_minutes' => 'integer',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -92,6 +95,35 @@ class Automation extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * @return HasMany<AutomationHistory, $this>
+     */
+    public function history(): HasMany
+    {
+        return $this->hasMany(AutomationHistory::class)->latest('id');
+    }
+
+    /**
+     * "3 days", "2 hours" — or null when there is no wait.
+     */
+    public function waitLabel(): ?string
+    {
+        return self::describeWait($this->wait_minutes);
+    }
+
+    public static function describeWait(?int $minutes): ?string
+    {
+        if (! $minutes) {
+            return null;
+        }
+
+        return match (true) {
+            $minutes % 1440 === 0 => ($d = intdiv($minutes, 1440)).' '.($d === 1 ? 'day' : 'days'),
+            $minutes % 60 === 0 => ($h = intdiv($minutes, 60)).' '.($h === 1 ? 'hour' : 'hours'),
+            default => $minutes.' minutes',
+        };
     }
 
     public function isActive(): bool

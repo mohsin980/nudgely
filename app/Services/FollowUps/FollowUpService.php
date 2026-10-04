@@ -124,6 +124,81 @@ class FollowUpService
     }
 
     /**
+     * An automation schedules a reminder for the team (a manual-type follow-up: the scheduler
+     * notifies people when it is due; nothing is emailed). Idempotent per key.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array{0: FollowUp, 1: bool} The follow-up, and whether it was newly created.
+     */
+    public function scheduleReminder(Automation $automation, Customer $customer, ?Conversation $conversation, ?Estimate $estimate, DateTimeInterface $dueAt, string $notes, ?string $idempotencyKey, array $attributes = []): array
+    {
+        if ($customer->organization_id !== $automation->organization_id
+            || ($conversation !== null && ($conversation->organization_id !== $automation->organization_id || $conversation->customer_id !== $customer->id))
+            || ($estimate !== null && ($estimate->organization_id !== $automation->organization_id || $estimate->customer_id !== $customer->id))) {
+            throw new InvalidFollowUpException('The customer, conversation or estimate does not belong to this organization.');
+        }
+
+        if ($idempotencyKey !== null && ($existing = FollowUp::query()->where('idempotency_key', $idempotencyKey)->first()) !== null) {
+            return [$existing, false];
+        }
+
+        try {
+            $followUp = DB::transaction(function () use ($automation, $customer, $conversation, $estimate, $dueAt, $notes, $idempotencyKey, $attributes) {
+                $followUp = new FollowUp;
+                $followUp->forceFill($attributes + [
+                    'organization_id' => $automation->organization_id,
+                    'customer_id' => $customer->id,
+                    'conversation_id' => $conversation?->id,
+                    'estimate_id' => $estimate?->id,
+                    'automation_id' => $automation->id,
+                    'type' => FollowUpType::Manual,
+                    'status' => FollowUpStatus::Pending,
+                    'created_by' => $automation->created_by,
+                    'due_at' => CarbonImmutable::instance($dueAt)->utc(),
+                    'notes' => $this->notes($notes),
+                    'idempotency_key' => $idempotencyKey,
+                    'metadata' => ['reason' => $automation->name, 'history' => [$this->event('scheduled', null, 'By automation “'.$automation->name.'”')]],
+                ])->save();
+
+                return $followUp;
+            });
+        } catch (UniqueConstraintViolationException) {
+            return [FollowUp::query()->where('idempotency_key', $idempotencyKey)->firstOrFail(), false];
+        }
+
+        Log::info('Follow-up scheduled.', ['organization_id' => $followUp->organization_id, 'follow_up_id' => $followUp->id, 'type' => 'reminder', 'automation_id' => $automation->id]);
+
+        return [$followUp, true];
+    }
+
+    /**
+     * An automation completes or cancels an open follow-up. Returns false when it was no longer open.
+     */
+    public function closeByAutomation(int $followUpId, FollowUpStatus $to, Automation $automation): bool
+    {
+        abort_unless(in_array($to, [FollowUpStatus::Completed, FollowUpStatus::Cancelled], true), 500);
+
+        return DB::transaction(function () use ($followUpId, $to, $automation) {
+            $locked = FollowUp::query()->where('organization_id', $automation->organization_id)->lockForUpdate()->find($followUpId);
+
+            if ($locked === null || ! $locked->status->canTransitionTo($to)) {
+                return false;
+            }
+
+            $detail = 'By automation “'.$automation->name.'”';
+            $locked->forceFill($to === FollowUpStatus::Completed
+                ? ['status' => $to, 'completed_at' => now(), 'completion_notes' => $detail, 'outcome' => 'Completed by an automation.']
+                : ['status' => $to, 'cancelled_at' => now(), 'cancelled_reason' => FollowUpCancelReason::Automation, 'outcome' => 'Cancelled by an automation.']);
+            $this->record($locked, $this->event($to === FollowUpStatus::Completed ? 'completed' : 'cancelled', null, $detail));
+            $locked->save();
+
+            Log::info('Follow-up '.$to->value.' by automation.', ['organization_id' => $locked->organization_id, 'follow_up_id' => $locked->id, 'automation_id' => $automation->id]);
+
+            return true;
+        });
+    }
+
+    /**
      * @throws InvalidFollowUpException
      */
     public function complete(FollowUp $followUp, User $actor, ?string $notes = null): FollowUp

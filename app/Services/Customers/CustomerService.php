@@ -3,6 +3,7 @@
 namespace App\Services\Customers;
 
 use App\Enums\CustomerStatus;
+use App\Events\CustomerCreated;
 use App\Exceptions\Conversations\DuplicateCustomerException;
 use App\Models\Customer;
 use App\Models\User;
@@ -38,6 +39,7 @@ class CustomerService
         }
 
         Log::info('Customer created.', ['organization_id' => $organization->id, 'customer_id' => $customer->id, 'user_id' => $actor->id]);
+        CustomerCreated::dispatch($organization->id, $customer->id);
 
         return $customer;
     }

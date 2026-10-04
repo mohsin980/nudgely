@@ -6,6 +6,7 @@ use App\Enums\FollowUpCancelReason;
 use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\FollowUpType;
+use App\Events\FollowUpCompleted;
 use App\Services\FollowUps\FollowUpNotifier;
 use Database\Factories\FollowUpFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -55,6 +56,11 @@ class FollowUp extends Model
         static::updated(function (FollowUp $followUp) {
             if ($followUp->wasChanged('status') && $followUp->status !== FollowUpStatus::Due) {
                 app(FollowUpNotifier::class)->resolve($followUp);
+            }
+
+            // Completed by a person or by sending its email: an automation trigger.
+            if ($followUp->wasChanged('status') && $followUp->status === FollowUpStatus::Completed && $followUp->customer_id !== null) {
+                FollowUpCompleted::dispatch($followUp->organization_id, $followUp->id, $followUp->conversation_id, $followUp->customer_id, $followUp->estimate_id);
             }
         });
     }

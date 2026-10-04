@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Settings\Automations;
+namespace App\Livewire\Automations;
 
 use App\Models\Automation;
 use App\Models\Organization;

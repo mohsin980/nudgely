@@ -24,6 +24,16 @@ class InvalidEmailTemplateException extends InvalidArgumentException
         return new self('This email uses estimate details, but there is no estimate for this customer conversation.');
     }
 
+    public static function notForTrigger(string $variable, string $trigger): self
+    {
+        return new self('{{'.$variable.'}} isn\'t available when the automation runs on “'.$trigger.'”.');
+    }
+
+    public static function missing(string $variable): self
+    {
+        return new self('This uses {{'.$variable.'}}, but this event doesn\'t have that information.');
+    }
+
     public static function malformed(): self
     {
         return new self('The template has unmatched {{ or }} braces.');

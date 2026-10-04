@@ -28,7 +28,7 @@ class ConditionEvaluatorTest extends TestCase
     {
         parent::setUp();
 
-        $this->evaluator = new ConditionEvaluator;
+        $this->evaluator = app(ConditionEvaluator::class);
         $this->conversation = Conversation::factory()->create(['last_message_at' => now()->subDays(3)->subHour()]);
     }
 

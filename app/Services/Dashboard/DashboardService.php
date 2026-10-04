@@ -74,6 +74,7 @@ class DashboardService
             estimates: $this->estimateCounts($organization, $start, $end),
             recentReplies: $this->recentReplies($organization),
             automationRuns: $this->automationActivity($organization),
+            automationFailures: $this->automationFailures($organization),
             notifications: $user->unreadNotifications()->limit((int) config('dashboard.limits.notifications'))->get(['id', 'data', 'created_at']),
             unreadNotifications: $user->unreadNotifications()->count(),
         );
@@ -396,6 +397,18 @@ class DashboardService
     }
 
     /**
+     * Failed automation executions in the last 7 days.
+     */
+    public function automationFailures(Organization $organization): int
+    {
+        return AutomationRun::query()
+            ->where('organization_id', $organization->id)
+            ->where('status', 'failed')
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
+    }
+
+    /**
      * @return Collection<int, AutomationRun>
      */
     public function automationActivity(Organization $organization): Collection
@@ -404,14 +417,13 @@ class DashboardService
             ->where('organization_id', $organization->id)
             ->with([
                 'automation:id,name',
-                'conversation:id,customer_id',
-                'conversation.customer:id,name',
+                'customer:id,name',
                 'actionRuns:id,automation_run_id,action_type,status,result',
             ])
             ->latest()
             ->latest('id')
             ->limit((int) config('dashboard.limits.automation_runs'))
-            ->get(['id', 'organization_id', 'automation_id', 'conversation_id', 'status', 'failure_reason', 'created_at']);
+            ->get(['id', 'organization_id', 'automation_id', 'conversation_id', 'customer_id', 'status', 'failure_reason', 'resume_at', 'created_at']);
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Events\ConversationClosed;
+use App\Events\ConversationReopened;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -25,6 +27,24 @@ class ConversationEvent extends Model
     protected function casts(): array
     {
         return ['data' => 'array', 'created_at' => 'datetime'];
+    }
+
+    /**
+     * Closing and reopening are automation triggers, whoever (or whatever) did it.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (ConversationEvent $event) {
+            if ($event->conversation_id === null || $event->customer_id === null) {
+                return;
+            }
+
+            match ($event->type) {
+                'closed' => ConversationClosed::dispatch($event->organization_id, $event->conversation_id, $event->customer_id, $event->id),
+                'reopened' => ConversationReopened::dispatch($event->organization_id, $event->conversation_id, $event->customer_id, $event->id),
+                default => null,
+            };
+        });
     }
 
     /**

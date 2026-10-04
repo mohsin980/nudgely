@@ -2,9 +2,11 @@
 
 namespace App\Enums\Automation;
 
+use App\Services\Automation\Registry\ActionRegistry;
+
 /**
- * The only things an automation can do. Dangerous actions (prices, discounts,
- * deletions, bookings, refunds, payments, permissions) are deliberately absent.
+ * What an automation can do. Values are stored in the database: never rename them.
+ * Labels, fields and requirements live in ActionRegistry.
  */
 enum AutomationActionType: string
 {
@@ -12,19 +14,15 @@ enum AutomationActionType: string
     case ScheduleFollowUp = 'schedule_follow_up';
     case SendEmail = 'send_email';
     case AddCustomerTag = 'add_customer_tag';
+    case RemoveCustomerTag = 'remove_customer_tag';
     case UpdateConversationStatus = 'update_conversation_status';
     case NotifyUser = 'notify_user';
+    case CompleteFollowUp = 'complete_follow_up';
+    case CancelFollowUp = 'cancel_follow_up';
 
     public function label(): string
     {
-        return match ($this) {
-            self::CreateTask => 'Create task',
-            self::ScheduleFollowUp => 'Schedule follow-up',
-            self::SendEmail => 'Send email',
-            self::AddCustomerTag => 'Add customer tag',
-            self::UpdateConversationStatus => 'Update conversation status',
-            self::NotifyUser => 'Notify user',
-        };
+        return ActionRegistry::get($this)->label;
     }
 
     /**

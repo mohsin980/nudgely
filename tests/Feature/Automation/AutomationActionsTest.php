@@ -21,8 +21,11 @@ use App\Models\Task;
 use App\Models\User;
 use App\Notifications\AutomationNotification;
 use App\Services\Automation\Actions\AddCustomerTagAction;
+use App\Services\Automation\Actions\CancelFollowUpAction;
+use App\Services\Automation\Actions\CompleteFollowUpAction;
 use App\Services\Automation\Actions\CreateTaskAction;
 use App\Services\Automation\Actions\NotifyUserAction;
+use App\Services\Automation\Actions\RemoveCustomerTagAction;
 use App\Services\Automation\Actions\ScheduleFollowUpAction;
 use App\Services\Automation\Actions\SendEmailAction;
 use App\Services\Automation\Actions\UpdateConversationStatusAction;
@@ -98,6 +101,9 @@ class AutomationActionsTest extends TestCase
             'add_customer_tag' => AddCustomerTagAction::class,
             'update_conversation_status' => UpdateConversationStatusAction::class,
             'notify_user' => NotifyUserAction::class,
+            'remove_customer_tag' => RemoveCustomerTagAction::class,
+            'complete_follow_up' => CompleteFollowUpAction::class,
+            'cancel_follow_up' => CancelFollowUpAction::class,
         ];
 
         foreach (AutomationActionType::cases() as $type) {

@@ -27,22 +27,28 @@ class AutomationEnumsTest extends TestCase
 
     public function test_enum_values_are_stable(): void
     {
-        $this->assertSame(['draft', 'active', 'paused'], $this->values(AutomationStatus::class));
+        $this->assertSame(['draft', 'active', 'paused', 'archived'], $this->values(AutomationStatus::class));
         $this->assertSame([
-            'customer_reply_received', 'customer_reply_classified', 'estimate_sent',
-            'estimate_viewed', 'estimate_expired', 'estimate_accepted', 'estimate_declined', 'follow_up_due',
+            'customer_created', 'customer_reply_received', 'customer_reply_classified', 'estimate_created', 'estimate_sent',
+            'estimate_viewed', 'estimate_expired', 'estimate_accepted', 'estimate_declined', 'follow_up_due', 'follow_up_completed',
+            'conversation_closed', 'conversation_reopened',
         ], $this->values(AutomationTriggerType::class));
         $this->assertSame([
             'intent_equals', 'confidence_greater_than', 'customer_status_equals',
             'estimate_status_equals', 'days_since_last_message', 'conversation_status_equals',
+            'customer_replied', 'customer_has_email', 'customer_has_phone', 'customer_email', 'customer_company',
+            'conversation_priority', 'conversation_intent', 'conversation_subject', 'estimate_total', 'estimate_title',
+            'estimate_valid_until', 'follow_up_status', 'follow_up_due_at',
         ], $this->values(AutomationConditionType::class));
         $this->assertSame([
             'equals', 'not_equals', 'greater_than', 'greater_than_or_equal', 'less_than', 'less_than_or_equal',
+            'contains', 'not_contains', 'is_true', 'is_false', 'before', 'after', 'on', 'on_or_before', 'on_or_after',
         ], $this->values(AutomationConditionOperator::class));
         $this->assertSame([
-            'create_task', 'schedule_follow_up', 'send_email', 'add_customer_tag', 'update_conversation_status', 'notify_user',
+            'create_task', 'schedule_follow_up', 'send_email', 'add_customer_tag', 'remove_customer_tag', 'update_conversation_status', 'notify_user',
+            'complete_follow_up', 'cancel_follow_up',
         ], $this->values(AutomationActionType::class));
-        $this->assertSame(['running', 'completed', 'failed', 'skipped'], $this->values(AutomationRunStatus::class));
+        $this->assertSame(['waiting', 'running', 'completed', 'failed', 'skipped'], $this->values(AutomationRunStatus::class));
         $this->assertSame(['pending', 'running', 'completed', 'failed', 'skipped'], $this->values(AutomationActionRunStatus::class));
     }
 
@@ -62,21 +68,21 @@ class AutomationEnumsTest extends TestCase
 
     public function test_condition_types_only_allow_sensible_operators(): void
     {
+        // Operators come from the field's data type.
         $this->assertSame([AutomationConditionOperator::Equals, AutomationConditionOperator::NotEquals], AutomationConditionType::IntentEquals->allowedOperators());
-        $this->assertNotContains(AutomationConditionOperator::Equals, AutomationConditionType::ConfidenceGreaterThan->allowedOperators());
+        $this->assertNotContains(AutomationConditionOperator::Contains, AutomationConditionType::ConfidenceGreaterThan->allowedOperators());
         $this->assertSame(AutomationConditionOperator::GreaterThan, AutomationConditionType::ConfidenceGreaterThan->defaultOperator());
+        $this->assertSame([AutomationConditionOperator::IsTrue, AutomationConditionOperator::IsFalse], AutomationConditionType::CustomerReplied->allowedOperators());
+        $this->assertContains(AutomationConditionOperator::Contains, AutomationConditionType::CustomerEmail->allowedOperators());
+        $this->assertContains(AutomationConditionOperator::OnOrBefore, AutomationConditionType::EstimateValidUntil->allowedOperators());
     }
 
     public function test_only_triggers_backed_by_real_events_are_available(): void
     {
         $available = array_values(array_filter(AutomationTriggerType::cases(), fn (AutomationTriggerType $t) => $t->isAvailable()));
 
-        // Every trigger is dispatched by the application except "follow-up due".
-        $this->assertSame([
-            AutomationTriggerType::CustomerReplyReceived, AutomationTriggerType::CustomerReplyClassified,
-            AutomationTriggerType::EstimateSent, AutomationTriggerType::EstimateViewed, AutomationTriggerType::EstimateExpired,
-            AutomationTriggerType::EstimateAccepted, AutomationTriggerType::EstimateDeclined,
-        ], $available);
+        // Every trigger is dispatched by the application (Task 12 added the remaining events).
+        $this->assertSame(AutomationTriggerType::cases(), $available);
     }
 
     public function test_every_case_has_a_label(): void

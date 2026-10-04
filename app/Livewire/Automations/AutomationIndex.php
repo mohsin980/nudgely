@@ -1,20 +1,24 @@
 <?php
 
-namespace App\Livewire\Settings\Automations;
+namespace App\Livewire\Automations;
 
+use App\Enums\Automation\AutomationRunStatus;
+use App\Enums\Automation\AutomationStatus;
 use App\Models\Automation;
-use App\Services\Automation\AutomationBuilder;
+use App\Models\AutomationRun;
 use App\Services\Automation\AutomationTemplates;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
+/**
+ * The organization's automations, starter templates and email safety settings.
+ */
 #[Layout('components.layouts.app')]
 #[Title('Automations')]
 class AutomationIndex extends Component
@@ -26,8 +30,8 @@ class AutomationIndex extends Component
      */
     public const SETTINGS = ['automations_enabled', 'automatic_email_enabled', 'require_approval_for_email'];
 
-    #[Locked]
-    public ?int $confirmingDeletionId = null;
+    #[Url(as: 'archived', except: false)]
+    public bool $showArchived = false;
 
     public ?string $statusMessage = null;
 
@@ -40,16 +44,40 @@ class AutomationIndex extends Component
     }
 
     /**
+     * One query with counts: number of actions, executions and the last execution.
+     *
      * @return Collection<int, Automation>
      */
     #[Computed]
     public function automations(): Collection
     {
         return $this->currentOrganization()->automations()
+            ->when(! $this->showArchived, fn ($q) => $q->where('status', '!=', AutomationStatus::Archived))
+            ->withCount(['actions', 'runs as executions_count'])
             ->withMax('runs as last_run_at', 'created_at')
+            ->orderByRaw("case status when 'active' then 0 when 'paused' then 1 when 'draft' then 2 else 3 end")
             ->latest()
             ->latest('id')
             ->get();
+    }
+
+    #[Computed]
+    public function archivedCount(): int
+    {
+        return $this->currentOrganization()->automations()->where('status', AutomationStatus::Archived)->count();
+    }
+
+    /**
+     * Failed executions in the last 7 days.
+     */
+    #[Computed]
+    public function recentFailures(): int
+    {
+        return AutomationRun::query()
+            ->where('organization_id', $this->currentOrganization()->id)
+            ->where('status', AutomationRunStatus::Failed)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
     }
 
     /**
@@ -81,68 +109,15 @@ class AutomationIndex extends Component
 
         $automation = $templates->install($this->currentOrganization(), Auth::user(), $key);
 
-        $this->flash("“{$automation->name}” was added as a draft. Review it, then activate it.");
-        unset($this->automations);
-    }
-
-    public function activate(int $automationId, AutomationBuilder $builder): void
-    {
-        $automation = $this->findAutomation($automationId);
-        $this->authorize('update', $automation);
-
-        try {
-            $builder->activate($automation->load(['conditions', 'actions']), Auth::user());
-        } catch (ValidationException $e) {
-            $this->flash('“'.$automation->name.'” can’t be activated yet: '.collect($e->errors())->flatten()->first(), 'error');
-
-            return;
-        }
-
-        $this->flash("“{$automation->name}” is active.");
-        unset($this->automations);
-    }
-
-    public function pause(int $automationId, AutomationBuilder $builder): void
-    {
-        $automation = $this->findAutomation($automationId);
-        $this->authorize('update', $automation);
-
-        $builder->pause($automation, Auth::user());
-
-        $this->flash("“{$automation->name}” is paused.");
-        unset($this->automations);
-    }
-
-    public function confirmDelete(int $automationId): void
-    {
-        $automation = $this->findAutomation($automationId);
-        $this->authorize('delete', $automation);
-
-        $this->confirmingDeletionId = $automation->id;
-    }
-
-    public function cancelDelete(): void
-    {
-        $this->confirmingDeletionId = null;
-    }
-
-    public function delete(): void
-    {
-        $automation = $this->findAutomation($this->confirmingDeletionId ?? abort(404));
-        $this->authorize('delete', $automation);
-
-        $automation->delete();
-        Log::info('Automation deleted.', ['organization_id' => $automation->organization_id, 'automation_id' => $automation->id, 'user_id' => Auth::id()]);
-
-        $this->confirmingDeletionId = null;
-        $this->flash("“{$automation->name}” was deleted.");
-        unset($this->automations);
+        session()->flash('automation-status', "“{$automation->name}” was added as a draft. Review it, then activate it.");
+        $this->redirectRoute('automations.show', $automation->id, navigate: true);
     }
 
     public function render()
     {
-        return view('livewire.settings.automations.automation-index', [
+        return view('livewire.automations.automation-index', [
             'organization' => $this->currentOrganization(),
+            'starters' => AutomationTemplates::STARTERS,
         ]);
     }
 

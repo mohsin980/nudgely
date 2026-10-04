@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Automation\AutomationEngine;
 use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use Illuminate\Foundation\Inspiring;
@@ -18,6 +19,10 @@ Artisan::command('follow-ups:notify-overdue', function (FollowUpProcessor $follo
     $this->info($followUps->notifyOverdue().' overdue follow-up notification(s) sent.');
 })->purpose('Notify the business about overdue follow-ups');
 
+Artisan::command('automations:resume-waiting', function (AutomationEngine $engine) {
+    $this->info($engine->resumeDue().' waiting automation run(s) resumed.');
+})->purpose('Continue automation runs whose WAIT is over');
+
 Artisan::command('estimates:expire', function (EstimateService $estimates) {
     $this->info($estimates->expireDue().' estimate(s) expired.');
 })->purpose('Mark sent estimates past their "valid until" date as expired');
@@ -25,3 +30,4 @@ Artisan::command('estimates:expire', function (EstimateService $estimates) {
 Schedule::command('follow-ups:process-due')->everyMinute()->withoutOverlapping();
 Schedule::command('follow-ups:notify-overdue')->hourly()->withoutOverlapping();
 Schedule::command('estimates:expire')->hourly()->withoutOverlapping();
+Schedule::command('automations:resume-waiting')->everyMinute()->withoutOverlapping();

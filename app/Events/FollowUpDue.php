@@ -8,10 +8,9 @@ use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * A scheduled follow-up reached its due time.
+ * A follow-up reached its due time (dispatched by the scheduler, FollowUpProcessor::markDue()).
  *
- * Not dispatched yet: scheduled follow-ups arrive with the schedule_follow_up action and
- * the scheduler in a later task. Defined now so the trigger has a stable contract.
+ * The event ID includes the due time, so a rescheduled follow-up that comes due again runs again.
  */
 final class FollowUpDue implements AutomationEvent, ShouldDispatchAfterCommit
 {
@@ -22,6 +21,8 @@ final class FollowUpDue implements AutomationEvent, ShouldDispatchAfterCommit
         public readonly int $followUpId,
         public readonly ?int $conversationId = null,
         public readonly ?int $customerId = null,
+        public readonly ?int $estimateId = null,
+        public readonly int $dueTimestamp = 0,
     ) {}
 
     public function organizationId(): int
@@ -36,6 +37,6 @@ final class FollowUpDue implements AutomationEvent, ShouldDispatchAfterCommit
 
     public function eventId(): string
     {
-        return 'follow_up:'.$this->followUpId;
+        return 'follow_up:'.$this->followUpId.($this->dueTimestamp ? ':'.$this->dueTimestamp : '');
     }
 }

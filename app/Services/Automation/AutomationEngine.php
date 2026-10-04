@@ -8,6 +8,7 @@ use App\Enums\Automation\AutomationRunStatus;
 use App\Exceptions\Automation\AutomationActionRetryException;
 use App\Exceptions\Automation\InvalidAutomationConditionException;
 use App\Jobs\ExecuteAutomationActionJob;
+use App\Jobs\ResumeAutomationRunJob;
 use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Models\AutomationActionRun;
@@ -145,16 +146,101 @@ class AutomationEngine
         }
     }
 
-    private function evaluateAutomation(Automation $automation, AutomationContext $context): ?AutomationRun
+    /**
+     * Resume waiting runs whose WAIT is over: each is handed to a job, which claims it.
+     * The lease (resume_at moved forward) keeps a slow queue from receiving it twice.
+     *
+     * @return int How many were queued.
+     */
+    public function resumeDue(): int
     {
-        try {
-            if (! $this->conditions->matches($automation, $context, $automation->conditions)) {
-                return null;
-            }
-        } catch (InvalidAutomationConditionException $e) {
-            return $this->createRun($automation, $context, AutomationRunStatus::Failed, $e->getMessage());
+        $now = now();
+
+        $rows = DB::select(
+            'update automation_runs set resume_at = ?, updated_at = ?
+             where status = ? and id in (
+                 select id from automation_runs where status = ? and resume_at <= ? order by resume_at limit ? for update skip locked
+             )
+             returning id',
+            [$now->copy()->addMinutes(10), $now, AutomationRunStatus::Waiting->value, AutomationRunStatus::Waiting->value, $now, 200],
+        );
+
+        foreach ($rows as $row) {
+            ResumeAutomationRunJob::dispatch((int) $row->id);
         }
 
+        return count($rows);
+    }
+
+    /**
+     * The WAIT is over: re-check the automation and its conditions with today's data, then
+     * run the actions — or record why the run was skipped (e.g. "Customer already replied.").
+     */
+    public function resume(int $runId): ?AutomationRun
+    {
+        // Atomic claim: only one worker moves a run out of "waiting".
+        $claimed = AutomationRun::query()->whereKey($runId)->where('status', AutomationRunStatus::Waiting)
+            ->update(['status' => AutomationRunStatus::Running, 'resume_at' => null, 'updated_at' => now()]);
+
+        if ($claimed === 0) {
+            return null;
+        }
+
+        $run = AutomationRun::findOrFail($runId);
+        $context = AutomationContext::fromArray($run->context ?? []);
+        $automation = Automation::query()->forOrganization($run->organization_id)->with(['conditions', 'actions'])->find($run->automation_id);
+
+        $skip = match (true) {
+            $automation === null => 'The automation was deleted.',
+            ! $automation->isActive() => 'The automation was '.strtolower($automation->status->label()).' while it was waiting.',
+            ! config('automation.enabled') || ! Organization::whereKey($run->organization_id)->value('automations_enabled') => 'Automations are turned off for this organization.',
+            ! $this->eventBelongsToOrganization($context) => 'The customer or conversation is no longer available.',
+            default => null,
+        };
+
+        if ($skip !== null) {
+            return $this->finish($run, AutomationRunStatus::Skipped, $skip);
+        }
+
+        try {
+            $outcome = $this->conditions->explain($automation, $context);
+        } catch (InvalidAutomationConditionException $e) {
+            return $this->finish($run, AutomationRunStatus::Failed, $e->getMessage());
+        }
+
+        if (! $outcome['matched']) {
+            return $this->finish($run, AutomationRunStatus::Skipped, $outcome['reason'], $outcome);
+        }
+
+        DB::transaction(function () use ($run, $automation, $outcome) {
+            $run->forceFill(['condition_results' => $outcome])->save();
+            $this->createActionRuns($run, $automation->actions);
+            $this->advance($run);
+        });
+
+        return $run->refresh();
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $conditions
+     */
+    private function finish(AutomationRun $run, AutomationRunStatus $status, ?string $reason, ?array $conditions = null): AutomationRun
+    {
+        $run->forceFill([
+            'status' => $status,
+            'completed_at' => $status === AutomationRunStatus::Skipped ? now() : null,
+            'failed_at' => $status === AutomationRunStatus::Failed ? now() : null,
+            'failure_reason' => $reason,
+            'condition_results' => $conditions ?? $run->condition_results,
+        ])->save();
+
+        Log::info('Automation run finished without actions.', ['automation_run_id' => $run->id, 'status' => $status->value]);
+
+        return $run;
+    }
+
+    private function evaluateAutomation(Automation $automation, AutomationContext $context): ?AutomationRun
+    {
         $maxDepth = (int) config('automation.limits.max_chain_depth');
 
         if ($context->depth >= $maxDepth) {
@@ -163,28 +249,49 @@ class AutomationEngine
             return $this->createRun($automation, $context, AutomationRunStatus::Skipped, "Automation chain limit reached (depth {$maxDepth}).");
         }
 
-        return $this->createRun($automation, $context, AutomationRunStatus::Running);
+        // WAIT first: conditions are checked when the wait is over, with the data of that moment.
+        if ($automation->wait_minutes) {
+            return $this->createRun($automation, $context, AutomationRunStatus::Waiting, resumeAt: now()->addMinutes($automation->wait_minutes));
+        }
+
+        try {
+            $outcome = $this->conditions->explain($automation, $context);
+        } catch (InvalidAutomationConditionException $e) {
+            return $this->createRun($automation, $context, AutomationRunStatus::Failed, $e->getMessage());
+        }
+
+        // Not matching is the normal case (most replies aren't "ready to book"): nothing is recorded.
+        if (! $outcome['matched']) {
+            return null;
+        }
+
+        return $this->createRun($automation, $context, AutomationRunStatus::Running, conditions: $outcome);
     }
 
     /**
      * Create the run (and its action runs) once per automation and event.
+     *
+     * @param  array<string, mixed>|null  $conditions
      */
-    private function createRun(Automation $automation, AutomationContext $context, AutomationRunStatus $status, ?string $reason = null): ?AutomationRun
+    private function createRun(Automation $automation, AutomationContext $context, AutomationRunStatus $status, ?string $reason = null, ?\DateTimeInterface $resumeAt = null, ?array $conditions = null): ?AutomationRun
     {
         try {
             // A savepoint: a duplicate insert must not abort an enclosing transaction.
-            $run = DB::transaction(function () use ($automation, $context, $status, $reason) {
+            $run = DB::transaction(function () use ($automation, $context, $status, $reason, $resumeAt, $conditions) {
                 $run = new AutomationRun;
                 $run->forceFill([
                     'organization_id' => $automation->organization_id,
                     'automation_id' => $automation->id,
                     // Verified by eventBelongsToOrganization() before any run is created.
                     'conversation_id' => $context->conversationId,
+                    'customer_id' => $context->customerId,
                     'event_type' => $context->triggerType,
                     'event_id' => $context->eventId,
                     'status' => $status,
+                    'resume_at' => $resumeAt,
                     'depth' => $context->depth,
                     'context' => $context->toArray(),
+                    'condition_results' => $conditions,
                     'started_at' => now(),
                     'completed_at' => $status === AutomationRunStatus::Skipped ? now() : null,
                     'failed_at' => $status === AutomationRunStatus::Failed ? now() : null,
@@ -255,7 +362,7 @@ class AutomationEngine
                 ->orWhere(fn ($query) => $query
                     ->where('status', AutomationActionRunStatus::Running)
                     ->where('updated_at', '<', now()->subSeconds((int) config('automation.retries.stale_after_seconds')))))
-            ->update(['status' => AutomationActionRunStatus::Running, 'updated_at' => now()]);
+            ->update(['status' => AutomationActionRunStatus::Running, 'attempts' => DB::raw('attempts + 1'), 'updated_at' => now()]);
 
         return $claimed === 0 ? null : AutomationActionRun::with('run')->find($actionRunId);
     }
