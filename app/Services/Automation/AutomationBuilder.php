@@ -3,53 +3,53 @@
 namespace App\Services\Automation;
 
 use App\Enums\Automation\AutomationActionType;
+use App\Enums\Automation\AutomationConditionOperator;
 use App\Enums\Automation\AutomationConditionType;
 use App\Enums\Automation\AutomationStatus;
 use App\Enums\Automation\AutomationTriggerType;
-use App\Enums\ConversationStatus;
-use App\Enums\TaskPriority;
 use App\Exceptions\Automation\InvalidAutomationConditionException;
-use App\Exceptions\Automation\InvalidEmailTemplateException;
+use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\Automation;
-use App\Models\CustomerTag;
+use App\Models\AutomationHistory;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\Automation\Actions\ScheduleFollowUpAction;
-use App\Services\Automation\Actions\SendEmailAction;
+use App\Services\Automation\Registry\ActionDefinition;
+use App\Services\Automation\Registry\ActionRegistry;
+use App\Services\Automation\Registry\ActionValidation;
+use App\Services\Automation\Registry\ConditionFieldRegistry;
+use App\Services\Automation\Registry\Subject;
+use App\Services\Automation\Registry\TriggerDefinition;
+use App\Services\Automation\Registry\TriggerRegistry;
+use App\Services\Email\EmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Validates and saves automations built in the UI or installed from templates.
+ * Validates and saves automations built in the UI or installed from templates, and changes
+ * their status (activate, pause, archive, restore, duplicate).
  *
  * Input is a plain array:
- *   name, description, trigger_type,
+ *   name, description, trigger_type, condition_match ("all" | "any"), wait_minutes,
  *   conditions: [{type, operator, value}],
  *   actions: [{type, configuration: {...}, requires_approval?}]
  *
- * The organization and user always come from the caller's authenticated context, never
- * from the input. Only triggers, conditions and actions the engine implements are accepted,
- * and each action's configuration is reduced to its known keys.
+ * Everything is checked against the registries for the chosen trigger: only conditions,
+ * actions and {{variables}} the trigger can provide are accepted. The organization and user
+ * always come from the caller's authenticated context, never from the input. A save writes
+ * the automation, its conditions and its actions in one transaction.
  */
 class AutomationBuilder
 {
     public const MAX_CONDITIONS = 10;
 
-    /**
-     * Condition types the builder offers; customer status has no data yet.
-     */
-    public const CONDITION_TYPES = [
-        AutomationConditionType::IntentEquals,
-        AutomationConditionType::ConfidenceGreaterThan,
-        AutomationConditionType::ConversationStatusEquals,
-        AutomationConditionType::DaysSinceLastMessage,
-        AutomationConditionType::EstimateStatusEquals,
-    ];
+    /** Longest WAIT: 60 days. */
+    public const MAX_WAIT_MINUTES = 86_400;
 
     public function __construct(
         private readonly ConditionEvaluator $conditions,
         private readonly EmailTemplateRenderer $templates,
+        private readonly EmailService $email,
     ) {}
 
     /**
@@ -57,7 +57,7 @@ class AutomationBuilder
      */
     public static function triggers(): array
     {
-        return array_values(array_filter(AutomationTriggerType::cases(), fn (AutomationTriggerType $trigger) => $trigger->isAvailable()));
+        return array_map(fn (TriggerDefinition $d) => $d->type, TriggerRegistry::available());
     }
 
     /**
@@ -71,9 +71,18 @@ class AutomationBuilder
     {
         abort_if($automation !== null && $automation->organization_id !== $organization->id, 404);
 
-        $data = $this->validated($input, requireActions: $automation?->isActive() ?? false);
+        if ($automation?->status === AutomationStatus::Archived) {
+            throw ValidationException::withMessages(['name' => 'Restore this automation before editing it.']);
+        }
+
+        $data = $this->validated($input, requireActions: $automation?->isActive() ?? false, organization: $organization);
+
+        if ($automation?->isActive() && ($sender = $this->senderError($organization, $data['actions'])) !== null) {
+            throw ValidationException::withMessages(['actions' => $sender]);
+        }
 
         return DB::transaction(function () use ($organization, $user, $data, $automation) {
+            $created = $automation === null;
             $automation ??= tap(new Automation, fn (Automation $new) => $new->forceFill([
                 'organization_id' => $organization->id,
                 'created_by' => $user->id,
@@ -85,7 +94,11 @@ class AutomationBuilder
                 'description' => $data['description'],
                 'trigger_type' => $data['trigger_type'],
             ]);
-            $automation->forceFill(['updated_by' => $user->id])->save();
+            $automation->forceFill([
+                'condition_match' => $data['condition_match'],
+                'wait_minutes' => $data['wait_minutes'],
+                'updated_by' => $user->id,
+            ])->save();
 
             // Replace the rule's steps; past action runs keep their history (action ID becomes null).
             $automation->conditions()->delete();
@@ -99,6 +112,7 @@ class AutomationBuilder
                 $automation->actions()->create($action + ['sort_order' => $i]);
             }
 
+            AutomationHistory::record($automation, $created ? 'created' : 'edited', $user);
             Log::info('Automation saved.', ['organization_id' => $organization->id, 'automation_id' => $automation->id, 'user_id' => $user->id]);
 
             return $automation->load(['conditions', 'actions']);
@@ -106,18 +120,123 @@ class AutomationBuilder
     }
 
     /**
+     * Everything that must be fixed before the automation can be activated (empty = ready).
+     *
+     * @return array<string, string>
+     */
+    public function activationErrors(Automation $automation): array
+    {
+        if ($automation->status === AutomationStatus::Archived) {
+            return ['status' => 'Archived automations can’t be activated. Restore it as a draft first.'];
+        }
+
+        try {
+            $data = $this->validated($this->toInput($automation->loadMissing(['conditions', 'actions'])), requireActions: true, organization: $automation->organization);
+        } catch (ValidationException $e) {
+            return array_map(fn (array $messages) => $messages[0], $e->errors());
+        }
+
+        $sender = $this->senderError($automation->organization, $data['actions']);
+
+        return $sender === null ? [] : ['actions' => $sender];
+    }
+
+    /**
+     * The same checks for unsaved builder input: what must be fixed before it can be activated.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, string>
+     */
+    public function problems(Organization $organization, array $input): array
+    {
+        try {
+            $data = $this->validated($input, requireActions: true, organization: $organization);
+        } catch (ValidationException $e) {
+            return array_map(fn (array $messages) => $messages[0], $e->errors());
+        }
+
+        $sender = $this->senderError($organization, $data['actions']);
+
+        return $sender === null ? [] : ['actions' => $sender];
+    }
+
+    /**
      * @throws ValidationException when the automation is incomplete or invalid
      */
     public function activate(Automation $automation, User $user): void
     {
-        $this->validated($this->toInput($automation), requireActions: true);
+        $errors = $this->activationErrors($automation);
 
-        $automation->forceFill(['status' => AutomationStatus::Active, 'updated_by' => $user->id])->save();
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        $this->changeStatus($automation, $user, AutomationStatus::Active, 'activated');
     }
 
+    /**
+     * New runs stop at once; queued actions re-check the status and are skipped.
+     */
     public function pause(Automation $automation, User $user): void
     {
-        $automation->forceFill(['status' => AutomationStatus::Paused, 'updated_by' => $user->id])->save();
+        if ($automation->isActive()) {
+            $this->changeStatus($automation, $user, AutomationStatus::Paused, 'paused');
+        }
+    }
+
+    /**
+     * Archived: never runs, can't be activated directly, keeps its history and logs.
+     */
+    public function archive(Automation $automation, User $user): void
+    {
+        if ($automation->status !== AutomationStatus::Archived) {
+            $this->changeStatus($automation, $user, AutomationStatus::Archived, 'archived', ['archived_at' => now()]);
+        }
+    }
+
+    /**
+     * Back from the archive as a draft (it must be activated again on purpose).
+     */
+    public function restore(Automation $automation, User $user): void
+    {
+        if ($automation->status === AutomationStatus::Archived) {
+            $this->changeStatus($automation, $user, AutomationStatus::Draft, 'restored', ['archived_at' => null]);
+        }
+    }
+
+    /**
+     * A new draft with the same steps: new ID, no runs, no history but its own.
+     */
+    public function duplicate(Automation $automation, User $user): Automation
+    {
+        return DB::transaction(function () use ($automation, $user) {
+            $copy = new Automation;
+            $copy->fill([
+                'name' => mb_substr('Copy of '.$automation->name, 0, 100),
+                'description' => $automation->description,
+                'trigger_type' => $automation->trigger_type,
+            ]);
+            $copy->forceFill([
+                'organization_id' => $automation->organization_id,
+                'status' => AutomationStatus::Draft,
+                'condition_match' => $automation->condition_match,
+                'wait_minutes' => $automation->wait_minutes,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ])->save();
+
+            foreach ($automation->conditions as $condition) {
+                $copy->conditions()->create($condition->only(['type', 'operator', 'value', 'sort_order']));
+            }
+
+            foreach ($automation->actions as $action) {
+                $copy->actions()->create($action->only(['type', 'configuration', 'sort_order', 'requires_approval']));
+            }
+
+            AutomationHistory::record($copy, 'duplicated', $user, ['from' => $automation->name, 'from_id' => $automation->id]);
+
+            return $copy->load(['conditions', 'actions']);
+        });
     }
 
     /**
@@ -131,6 +250,8 @@ class AutomationBuilder
             'name' => $automation->name,
             'description' => $automation->description,
             'trigger_type' => $automation->getAttributes()['trigger_type'],
+            'condition_match' => $automation->condition_match ?? ConditionEvaluator::ALL,
+            'wait_minutes' => $automation->wait_minutes,
             'conditions' => $automation->conditions->map(fn ($c) => [
                 'type' => $c->getAttributes()['type'],
                 'operator' => $c->getAttributes()['operator'],
@@ -146,11 +267,11 @@ class AutomationBuilder
 
     /**
      * @param  array<string, mixed>  $input
-     * @return array{name: string, description: ?string, trigger_type: string, conditions: list<array<string, string>>, actions: list<array<string, mixed>>}
+     * @return array{name: string, description: ?string, trigger_type: string, condition_match: string, wait_minutes: ?int, conditions: list<array<string, string>>, actions: list<array<string, mixed>>}
      *
      * @throws ValidationException
      */
-    public function validated(array $input, bool $requireActions): array
+    public function validated(array $input, bool $requireActions, ?Organization $organization = null): array
     {
         $errors = [];
 
@@ -164,9 +285,23 @@ class AutomationBuilder
             $errors['description'] = 'The description may be up to 500 characters.';
         }
 
-        $trigger = AutomationTriggerType::tryFrom((string) ($input['trigger_type'] ?? ''));
-        if ($trigger === null || ! $trigger->isAvailable()) {
+        $trigger = TriggerRegistry::find(is_string($input['trigger_type'] ?? null) ? $input['trigger_type'] : null);
+        if ($trigger === null || ! $trigger->available) {
             $errors['trigger_type'] = 'Choose when this automation runs.';
+            $trigger = null;
+        }
+
+        $match = (string) ($input['condition_match'] ?? ConditionEvaluator::ALL);
+        if (! in_array($match, [ConditionEvaluator::ALL, ConditionEvaluator::ANY], true)) {
+            $errors['condition_match'] = 'Choose whether all or any conditions must match.';
+        }
+
+        $wait = $input['wait_minutes'] ?? null;
+        if ($wait === '' || $wait === 0 || $wait === '0') {
+            $wait = null;
+        }
+        if ($wait !== null && (! (is_int($wait) || (is_string($wait) && ctype_digit($wait))) || (int) $wait < 1 || (int) $wait > self::MAX_WAIT_MINUTES)) {
+            $errors['wait_minutes'] = 'The wait must be between 1 minute and 60 days.';
         }
 
         $conditions = [];
@@ -178,7 +313,7 @@ class AutomationBuilder
 
         foreach ($conditionInput as $i => $condition) {
             try {
-                $conditions[] = $this->condition(is_array($condition) ? $condition : []);
+                $conditions[] = $this->condition(is_array($condition) ? $condition : [], $trigger);
             } catch (InvalidAutomationConditionException $e) {
                 $errors["conditions.{$i}"] = $e->getMessage();
             }
@@ -194,9 +329,11 @@ class AutomationBuilder
             $errors['actions'] = "An automation can have up to {$maxActions} actions.";
         }
 
+        $validation = new ActionValidation($trigger, $organization, $this->templates);
+
         foreach ($actionInput as $i => $action) {
             try {
-                $actions[] = $this->action(is_array($action) ? $action : []);
+                $actions[] = $this->action(is_array($action) ? $action : [], $trigger, $validation);
             } catch (\InvalidArgumentException $e) {
                 $errors["actions.{$i}"] = $e->getMessage();
             }
@@ -206,7 +343,38 @@ class AutomationBuilder
             throw ValidationException::withMessages($errors);
         }
 
-        return ['name' => $name, 'description' => $description, 'trigger_type' => $trigger->value, 'conditions' => $conditions, 'actions' => $actions];
+        return [
+            'name' => $name,
+            'description' => $description,
+            'trigger_type' => $trigger->key(),
+            'condition_match' => $match,
+            'wait_minutes' => $wait === null ? null : (int) $wait,
+            'conditions' => $conditions,
+            'actions' => $actions,
+        ];
+    }
+
+    /**
+     * Automations that email need a verified sender before they are switched on.
+     *
+     * @param  list<array<string, mixed>>  $actions
+     */
+    private function senderError(Organization $organization, array $actions): ?string
+    {
+        $sendsEmail = collect($actions)->contains(fn (array $a) => $a['type'] === AutomationActionType::SendEmail
+            || ($a['type'] === AutomationActionType::ScheduleFollowUp && ($a['configuration']['kind'] ?? 'email') === 'email'));
+
+        if (! $sendsEmail) {
+            return null;
+        }
+
+        try {
+            $this->email->assertCanSendFrom($organization->emailConnections()->default()->first(), $organization->id);
+        } catch (EmailSendingNotAllowedException $e) {
+            return 'This automation sends email: '.$e->getMessage();
+        }
+
+        return null;
     }
 
     /**
@@ -215,16 +383,18 @@ class AutomationBuilder
      *
      * @throws InvalidAutomationConditionException
      */
-    private function condition(array $condition): array
+    private function condition(array $condition, ?TriggerDefinition $trigger): array
     {
-        $type = AutomationConditionType::tryFrom((string) ($condition['type'] ?? ''));
+        $type = AutomationConditionType::tryFrom((string) ($condition['type'] ?? ''))
+            ?? throw new InvalidAutomationConditionException('Choose a supported condition.');
+        $field = ConditionFieldRegistry::get($type);
 
-        if ($type === null || ! in_array($type, self::CONDITION_TYPES, true)) {
-            throw new InvalidAutomationConditionException('Choose a supported condition.');
+        if ($trigger !== null && ! $trigger->providesAll($field->requires)) {
+            throw new InvalidAutomationConditionException("“{$field->label}” isn’t available when the automation runs on “{$trigger->label}”.");
         }
 
-        $operator = (string) ($condition['operator'] ?? $type->defaultOperator()->value);
-        $value = trim((string) ($condition['value'] ?? ''));
+        $operator = (string) ($condition['operator'] ?? $field->operators()[0]->value);
+        $value = AutomationConditionOperator::tryFrom($operator)?->needsValue() === false ? '' : trim((string) ($condition['value'] ?? ''));
 
         $this->conditions->assertValid($type, $operator, $value);
 
@@ -237,125 +407,50 @@ class AutomationBuilder
      *
      * @throws \InvalidArgumentException with a message safe to show
      */
-    private function action(array $action): array
+    private function action(array $action, ?TriggerDefinition $trigger, ActionValidation $validation): array
     {
-        $type = AutomationActionType::tryFrom((string) ($action['type'] ?? ''))
+        $definition = ActionRegistry::find(is_string($action['type'] ?? null) ? $action['type'] : null)
             ?? throw new \InvalidArgumentException('Choose a supported action.');
         $config = is_array($action['configuration'] ?? null) ? $action['configuration'] : [];
 
-        $configuration = match ($type) {
-            AutomationActionType::CreateTask => [
-                'title' => $this->text($config, 'title', 255, 'Enter a task title.'),
-                'description' => $this->text($config, 'description', 2000, required: false),
-                'priority' => $this->choice($config, 'priority', array_column(TaskPriority::cases(), 'value'), 'medium'),
-                'due_in_hours' => $this->integer($config, 'due_in_hours', 0, 8760, required: false),
-            ],
-            AutomationActionType::AddCustomerTag => [
-                'tag' => $this->tag($config),
-            ],
-            AutomationActionType::UpdateConversationStatus => [
-                'status' => $this->choice($config, 'status', array_column(ConversationStatus::cases(), 'value')),
-            ],
-            AutomationActionType::NotifyUser => [
-                'message' => $this->text($config, 'message', 500, 'Enter a notification message.'),
-                'recipients' => $this->choice($config, 'recipients', ['admins', 'members'], 'admins'),
-                'channel' => 'in_app',
-            ],
-            AutomationActionType::ScheduleFollowUp => [
-                'delay_days' => $this->integer($config, 'delay_days', 1, ScheduleFollowUpAction::MAX_DELAY_DAYS),
-                'subject' => $this->template($config, 'subject', SendEmailAction::MAX_SUBJECT),
-                'body' => $this->template($config, 'body', SendEmailAction::MAX_BODY),
-            ],
-            AutomationActionType::SendEmail => [
-                'subject' => $this->template($config, 'subject', SendEmailAction::MAX_SUBJECT),
-                'body' => $this->template($config, 'body', SendEmailAction::MAX_BODY),
-            ],
-        };
+        if ($trigger !== null) {
+            $this->assertActionFits($definition, $config, $trigger);
+        }
+
+        $configuration = ($definition->rules)($config, $validation);
 
         return [
-            'type' => $type,
+            'type' => $definition->type,
             'configuration' => array_filter($configuration, fn ($value) => $value !== null),
-            // Emails require approval unless explicitly turned off.
-            'requires_approval' => (bool) ($action['requires_approval'] ?? $type->requiresApprovalByDefault()),
+            // Customer emails require approval unless explicitly turned off.
+            'requires_approval' => (bool) ($action['requires_approval'] ?? $definition->type->requiresApprovalByDefault()),
         ];
     }
 
     /**
      * @param  array<string, mixed>  $config
      */
-    private function text(array $config, string $key, int $max, string $missing = '', bool $required = true): ?string
+    private function assertActionFits(ActionDefinition $definition, array $config, TriggerDefinition $trigger): void
     {
-        $value = is_scalar($config[$key] ?? null) ? trim((string) $config[$key]) : '';
-
-        if ($value === '') {
-            return $required ? throw new \InvalidArgumentException($missing) : null;
+        if (! $definition->supports($trigger)) {
+            throw new \InvalidArgumentException("“{$definition->label}” can’t be used with “{$trigger->label}” (it would repeat itself).");
         }
 
-        if (mb_strlen($value) > $max) {
-            throw new \InvalidArgumentException(ucfirst(str_replace('_', ' ', $key))." may be up to {$max} characters.");
-        }
+        $missing = array_filter($definition->requires($config), fn (Subject $s) => ! $trigger->provides($s));
 
-        return $value;
+        if ($missing !== []) {
+            throw new \InvalidArgumentException("“{$definition->label}” needs a ".collect($missing)->map(fn (Subject $s) => $s->label())->implode(' and ').", which “{$trigger->label}” doesn’t have.");
+        }
     }
 
     /**
-     * @param  array<string, mixed>  $config
-     * @param  list<string>  $allowed
+     * @param  array<string, mixed>  $extra
      */
-    private function choice(array $config, string $key, array $allowed, ?string $default = null): string
+    private function changeStatus(Automation $automation, User $user, AutomationStatus $status, string $action, array $extra = []): void
     {
-        $value = (string) ($config[$key] ?? $default ?? '');
-
-        return in_array($value, $allowed, true) ? $value : throw new \InvalidArgumentException('Choose a valid '.str_replace('_', ' ', $key).'.');
-    }
-
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    private function integer(array $config, string $key, int $min, int $max, bool $required = true): ?int
-    {
-        $value = $config[$key] ?? null;
-
-        if ($value === null || $value === '') {
-            return $required ? throw new \InvalidArgumentException('Enter '.str_replace('_', ' ', $key).'.') : null;
-        }
-
-        if (! is_int($value) && ! (is_string($value) && preg_match('/^\d{1,5}$/', $value))) {
-            throw new \InvalidArgumentException(ucfirst(str_replace('_', ' ', $key))." must be a whole number from {$min} to {$max}.");
-        }
-
-        $value = (int) $value;
-
-        return $value >= $min && $value <= $max ? $value : throw new \InvalidArgumentException(ucfirst(str_replace('_', ' ', $key))." must be a whole number from {$min} to {$max}.");
-    }
-
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    private function tag(array $config): string
-    {
-        $tag = $this->text($config, 'tag', 50, 'Enter a tag.');
-
-        if (CustomerTag::slugFor($tag) === null) {
-            throw new \InvalidArgumentException('The tag must contain letters or numbers.');
-        }
-
-        return $tag;
-    }
-
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    private function template(array $config, string $key, int $max): string
-    {
-        $value = $this->text($config, $key, $max, 'Enter an email '.$key.'.');
-
-        try {
-            $this->templates->validate($value);
-        } catch (InvalidEmailTemplateException $e) {
-            throw new \InvalidArgumentException(ucfirst($key).': '.$e->getMessage());
-        }
-
-        return $value;
+        $from = $automation->status;
+        $automation->forceFill(['status' => $status, 'updated_by' => $user->id] + $extra)->save();
+        AutomationHistory::record($automation, $action, $user, ['from' => $from->value]);
+        Log::info("Automation {$action}.", ['organization_id' => $automation->organization_id, 'automation_id' => $automation->id, 'user_id' => $user->id]);
     }
 }

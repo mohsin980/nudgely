@@ -5,18 +5,27 @@ namespace App\Services\Automation;
 use App\Contracts\Automation\AutomationEvent;
 use App\Enums\Automation\AutomationTriggerType;
 use App\Enums\CustomerReplyIntent;
+use App\Events\ConversationClosed;
+use App\Events\ConversationReopened;
+use App\Events\CustomerCreated;
 use App\Events\CustomerReplyClassified;
 use App\Events\CustomerReplyReceived;
 use App\Events\EstimateAccepted;
+use App\Events\EstimateCreated;
 use App\Events\EstimateDeclined;
 use App\Events\EstimateExpired;
 use App\Events\EstimateSent;
 use App\Events\EstimateViewed;
+use App\Events\FollowUpCompleted;
 use App\Events\FollowUpDue;
+use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\AutomationAction;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Estimate;
+use App\Models\FollowUp;
+use App\Models\Organization;
+use Carbon\CarbonImmutable;
 
 /**
  * What an automation knows about the event it is reacting to.
@@ -30,13 +39,14 @@ final class AutomationContext
 
     private ?Conversation $conversation = null;
 
-    private bool $customerLoaded = false;
-
-    private bool $conversationLoaded = false;
-
     private ?Estimate $estimate = null;
 
-    private bool $estimateLoaded = false;
+    private ?FollowUp $followUp = null;
+
+    private ?Organization $organization = null;
+
+    /** @var array<string, bool> */
+    private array $loaded = [];
 
     public function __construct(
         public readonly int $organizationId,
@@ -50,6 +60,8 @@ final class AutomationContext
         public readonly ?float $confidence = null,
         public readonly int $depth = 0,
         public readonly ?int $estimateId = null,
+        public readonly ?int $followUpId = null,
+        public readonly ?CarbonImmutable $occurredAt = null,
     ) {}
 
     /**
@@ -57,7 +69,7 @@ final class AutomationContext
      */
     public static function fromEvent(AutomationEvent $event, int $depth = 0): self
     {
-        $base = [$event->organizationId(), $event->triggerType(), $event->eventId(), 'depth' => $depth];
+        $base = [$event->organizationId(), $event->triggerType(), $event->eventId(), 'depth' => $depth, 'occurredAt' => CarbonImmutable::now()];
 
         return match (true) {
             $event instanceof CustomerReplyClassified => new self(...$base,
@@ -65,11 +77,14 @@ final class AutomationContext
                 classificationId: $event->classificationId, intent: $event->intent, confidence: $event->confidence),
             $event instanceof CustomerReplyReceived => new self(...$base,
                 customerId: $event->customerId, conversationId: $event->conversationId, messageId: $event->messageId),
-            $event instanceof EstimateSent, $event instanceof EstimateViewed, $event instanceof EstimateExpired,
+            $event instanceof EstimateCreated, $event instanceof EstimateSent, $event instanceof EstimateViewed, $event instanceof EstimateExpired,
             $event instanceof EstimateAccepted, $event instanceof EstimateDeclined => new self(...$base,
                 customerId: $event->customerId, conversationId: $event->conversationId, estimateId: $event->estimateId),
-            $event instanceof FollowUpDue => new self(...$base,
+            $event instanceof FollowUpDue, $event instanceof FollowUpCompleted => new self(...$base,
+                customerId: $event->customerId, conversationId: $event->conversationId, estimateId: $event->estimateId, followUpId: $event->followUpId),
+            $event instanceof ConversationClosed, $event instanceof ConversationReopened => new self(...$base,
                 customerId: $event->customerId, conversationId: $event->conversationId),
+            $event instanceof CustomerCreated => new self(...$base, customerId: $event->customerId),
             default => new self(...$base),
         };
     }
@@ -95,6 +110,8 @@ final class AutomationContext
             confidence: isset($data['confidence']) ? (float) $data['confidence'] : null,
             depth: (int) ($data['depth'] ?? 0),
             estimateId: $int('estimate_id'),
+            followUpId: $int('follow_up_id'),
+            occurredAt: isset($data['occurred_at']) ? CarbonImmutable::parse($data['occurred_at']) : null,
         );
     }
 
@@ -117,31 +134,32 @@ final class AutomationContext
             'confidence' => $this->confidence,
             'depth' => $this->depth,
             'estimate_id' => $this->estimateId,
+            'follow_up_id' => $this->followUpId,
+            'occurred_at' => $this->occurredAt?->toIso8601String(),
         ];
+    }
+
+    public function organization(): ?Organization
+    {
+        return $this->once('organization', fn () => $this->organization = Organization::find($this->organizationId), fn () => $this->organization);
     }
 
     public function customer(): ?Customer
     {
-        if (! $this->customerLoaded) {
-            $this->customerLoaded = true;
-            $this->customer = $this->customerId === null ? null : Customer::query()
-                ->where('organization_id', $this->organizationId)
-                ->find($this->customerId);
-        }
-
-        return $this->customer;
+        return $this->once('customer', fn () => $this->customer = $this->customerId === null ? null
+            : Customer::query()->where('organization_id', $this->organizationId)->find($this->customerId), fn () => $this->customer);
     }
 
     public function conversation(): ?Conversation
     {
-        if (! $this->conversationLoaded) {
-            $this->conversationLoaded = true;
-            $this->conversation = $this->conversationId === null ? null : Conversation::query()
-                ->where('organization_id', $this->organizationId)
-                ->find($this->conversationId);
-        }
+        return $this->once('conversation', fn () => $this->conversation = $this->conversationId === null ? null
+            : Conversation::query()->where('organization_id', $this->organizationId)->find($this->conversationId), fn () => $this->conversation);
+    }
 
-        return $this->conversation;
+    public function followUp(): ?FollowUp
+    {
+        return $this->once('followUp', fn () => $this->followUp = $this->followUpId === null ? null
+            : FollowUp::query()->where('organization_id', $this->organizationId)->find($this->followUpId), fn () => $this->followUp);
     }
 
     /**
@@ -150,8 +168,7 @@ final class AutomationContext
      */
     public function estimate(): ?Estimate
     {
-        if (! $this->estimateLoaded) {
-            $this->estimateLoaded = true;
+        return $this->once('estimate', function () {
             $query = Estimate::query()->where('organization_id', $this->organizationId);
 
             $this->estimate = match (true) {
@@ -160,9 +177,7 @@ final class AutomationContext
                     ->whereNotIn('status', ['draft', 'cancelled'])->latest('sent_at')->latest('id')->first(),
                 default => null,
             };
-        }
-
-        return $this->estimate;
+        }, fn () => $this->estimate);
     }
 
     /**
@@ -178,15 +193,47 @@ final class AutomationContext
     }
 
     /**
-     * Fill the few supported placeholders. Plain text substitution only: nothing is evaluated.
+     * Fill a task/notification template: {{variables}} (VariableRegistry) and the older
+     * single-brace placeholders. Plain text substitution only: nothing is evaluated.
+     *
+     * @throws InvalidEmailTemplateException when it uses data this event doesn't have
      */
     public function render(string $template): string
     {
-        return strtr($template, [
+        $text = strtr($template, [
             '{customer_name}' => $this->customer()?->name ?? 'Customer',
             '{customer_first_name}' => strtok((string) ($this->customer()?->name ?? 'Customer'), ' ') ?: 'Customer',
             '{intent}' => $this->intent?->label() ?? '',
             '{conversation_subject}' => $this->conversation()?->subject ?? '',
         ]);
+
+        return str_contains($text, '{{') ? $this->renderTemplate($text) : $text;
+    }
+
+    /**
+     * Fill {{variables}} from this event's records.
+     *
+     * @throws InvalidEmailTemplateException
+     */
+    public function renderTemplate(string $template): string
+    {
+        return app(EmailTemplateRenderer::class)->render($template, $this->customer(), $this->organization(), $this->estimate(), $this->followUp(), $this->conversation());
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): void  $load
+     * @param  callable(): T  $get
+     * @return T
+     */
+    private function once(string $key, callable $load, callable $get): mixed
+    {
+        if (! isset($this->loaded[$key])) {
+            $this->loaded[$key] = true;
+            $load();
+        }
+
+        return $get();
     }
 }

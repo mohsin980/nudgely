@@ -5,15 +5,17 @@ namespace Tests\Feature\Automation;
 use App\Enums\Automation\AutomationActionRunStatus;
 use App\Enums\Automation\AutomationRunStatus;
 use App\Enums\Automation\AutomationStatus;
+use App\Livewire\Automations\AutomationForm;
+use App\Livewire\Automations\AutomationIndex;
+use App\Livewire\Automations\AutomationLogs;
+use App\Livewire\Automations\ShowAutomation;
 use App\Livewire\Inbox\ShowConversation;
-use App\Livewire\Settings\Automations\AutomationEditor;
-use App\Livewire\Settings\Automations\AutomationIndex;
-use App\Livewire\Settings\Automations\AutomationRunLog;
 use App\Models\Automation;
 use App\Models\AutomationActionRun;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\EmailConnection;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Automation\AutomationBuilder;
@@ -44,7 +46,7 @@ class AutomationBuilderTest extends TestCase
 
     private function editor(?int $automationId = null)
     {
-        return Livewire::actingAs($this->admin)->test(AutomationEditor::class, ['automationId' => $automationId]);
+        return Livewire::actingAs($this->admin)->test(AutomationForm::class, ['automationId' => $automationId]);
     }
 
     // Access
@@ -53,10 +55,15 @@ class AutomationBuilderTest extends TestCase
     {
         $automation = $this->automation();
 
-        $this->actingAs($this->admin)->get('/settings/automations')->assertOk()->assertSee('Automations')->assertSee('Templates');
-        $this->actingAs($this->admin)->get('/settings/automations/create')->assertOk()->assertSee('When');
-        $this->actingAs($this->admin)->get("/settings/automations/{$automation->id}/edit")->assertOk();
-        $this->actingAs($this->admin)->get("/settings/automations/{$automation->id}/runs")->assertOk();
+        $this->actingAs($this->admin)->get('/automations')->assertOk()->assertSee('Automations')->assertSee('Starter templates');
+        $this->actingAs($this->admin)->get('/automations/create')->assertOk()->assertSee('Name your automation');
+        $this->actingAs($this->admin)->get("/automations/{$automation->id}")->assertOk();
+        $this->actingAs($this->admin)->get("/automations/{$automation->id}/edit")->assertOk();
+        $this->actingAs($this->admin)->get("/automations/{$automation->id}/logs")->assertOk();
+
+        // Old addresses redirect.
+        $this->actingAs($this->admin)->get('/settings/automations')->assertRedirect('/automations');
+        $this->actingAs($this->admin)->get("/settings/automations/{$automation->id}/runs")->assertRedirect("/automations/{$automation->id}/logs");
     }
 
     public function test_members_and_guests_cannot_manage_automations(): void
@@ -64,24 +71,24 @@ class AutomationBuilderTest extends TestCase
         $member = User::factory()->for($this->admin->organization)->create();
         $automation = $this->automation();
 
-        $this->get('/settings/automations')->assertRedirect();
-        $this->actingAs($member)->get('/settings/automations')->assertForbidden();
-        $this->actingAs($member)->get("/settings/automations/{$automation->id}/edit")->assertForbidden();
-        $this->actingAs($member)->get("/settings/automations/{$automation->id}/runs")->assertForbidden();
-        $this->actingAs($member)->get('/inbox')->assertDontSee('href="'.route('settings.automations.index').'"', false);
+        $this->get('/automations')->assertRedirect();
+        $this->actingAs($member)->get('/automations')->assertForbidden();
+        $this->actingAs($member)->get('/automations/create')->assertForbidden();
+        $this->actingAs($member)->get("/automations/{$automation->id}")->assertForbidden();
+        $this->actingAs($member)->get("/automations/{$automation->id}/edit")->assertForbidden();
+        $this->actingAs($member)->get("/automations/{$automation->id}/logs")->assertForbidden();
+        $this->actingAs($member)->get('/conversations')->assertDontSee('href="'.route('automations.index').'"', false);
     }
 
     public function test_another_organizations_automation_is_not_found(): void
     {
         $foreign = $this->automation(organization: Organization::factory()->create());
 
-        $this->actingAs($this->admin)->get("/settings/automations/{$foreign->id}/edit")->assertNotFound();
-        $this->actingAs($this->admin)->get("/settings/automations/{$foreign->id}/runs")->assertNotFound();
-
-        Livewire::actingAs($this->admin)->test(AutomationIndex::class)
-            ->call('pause', $foreign->id)->assertNotFound();
-        Livewire::actingAs($this->admin)->test(AutomationIndex::class)
-            ->call('confirmDelete', $foreign->id)->assertNotFound();
+        $this->actingAs($this->admin)->get("/automations/{$foreign->id}")->assertNotFound();
+        $this->actingAs($this->admin)->get("/automations/{$foreign->id}/edit")->assertNotFound();
+        $this->actingAs($this->admin)->get("/automations/{$foreign->id}/logs")->assertNotFound();
+        Livewire::actingAs($this->admin)->test(ShowAutomation::class, ['automationId' => $foreign->id])->assertNotFound();
+        Livewire::actingAs($this->admin)->test(AutomationLogs::class, ['automationId' => $foreign->id])->assertNotFound();
 
         $this->assertModelExists($foreign);
     }
@@ -96,9 +103,9 @@ class AutomationBuilderTest extends TestCase
 
         Livewire::actingAs($this->admin)->test(AutomationIndex::class)
             ->assertSee('Ready to book flow')
-            ->assertSee('Customer reply classified')
+            ->assertSee('Customer reply received (with AI intent)')
             ->assertSee('Active')
-            ->assertSee('ago')
+            ->assertSeeInOrder(['Actions:', '0', 'Runs:', '1', 'Last run:', 'ago'])
             ->assertSee($mine->created_at->format('M j, Y'))
             ->assertDontSee('Foreign flow');
     }
@@ -108,15 +115,16 @@ class AutomationBuilderTest extends TestCase
         $automation = $this->automation(['status' => 'active']);
         $automation->actions()->create(['type' => 'create_task', 'configuration' => ['title' => 'Call']]);
 
-        $page = Livewire::actingAs($this->admin)->test(AutomationIndex::class);
+        $page = Livewire::actingAs($this->admin)->test(ShowAutomation::class, ['automationId' => $automation->id]);
 
-        $page->call('pause', $automation->id);
+        $page->call('pause');
         $this->assertSame(AutomationStatus::Paused, $automation->refresh()->status);
 
-        $page->call('activate', $automation->id);
+        $page->call('activate');
         $this->assertSame(AutomationStatus::Active, $automation->refresh()->status);
 
-        $page->call('confirmDelete', $automation->id)->assertSee('Confirm delete')->call('delete');
+        // Never ran: can be deleted.
+        $page->set('confirmDelete', true)->assertSee('Delete this automation?')->call('delete')->assertRedirect(route('automations.index'));
         $this->assertModelMissing($automation);
     }
 
@@ -142,7 +150,9 @@ class AutomationBuilderTest extends TestCase
     {
         $this->editor()
             ->set('name', 'Hot leads')
+            ->call('next')->assertSet('step', 2)
             ->set('triggerType', 'customer_reply_classified')
+            ->call('next')->assertSet('step', 3)
             ->call('addCondition')
             ->set('conditions.0.type', 'intent_equals')
             ->set('conditions.0.value', 'ready_to_book')
@@ -151,15 +161,19 @@ class AutomationBuilderTest extends TestCase
             ->assertSet('conditions.1.operator', 'greater_than')
             ->set('conditions.1.operator', 'greater_than_or_equal')
             ->set('conditions.1.value', '80')
+            ->call('next')->assertSet('step', 4)
             ->call('addAction')
+            ->set('actions.0.type', 'create_task')
             ->set('actions.0.configuration.title', 'Call {customer_name}')
             ->set('actions.0.configuration.priority', 'high')
             ->call('addAction')
             ->set('actions.1.type', 'add_customer_tag')
             ->set('actions.1.configuration.tag', 'Hot lead')
-            ->call('saveAndActivate')
+            ->call('next')->assertSet('step', 5)
+            ->assertSee('This automation will run when a customer replies and the AI has read it and continue if all conditions are satisfied.')
+            ->call('activate')
             ->assertHasNoErrors()
-            ->assertRedirect(route('settings.automations.index'));
+            ->assertRedirect(route('automations.show', Automation::sole()->id));
 
         $automation = Automation::sole()->load(['conditions', 'actions']);
         $this->assertSame($this->admin->organization_id, $automation->organization_id);
@@ -168,6 +182,7 @@ class AutomationBuilderTest extends TestCase
         $this->assertSame([['intent_equals', 'equals', 'ready_to_book'], ['confidence_greater_than', 'greater_than_or_equal', '0.8']],
             $automation->conditions->map(fn ($c) => [$c->type->value, $c->operator->value, $c->value])->all());
         $this->assertSame(['title' => 'Call {customer_name}', 'priority' => 'high'], $automation->actions[0]->configuration);
+        $this->assertSame(['created', 'activated'], $automation->history()->reorder('id')->pluck('action')->all());
         $this->assertSame(['tag' => 'Hot lead'], $automation->actions[1]->configuration);
     }
 
@@ -176,11 +191,12 @@ class AutomationBuilderTest extends TestCase
         $automation = app(AutomationTemplates::class)->install($this->admin->organization, $this->admin, 'ready_to_book');
 
         $this->editor($automation->id)
-            ->assertSet('name', 'Customer Ready to Book')
+            ->assertSet('name', 'Ready to book alert')
+            ->assertSet('step', 5)
             ->assertSet('conditions.1.value', '80')
             ->set('name', 'Ready to book (edited)')
             ->call('removeAction', 2)
-            ->call('save')
+            ->call('saveDraft')
             ->assertHasNoErrors();
 
         $automation->refresh()->load('actions');
@@ -193,19 +209,25 @@ class AutomationBuilderTest extends TestCase
     {
         $this->editor()
             ->set('name', '')
+            ->set('triggerType', 'customer_reply_classified')
             ->call('addCondition')
             ->set('conditions.0.type', 'confidence_greater_than')
             ->set('conditions.0.value', '180')
             ->call('addAction')
             ->set('actions.0.type', 'add_customer_tag')
-            ->call('saveAndActivate')
+            ->call('activate')
+            ->assertSet('step', 5)
             ->assertHasErrors(['name', 'conditions.0', 'actions.0']);
 
         $this->assertSame(0, Automation::count());
 
+        // Next refuses to leave a step with problems.
+        $this->editor()->call('next')->assertHasErrors('name')->assertSet('step', 1);
+
         $draft = $this->automation(['status' => 'draft']);
-        Livewire::actingAs($this->admin)->test(AutomationIndex::class)
-            ->call('activate', $draft->id)
+        Livewire::actingAs($this->admin)->test(ShowAutomation::class, ['automationId' => $draft->id])
+            ->assertSee('Add at least one action before activating.')
+            ->call('activate')
             ->assertSee('can’t be activated yet: Add at least one action before activating.');
         $this->assertSame(AutomationStatus::Draft, $draft->refresh()->status);
     }
@@ -216,7 +238,7 @@ class AutomationBuilderTest extends TestCase
         $base = ['name' => 'X', 'trigger_type' => 'customer_reply_classified', 'conditions' => [], 'actions' => [['type' => 'create_task', 'configuration' => ['title' => 'A']]]];
 
         $invalid = [
-            'trigger_type' => ['trigger_type' => 'follow_up_due'],
+            'trigger_type' => ['trigger_type' => 'payment_received'],
             'conditions.0' => ['conditions' => [['type' => 'customer_status_equals', 'operator' => 'equals', 'value' => 'lead']]],
             'actions.0' => ['actions' => [['type' => 'delete_customer']]],
         ];
@@ -235,7 +257,9 @@ class AutomationBuilderTest extends TestCase
         $this->assertSame(['title' => 'A', 'priority' => 'medium'], $clean['actions'][0]['configuration']);
 
         // Customer status and "follow-up due" have no data yet; estimate triggers and status do.
-        $this->editor()->call('addCondition')->assertDontSee('Customer status')->assertDontSee('Follow-up due')->assertSee('Estimate status')->assertSee('Estimate sent')->assertSee('Estimate accepted');
+        // Every trigger the app dispatches is offered; conditions follow the chosen trigger.
+        $this->editor()->set('step', 2)->assertSee('Estimate sent')->assertSee('Estimate accepted')->assertSee('Follow-up due')->assertSee('Conversation closed');
+        $this->editor()->set('triggerType', 'estimate_sent')->set('step', 3)->call('addCondition')->assertSee('Estimate total')->assertDontSee('AI intent of the reply');
     }
 
     public function test_organization_id_from_the_browser_is_ignored(): void
@@ -244,10 +268,12 @@ class AutomationBuilderTest extends TestCase
 
         $this->editor()
             ->set('name', 'Mine')
+            ->set('triggerType', 'customer_reply_classified')
             ->call('addAction')
+            ->set('actions.0.type', 'create_task')
             ->set('actions.0.configuration.title', 'A')
             ->set('actions.0.configuration.organization_id', $other->id)
-            ->call('save');
+            ->call('saveDraft');
 
         $automation = Automation::sole();
         $this->assertSame($this->admin->organization_id, $automation->organization_id);
@@ -259,17 +285,24 @@ class AutomationBuilderTest extends TestCase
     {
         $this->editor()
             ->set('name', 'Email')
+            ->set('triggerType', 'customer_reply_classified')
+            ->set('step', 4)
             ->call('addAction')
             ->set('actions.0.type', 'send_email')
-            ->assertSet('actions.0.requires_approval', true)
+            ->assertSet('actions.0.requires_approval', false)
             ->set('actions.0.configuration.subject', 'Hi {{customer.first_name}}')
             ->set('actions.0.configuration.body', 'Run {{php_code}}')
-            ->call('save')
+            ->call('saveDraft')
             ->assertHasErrors('actions.0')
             ->assertSee('Unsupported variable {{php_code}}.')
             ->set('actions.0.configuration.body', 'Call us at {{business.phone}}')
-            ->call('save')
-            ->assertSee('{{business.phone}} cannot be used yet');
+            ->call('saveDraft')
+            ->assertSee('{{business.phone}} cannot be used yet')
+            // A variable the trigger can't provide is rejected too.
+            ->set('actions.0.configuration.body', 'About estimate {{estimate.number}}')
+            ->call('saveDraft')
+            ->assertSee('{{estimate.number}} isn')
+            ->assertSee('available when the automation runs on “Customer reply received (with AI intent)”');
 
         $this->assertSame(0, Automation::count());
     }
@@ -285,11 +318,14 @@ class AutomationBuilderTest extends TestCase
         }
         $page->call('installTemplate', 'give_discount')->assertNotFound();
 
-        $automations = Automation::with(['conditions', 'actions'])->orderBy('id')->get();
-        $this->assertSame(['Customer Ready to Book', 'Price Objection', 'Interested Customer', 'Customer Wants Callback', 'Estimate Follow-Up', 'Estimate Declined'], $automations->pluck('name')->all());
+        $automations = Automation::with(['conditions', 'actions'])->orderBy('id')->get()->keyBy(fn ($a) => $a->name);
+        $this->assertSame(['Follow up after estimate', 'Ready to book alert', 'Estimate accepted', 'Interested customer follow-up', 'Price objection', 'Customer wants callback', 'Estimate follow-up (scheduled)', 'Estimate declined'], $automations->keys()->all());
         $this->assertTrue($automations->every(fn ($a) => $a->organization_id === $this->admin->organization_id && $a->status === AutomationStatus::Draft));
 
-        [$ready, $price, $interested, $callback] = $automations;
+        [$followUp, $ready, $accepted, $interested, $price, $callback, $estimateFollowUp, $declined] = $automations->values()->all();
+        $this->assertSame(4320, $followUp->wait_minutes);
+        $this->assertSame('estimate_sent', $followUp->trigger_type->value);
+        $this->assertSame('estimate_accepted', $accepted->trigger_type->value);
         $summary = fn (Automation $a) => [
             $a->conditions->map(fn ($c) => "{$c->type->value} {$c->operator->value} {$c->value}")->all(),
             $a->actions->map(fn ($x) => $x->type->value)->all(),
@@ -302,17 +338,20 @@ class AutomationBuilderTest extends TestCase
         $this->assertSame([['intent_equals equals wants_callback'], ['create_task', 'notify_user', 'update_conversation_status']], $summary($callback));
         $this->assertSame('waiting_business', $callback->actions[2]->configuration['status']);
 
-        [, , , , $estimateFollowUp, $declined] = $automations;
+        $this->assertSame([['customer_replied is_false '], ['send_email']], $summary($followUp));
+        $this->assertSame([[], ['create_task']], $summary($accepted));
+        $this->assertSame('owner', $accepted->actions[0]->configuration['assign_to']);
         $this->assertSame(['estimate_sent', 'estimate_declined'], [$estimateFollowUp->trigger_type->value, $declined->trigger_type->value]);
         $this->assertSame([[], ['schedule_follow_up']], $summary($estimateFollowUp));
         $this->assertSame(3, $estimateFollowUp->actions[0]->configuration['delay_days']);
         $this->assertSame([[], ['create_task', 'notify_user']], $summary($declined));
 
-        // Each template is valid for activation as installed.
+        // Each template is valid for activation as installed (email templates need a verified sender).
+        EmailConnection::factory()->verified()->default()->create(['organization_id' => $this->admin->organization_id, 'domain' => 'example.com', 'sender_email' => 'sales@example.com']);
         foreach ($automations as $automation) {
             app(AutomationBuilder::class)->activate($automation, $this->admin);
         }
-        $this->assertSame(6, Automation::where('status', 'active')->count());
+        $this->assertSame(8, Automation::where('status', 'active')->count());
     }
 
     // Run log and timeline
@@ -335,15 +374,15 @@ class AutomationBuilderTest extends TestCase
         $automation = $this->automation(['name' => 'Ready flow']);
         $run = $this->runWithActions($automation);
 
-        Livewire::actingAs($this->admin)->test(AutomationRunLog::class, ['automationId' => $automation->id])
-            ->assertSee('#'.$run->id)->assertSee('classification:77')->assertDontSee('Task created');
+        Livewire::actingAs($this->admin)->test(AutomationLogs::class, ['automationId' => $automation->id])
+            ->assertSee('#'.$run->id)->assertSee('Success')->assertDontSee('Task created');
 
-        Livewire::actingAs($this->admin)->test(AutomationRunLog::class, ['automationId' => $automation->id, 'runId' => $run->id])
-            ->assertSeeInOrder(['Run #'.$run->id, 'Completed', 'Ready to book', '92%', 'Create task', 'Task created: Book John Smith', 'Send email', 'Automatic emails are turned off for this organization.', 'Skipped']);
+        Livewire::actingAs($this->admin)->test(AutomationLogs::class, ['automationId' => $automation->id, 'runId' => $run->id])
+            ->assertSeeInOrder(['Execution #'.$run->id, 'Success', 'Ready to book', '92%', 'Create task', 'Task created: Book John Smith', 'Send email', 'Automatic emails are turned off for this organization.', 'Skipped']);
 
         // A run of another automation can't be opened through this one.
         $other = $this->runWithActions($this->automation());
-        $this->actingAs($this->admin)->get("/settings/automations/{$automation->id}/runs/{$other->id}")->assertNotFound();
+        $this->actingAs($this->admin)->get("/automations/{$automation->id}/logs/{$other->id}")->assertNotFound();
     }
 
     public function test_automation_activity_appears_in_the_conversation_timeline(): void

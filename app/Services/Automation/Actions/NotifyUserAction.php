@@ -4,6 +4,7 @@ namespace App\Services\Automation\Actions;
 
 use App\Contracts\Automation\AutomationActionInterface;
 use App\Enums\OrganizationRole;
+use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\AutomationAction;
 use App\Models\User;
 use App\Notifications\AutomationNotification;
@@ -32,7 +33,12 @@ class NotifyUserAction implements AutomationActionInterface
             return AutomationActionResult::failed('Only in-app notifications are supported.');
         }
 
-        $message = is_string($config['message'] ?? null) ? trim($context->render($config['message'])) : '';
+        try {
+            $message = is_string($config['message'] ?? null) ? trim($context->render($config['message'])) : '';
+        } catch (InvalidEmailTemplateException $e) {
+            return AutomationActionResult::failed($e->getMessage());
+        }
+
         if ($message === '') {
             return AutomationActionResult::failed('A notification message is required.');
         }
@@ -53,7 +59,13 @@ class NotifyUserAction implements AutomationActionInterface
         foreach ($recipients as $user) {
             $notification = new AutomationNotification(
                 message: Str::limit($message, 255, '…'),
-                url: $conversation ? route('inbox.show', $conversation->id) : null,
+                // The most useful page for the event: the conversation, else the estimate or customer.
+                url: match (true) {
+                    $conversation !== null => route('inbox.show', $conversation->id),
+                    $context->estimateId !== null => route('estimates.show', $context->estimateId),
+                    $context->customer() !== null => route('customers.show', $context->customer()->id),
+                    default => null,
+                },
                 conversationId: $conversation?->id,
                 automationId: $action->automation_id,
                 automationActionId: $action->id,

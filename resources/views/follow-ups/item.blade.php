@@ -75,7 +75,7 @@
                 <div class="flex flex-wrap items-end gap-3">
                     <div><label for="cancel-reason-{{ $followUp->id }}" class="block text-sm font-medium text-gray-700">Reason</label>
                         <select id="cancel-reason-{{ $followUp->id }}" wire:model.live="cancelReason" class="mt-1 {{ $field }}">
-                            @foreach (\App\Enums\FollowUpCancelReason::cases() as $reason)
+                            @foreach (\App\Enums\FollowUpCancelReason::forPeople() as $reason)
                                 <option value="{{ $reason->value }}">{{ $reason->label() }}</option>
                             @endforeach
                         </select>

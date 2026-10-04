@@ -30,6 +30,8 @@ class AutomationRun extends Model
             'failed_at' => 'datetime',
             'depth' => 'integer',
             'context' => 'array',
+            'condition_results' => 'array',
+            'resume_at' => 'datetime',
         ];
     }
 
@@ -55,6 +57,24 @@ class AutomationRun extends Model
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class);
+    }
+
+    /**
+     * @return BelongsTo<Customer, $this>
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Seconds from start to finish, while known.
+     */
+    public function durationSeconds(): ?int
+    {
+        $end = $this->completed_at ?? $this->failed_at;
+
+        return $this->started_at === null || $end === null ? null : (int) $this->started_at->diffInSeconds($end, absolute: true);
     }
 
     /**

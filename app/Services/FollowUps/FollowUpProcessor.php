@@ -8,6 +8,7 @@ use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\FollowUpType;
 use App\Enums\MessageDirection;
+use App\Events\FollowUpDue;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\FollowUps\InvalidFollowUpException;
@@ -20,6 +21,7 @@ use App\Models\User;
 use App\Services\Automation\AutomatedEmailPolicy;
 use App\Services\Automation\EmailTemplateRenderer;
 use App\Services\Email\EmailService;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -76,12 +78,16 @@ class FollowUpProcessor
              where status = ? and id in (
                  select id from follow_ups where status = ? and due_at <= ? order by due_at limit ? for update skip locked
              )
-             returning id',
+             returning id, organization_id, customer_id, conversation_id, estimate_id, due_at',
             [FollowUpStatus::Due->value, $now, FollowUpStatus::Pending->value, FollowUpStatus::Pending->value, $now, (int) config('follow_ups.batch_size')],
         );
 
         foreach ($rows as $row) {
             ProcessFollowUpJob::dispatch((int) $row->id);
+
+            if ($row->customer_id !== null) {
+                FollowUpDue::dispatch((int) $row->organization_id, (int) $row->id, $row->conversation_id, (int) $row->customer_id, $row->estimate_id, CarbonImmutable::parse($row->due_at)->getTimestamp());
+            }
         }
 
         return count($rows);

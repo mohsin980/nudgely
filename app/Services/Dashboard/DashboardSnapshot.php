@@ -32,6 +32,7 @@ final readonly class DashboardSnapshot
         public array $estimates,
         public Collection $recentReplies,
         public Collection $automationRuns,
+        public int $automationFailures,
         public Collection $notifications,
         public int $unreadNotifications,
     ) {}

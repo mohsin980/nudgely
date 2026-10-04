@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
+use App\Livewire\Automations\AutomationForm;
+use App\Livewire\Automations\AutomationIndex;
+use App\Livewire\Automations\AutomationLogs;
+use App\Livewire\Automations\ShowAutomation;
 use App\Livewire\Customers\CustomerForm;
 use App\Livewire\Customers\CustomerIndex;
 use App\Livewire\Customers\ShowCustomer;
@@ -12,9 +16,6 @@ use App\Livewire\Estimates\ShowEstimate;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
-use App\Livewire\Settings\Automations\AutomationEditor;
-use App\Livewire\Settings\Automations\AutomationIndex;
-use App\Livewire\Settings\Automations\AutomationRunLog;
 use App\Livewire\Settings\BusinessSettings;
 use App\Livewire\Settings\EmailSettings;
 use App\Models\Automation;
@@ -49,20 +50,24 @@ Route::middleware('auth')->prefix('settings')->name('settings.')->group(function
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');
 
-    // IDs are looked up inside the user's organization by each component, never via implicit binding.
-    Route::middleware('can:viewAny,'.Automation::class)->prefix('automations')->name('automations.')->group(function () {
-        Route::get('/', AutomationIndex::class)->name('index');
-        Route::get('/create', AutomationEditor::class)->name('create');
-        Route::get('/{automationId}/edit', AutomationEditor::class)->whereNumber('automationId')->name('edit');
-        Route::get('/{automationId}/runs', AutomationRunLog::class)->whereNumber('automationId')->name('runs');
-        Route::get('/{automationId}/runs/{runId}', AutomationRunLog::class)->whereNumber(['automationId', 'runId'])->name('runs.show');
-    });
+    // Automations moved to /automations (Task 12); old links keep working.
+    Route::get('/automations/{path?}', fn (?string $path = null) => redirect('/automations'.($path ? '/'.str_replace('/runs', '/logs', $path) : ''), 301))->where('path', '.*')->name('automations.legacy');
 });
 
 // Conversations live at /conversations; the route names stay "inbox.*" for existing links.
 Route::middleware(['auth', 'can:access-organization'])->group(function () {
     Route::get('/conversations', ConversationList::class)->name('inbox.index');
     Route::get('/conversations/{conversationId}', ShowConversation::class)->whereNumber('conversationId')->name('inbox.show');
+});
+
+// Automations (admins): IDs are looked up inside the user's organization by each component.
+Route::middleware(['auth', 'can:viewAny,'.Automation::class])->prefix('automations')->name('automations.')->group(function () {
+    Route::get('/', AutomationIndex::class)->name('index');
+    Route::get('/create', AutomationForm::class)->name('create');
+    Route::get('/{automationId}', ShowAutomation::class)->whereNumber('automationId')->name('show');
+    Route::get('/{automationId}/edit', AutomationForm::class)->whereNumber('automationId')->name('edit');
+    Route::get('/{automationId}/logs', AutomationLogs::class)->whereNumber('automationId')->name('logs');
+    Route::get('/{automationId}/logs/{runId}', AutomationLogs::class)->whereNumber(['automationId', 'runId'])->name('logs.show');
 });
 
 // Estimates: IDs are looked up inside the user's organization by each component.

@@ -12,6 +12,7 @@ enum FollowUpCancelReason: string
     case Duplicate = 'duplicate';
     case ManuallyCancelled = 'manually_cancelled';
     case Other = 'other';
+    case Automation = 'automation';
 
     public function label(): string
     {
@@ -21,6 +22,17 @@ enum FollowUpCancelReason: string
             self::Duplicate => 'Duplicate',
             self::ManuallyCancelled => 'No longer needed',
             self::Other => 'Other',
+            self::Automation => 'Cancelled by an automation',
         };
+    }
+
+    /**
+     * Reasons a person can choose (automations use their own).
+     *
+     * @return list<self>
+     */
+    public static function forPeople(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $reason) => $reason !== self::Automation));
     }
 }

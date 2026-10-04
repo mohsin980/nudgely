@@ -7,6 +7,7 @@ use App\Enums\FollowUpStatus;
 use App\Enums\MessageStatus;
 use App\Enums\TaskPriority;
 use App\Events\EstimateAccepted;
+use App\Events\EstimateCreated;
 use App\Events\EstimateDeclined;
 use App\Events\EstimateExpired;
 use App\Events\EstimateSent;
@@ -74,6 +75,7 @@ test('each lifecycle change queues automation evaluation with the estimate in it
 
     $pushed = collect(Queue::pushed(EvaluateAutomationJob::class))->map(fn ($job) => [$job->event::class, $job->event->estimateId]);
     expect($pushed->all())->toEqualCanonicalizing([
+        [EstimateCreated::class, $estimate->id], [EstimateCreated::class, $declined->id], [EstimateCreated::class, $expiring->id],
         [EstimateSent::class, $estimate->id], [EstimateViewed::class, $estimate->id], [EstimateAccepted::class, $estimate->id],
         [EstimateSent::class, $declined->id], [EstimateDeclined::class, $declined->id],
         [EstimateSent::class, $expiring->id], [EstimateExpired::class, $expiring->id],

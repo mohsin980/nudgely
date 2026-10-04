@@ -218,6 +218,8 @@ They never include message bodies, email addresses or secrets.
 
 ## Screens (organization admins only; members get 403)
 
+> Superseded in Task 12: the screens moved to `/automations` with a step builder — see [automations.md](automations.md).
+
 | Route | Component | What it does |
 | --- | --- | --- |
 | `/settings/automations` | `AutomationIndex` | Settings toggles; the list (name, trigger, status, last run, created) with Edit / Runs / Pause / Activate / Delete; templates |

@@ -2,12 +2,15 @@
 
 namespace App\Enums\Automation;
 
+use App\Services\Automation\Registry\ConditionFieldRegistry;
+
 /**
  * The facts an automation condition can test. Conditions are data, never code:
  * each type is compared with a controlled operator against a stored value.
  */
 enum AutomationConditionType: string
 {
+    // Task 7 keys (stored values: never rename).
     case IntentEquals = 'intent_equals';
     case ConfidenceGreaterThan = 'confidence_greater_than';
     case CustomerStatusEquals = 'customer_status_equals';
@@ -15,37 +18,35 @@ enum AutomationConditionType: string
     case DaysSinceLastMessage = 'days_since_last_message';
     case ConversationStatusEquals = 'conversation_status_equals';
 
+    // Task 12 fields.
+    case CustomerReplied = 'customer_replied';
+    case CustomerHasEmail = 'customer_has_email';
+    case CustomerHasPhone = 'customer_has_phone';
+    case CustomerEmail = 'customer_email';
+    case CustomerCompany = 'customer_company';
+    case ConversationPriority = 'conversation_priority';
+    case ConversationIntent = 'conversation_intent';
+    case ConversationSubject = 'conversation_subject';
+    case EstimateTotal = 'estimate_total';
+    case EstimateTitle = 'estimate_title';
+    case EstimateValidUntil = 'estimate_valid_until';
+    case FollowUpStatus = 'follow_up_status';
+    case FollowUpDueAt = 'follow_up_due_at';
+
+    /**
+     * Label, data type and operators live in ConditionFieldRegistry.
+     */
     public function label(): string
     {
-        return match ($this) {
-            self::IntentEquals => 'Intent',
-            self::ConfidenceGreaterThan => 'Confidence',
-            self::CustomerStatusEquals => 'Customer status',
-            self::EstimateStatusEquals => 'Estimate status',
-            self::DaysSinceLastMessage => 'Days since last message',
-            self::ConversationStatusEquals => 'Conversation status',
-        };
+        return ConditionFieldRegistry::get($this)->label;
     }
 
     /**
-     * Operators that make sense for this condition type.
-     *
      * @return list<AutomationConditionOperator>
      */
     public function allowedOperators(): array
     {
-        return match ($this) {
-            self::IntentEquals, self::CustomerStatusEquals, self::EstimateStatusEquals, self::ConversationStatusEquals => [
-                AutomationConditionOperator::Equals,
-                AutomationConditionOperator::NotEquals,
-            ],
-            self::ConfidenceGreaterThan, self::DaysSinceLastMessage => [
-                AutomationConditionOperator::GreaterThan,
-                AutomationConditionOperator::GreaterThanOrEqual,
-                AutomationConditionOperator::LessThan,
-                AutomationConditionOperator::LessThanOrEqual,
-            ],
-        };
+        return ConditionFieldRegistry::get($this)->operators();
     }
 
     public function defaultOperator(): AutomationConditionOperator

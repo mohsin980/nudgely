@@ -334,7 +334,7 @@ test('recent customer replies appear with their classification', function () {
 
 test('automation activity appears', function () {
     $automation = Automation::factory()->active()->create(['organization_id' => $this->organization->id, 'name' => 'Customer Ready to Book']);
-    $run = AutomationRun::query()->forceCreate(['organization_id' => $this->organization->id, 'automation_id' => $automation->id, 'conversation_id' => $this->johnConversation->id,
+    $run = AutomationRun::query()->forceCreate(['organization_id' => $this->organization->id, 'automation_id' => $automation->id, 'conversation_id' => $this->johnConversation->id, 'customer_id' => $this->johnConversation->customer_id,
         'event_type' => 'customer_reply_classified', 'event_id' => 'classification:1', 'status' => 'completed']);
     foreach (['Task created: Book John Smith', 'Customer tagged "ready-to-book".', 'Notified 1 person.'] as $message) {
         AutomationActionRun::query()->forceCreate(['automation_run_id' => $run->id, 'action_type' => 'create_task', 'status' => 'completed', 'result' => ['message' => $message]]);

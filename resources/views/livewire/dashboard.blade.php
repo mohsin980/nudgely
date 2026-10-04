@@ -185,7 +185,7 @@
                         <a href="{{ route('follow-ups.index', ['schedule' => 1]) }}" wire:navigate class="{{ $button }} justify-center">Schedule Follow-Up</a>
                         <a href="{{ route('inbox.index') }}" wire:navigate class="{{ $button }} justify-center">View Conversations</a>
                         @can('viewAny', \App\Models\Automation::class)
-                            <a href="{{ route('settings.automations.index') }}" wire:navigate class="{{ $button }} justify-center">View Automations</a>
+                            <a href="{{ route('automations.index') }}" wire:navigate class="{{ $button }} justify-center">View Automations</a>
                         @endcan
                     </div>
                     @if ($showAddCustomer)
@@ -275,9 +275,15 @@
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 id="automation-heading" class="{{ $heading }}">Automation activity</h2>
                         @can('viewAny', \App\Models\Automation::class)
-                            <a href="{{ route('settings.automations.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">View Automation Activity</a>
+                            <a href="{{ route('automations.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">View Automation Activity</a>
                         @endcan
                     </div>
+                    @if ($d->automationFailures > 0)
+                        <p class="mt-3 rounded-md bg-red-50 p-2 text-sm text-red-800" role="alert" data-automation-failures>
+                            <span class="font-semibold">Automation issue:</span> {{ trans_choice(':count execution failed|:count executions failed', $d->automationFailures) }} in the last 7 days.
+                            @can('viewAny', \App\Models\Automation::class)<a href="{{ route('automations.index') }}" wire:navigate class="font-medium underline">View</a>@endcan
+                        </p>
+                    @endif
                     @if ($d->automationRuns->isEmpty())
                         <p class="mt-3 text-sm text-gray-600">No automations have run yet.</p>
                     @else
@@ -288,8 +294,8 @@
                                         <time class="text-xs text-gray-500" datetime="{{ $run->created_at->toIso8601String() }}">{{ $organization->localTime($run->created_at)->format('g:i A') }}</time>
                                         <span class="font-medium text-gray-900">{{ $run->automation?->name ?? 'Deleted automation' }}</span>
                                     </p>
-                                    @if ($run->conversation?->customer)
-                                        <p class="text-gray-700">{{ $run->conversation->customer->name }}</p>
+                                    @if ($run->customer)
+                                        <p class="text-gray-700">{{ $run->customer->name }}</p>
                                     @endif
                                     <ul role="list" class="mt-0.5 text-gray-600">
                                         @forelse ($run->actionRuns as $actionRun)
@@ -299,7 +305,7 @@
                                                 {{ $actionRun->result['message'] ?? $actionRun->action_type->label() }}
                                             </li>
                                         @empty
-                                            <li>{{ $run->failure_reason ?? $run->status->label() }}</li>
+                                            <li>{{ $run->failure_reason ?? ($run->status === \App\Enums\Automation\AutomationRunStatus::Waiting && $run->resume_at ? 'Waiting until '.$organization->localTime($run->resume_at)->format('M j, g:i A') : $run->status->label()) }}</li>
                                         @endforelse
                                     </ul>
                                 </li>

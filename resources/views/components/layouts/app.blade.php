@@ -84,6 +84,19 @@
                             Estimates
                         </a>
                     </li>
+                    @can('viewAny', \App\Models\Automation::class)
+                        <li>
+                            <a href="{{ route('automations.index') }}"
+                               @if (request()->routeIs('automations.*')) aria-current="page" @endif
+                               @class([
+                                   'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                                   'bg-indigo-50 text-indigo-700' => request()->routeIs('automations.*'),
+                                   'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('automations.*'),
+                               ])>
+                                Automations
+                            </a>
+                        </li>
+                    @endcan
                     <li class="hidden px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase lg:block" aria-hidden="true">Settings</li>
                     <li>
                         <a href="{{ route('settings.email') }}"
@@ -109,19 +122,7 @@
                         </a>
                     </li>
                     @endcan
-                    @can('viewAny', \App\Models\Automation::class)
-                        <li>
-                            <a href="{{ route('settings.automations.index') }}"
-                               @if (request()->routeIs('settings.automations.*')) aria-current="page" @endif
-                               @class([
-                                   'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                                   'bg-indigo-50 text-indigo-700' => request()->routeIs('settings.automations.*'),
-                                   'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('settings.automations.*'),
-                               ])>
-                                Automations
-                            </a>
-                        </li>
-                    @endcan
+
                 </ul>
             </nav>
 

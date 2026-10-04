@@ -81,17 +81,29 @@ class TimelineService
             ));
         }
 
-        $runs = $scope(AutomationRun::query(), 'automation_runs')
-            ->whereIn('conversation_id', $conversationIds)
+        // A run belongs to the customer (customer_id), even without a conversation (e.g. "Customer created").
+        $runs = AutomationRun::query()
+            ->where('automation_runs.organization_id', $customer->organization_id)
+            ->when($conversationId,
+                fn ($q) => $q->where('conversation_id', $conversationId),
+                fn ($q) => $q->where(fn ($q) => $q->where('customer_id', $customer->id)->orWhereIn('conversation_id', $conversationIds)))
             ->with(['automation:id,name', 'actionRuns:id,automation_run_id,action_type,status,result'])
             ->latest('id')->limit($limit)->get();
 
         foreach ($runs as $run) {
+            $name = $run->automation?->name ?? 'Deleted automation';
             $entries->push(new TimelineEntry(
                 at: $run->created_at,
                 kind: 'automation',
-                title: 'Automation: '.($run->automation?->name ?? 'Deleted automation'),
-                body: $run->actionRuns->isEmpty() ? $run->failure_reason : null,
+                title: match ($run->status->value) {
+                    'waiting' => "Automation waiting: {$name}",
+                    'skipped' => "Automation skipped: {$name}",
+                    'failed' => "Automation failed: {$name}",
+                    default => "Automation: {$name}",
+                },
+                body: $run->actionRuns->isEmpty()
+                    ? ($run->failure_reason ?? ($run->resume_at ? 'Continues '.$customer->organization->localTime($run->resume_at)->format('M j, g:i A').' if its conditions still match.' : null))
+                    : null,
                 details: $run->actionRuns->map(fn ($a) => [
                     'ok' => $a->status->value === 'completed',
                     'status' => $a->status->label(),
