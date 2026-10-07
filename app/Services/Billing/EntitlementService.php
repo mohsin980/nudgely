@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Services\Billing;
+
+use App\Billing\Plan;
+use App\Billing\PlanCatalog;
+use App\Enums\Billing\LimitKey;
+use App\Models\Organization;
+use App\Models\Subscription;
+
+/**
+ * What an organization may use right now. The rest of the app asks this service (never the
+ * billing provider): the plan of a subscription that grants access, otherwise the default (free) plan.
+ */
+class EntitlementService
+{
+    public function __construct(
+        private readonly PlanCatalog $plans,
+        private readonly UsageService $usage,
+    ) {}
+
+    public function plan(Organization $organization): Plan
+    {
+        $subscription = $this->subscription($organization);
+
+        return ($subscription?->grantsAccess() ? $subscription->planDefinition() : null) ?? $this->plans->default();
+    }
+
+    public function subscription(Organization $organization): ?Subscription
+    {
+        return Subscription::query()->where('organization_id', $organization->id)->current()->latest('id')->first();
+    }
+
+    /**
+     * The limit, or null when unlimited.
+     */
+    public function limit(Organization $organization, LimitKey $key): ?int
+    {
+        return $this->plan($organization)->limit($key);
+    }
+
+    public function hasFeature(Organization $organization, string $feature): bool
+    {
+        return $this->plan($organization)->hasFeature($feature);
+    }
+
+    /**
+     * May the organization add $amount more (e.g. one more customer)?
+     */
+    public function allows(Organization $organization, LimitKey $key, int $amount = 1): bool
+    {
+        $limit = $this->limit($organization, $key);
+
+        return $limit === null || $this->usage->usage($organization, $key) + $amount <= $limit;
+    }
+
+    /**
+     * How many more are allowed (null = unlimited), never below zero.
+     */
+    public function remaining(Organization $organization, LimitKey $key): ?int
+    {
+        $limit = $this->limit($organization, $key);
+
+        return $limit === null ? null : max(0, $limit - $this->usage->usage($organization, $key));
+    }
+
+    /**
+     * Every limit with its usage, for the billing page.
+     *
+     * @return array<string, array{label: string, used: int, limit: int|null, remaining: int|null, over: bool}>
+     */
+    public function summary(Organization $organization): array
+    {
+        $plan = $this->plan($organization);
+        $rows = [];
+
+        foreach (LimitKey::cases() as $key) {
+            $used = $this->usage->usage($organization, $key);
+            $limit = $plan->limit($key);
+            $rows[$key->value] = ['label' => $key->label(), 'used' => $used, 'limit' => $limit,
+                'remaining' => $limit === null ? null : max(0, $limit - $used), 'over' => $limit !== null && $used > $limit];
+        }
+
+        return $rows;
+    }
+}

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['name'])]
 class Organization extends Model
@@ -136,6 +137,26 @@ class Organization extends Model
     public function localNow(): CarbonImmutable
     {
         return CarbonImmutable::now($this->timezone());
+    }
+
+    /**
+     * Every subscription the organization has had (newest last).
+     *
+     * @return HasMany<Subscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * The one subscription that isn't cancelled or expired, if any.
+     *
+     * @return HasOne<Subscription, $this>
+     */
+    public function currentSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)->current()->latestOfMany();
     }
 
     /**

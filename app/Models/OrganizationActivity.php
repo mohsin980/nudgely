@@ -40,6 +40,10 @@ class OrganizationActivity extends Model
         'member_removed' => 'Member removed',
         'ownership_transferred' => 'Ownership transferred',
         'password_changed' => 'Password changed',
+        'subscription_started' => 'Subscription started',
+        'subscription_plan_changed' => 'Plan changed',
+        'subscription_cancelled' => 'Subscription cancelled',
+        'subscription_resumed' => 'Subscription resumed',
         'other_sessions_logged_out' => 'Signed out other sessions',
     ];
 
