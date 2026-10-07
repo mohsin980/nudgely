@@ -32,6 +32,20 @@
             </div>
         </header>
 
+        @auth
+            @can('manage-billing')
+                @php($trial = app(\App\Services\Billing\EntitlementService::class)->trial(auth()->user()->organization))
+                @if ($trial && ! request()->routeIs('settings.billing'))
+                    <div class="border-b border-indigo-100 bg-indigo-50" data-trial-banner>
+                        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm text-indigo-900 sm:px-6">
+                            <p>Your free {{ $trial['plan']->name }} trial: {{ $trial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $trial['days_left']) }} left.</p>
+                            <a href="{{ route('settings.billing') }}" wire:navigate class="font-semibold underline">Choose a plan</a>
+                        </div>
+                    </div>
+                @endif
+            @endcan
+        @endauth
+
         <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:grid lg:grid-cols-[13rem_1fr] lg:gap-10 lg:py-10">
             <nav aria-label="Main" class="mb-6 lg:mb-0">
                 <ul class="flex gap-1 overflow-x-auto lg:flex-col">

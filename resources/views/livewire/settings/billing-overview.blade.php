@@ -30,8 +30,10 @@
                     <button type="button" wire:click="cancelSubscription" wire:confirm="Cancel your subscription? It stays active until the end of the current period, then you move to the Free plan. Nothing is deleted." class="rounded-md px-3 py-1.5 text-sm font-medium text-red-700 hover:underline">Cancel subscription</button>
                 @endif
             </div>
+        @elseif ($signupTrial)
+            <p class="mt-2 text-sm text-gray-800" data-notice>Your free {{ $signupTrial['plan']->name }} trial ends on {{ $organization->formatDate($signupTrial['ends_at']) }} ({{ $signupTrial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $signupTrial['days_left']) }} left). No card needed. Choose a plan to keep your limits; otherwise you move to Free and nothing is deleted.</p>
         @else
-            <p class="mt-2 text-sm text-gray-600">No subscription — you're on the {{ $plan->name }} plan.@if ($trialDays > 0) Paid plans start with a {{ $trialDays }}-day free trial.@endif</p>
+            <p class="mt-2 text-sm text-gray-600" data-notice>No subscription — you're on the {{ $plan->name }} plan.@if ($trialDays > 0) Paid plans start with a {{ $trialDays }}-day free trial.@endif</p>
         @endif
     </section>
 

@@ -27,6 +27,9 @@ return [
     // Free trial for a business's first paid subscription (never repeated).
     'trial_days' => (int) env('BILLING_TRIAL_DAYS', 14),
 
+    // New businesses start a card-free trial of this plan at sign-up; afterwards they choose a plan or use Free.
+    'signup_trial_plan' => env('BILLING_SIGNUP_TRIAL_PLAN', 'starter'),
+
     'currency' => 'USD',
 
     'plans' => [

@@ -52,6 +52,8 @@ class Organization extends Model
             'automatic_email_enabled' => 'boolean',
             'require_approval_for_email' => 'boolean',
             'settings' => 'array',
+            'trial_ends_at' => 'datetime',
+            'trial_used_at' => 'datetime',
         ];
     }
 

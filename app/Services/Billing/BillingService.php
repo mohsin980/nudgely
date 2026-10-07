@@ -57,6 +57,22 @@ class BillingService
     }
 
     /**
+     * Give a new business its one card-free trial (idempotent). Called when the business signs up.
+     */
+    public function startSignupTrial(Organization $organization): void
+    {
+        $days = (int) config('billing.trial_days');
+
+        if ($days <= 0 || $organization->trial_used_at !== null) {
+            return;
+        }
+
+        $this->plans->get((string) config('billing.signup_trial_plan'));
+        $organization->forceFill(['trial_used_at' => now(), 'trial_ends_at' => now()->addDays($days)])->save();
+        OrganizationActivity::record($organization, 'trial_started', null, ['plan' => config('billing.signup_trial_plan'), 'days' => $days]);
+    }
+
+    /**
      * A hosted checkout page for a paid plan (Free → Starter/Pro). The card is entered at the provider.
      *
      * @throws AuthorizationException|BillingException
@@ -296,11 +312,11 @@ class BillingService
 
             $subscription = $existing !== null ? $this->apply($existing, $remote) : $this->store($organization, $provider, $remote);
 
-            // A business gets one free trial, ever.
-            if ($remote->trialEndsAt !== null && $organization->trial_used_at === null) {
-                Organization::query()->whereKey($organization->id)->whereNull('trial_used_at')->update(['trial_used_at' => now()]);
-                $organization->trial_used_at = now();
-            }
+            // A business gets one free trial, ever; a subscription ends the sign-up trial (it converted).
+            Organization::query()->whereKey($organization->id)->when($remote->trialEndsAt !== null, fn ($q) => $q->whereNull('trial_used_at'))
+                ->update(array_filter(['trial_used_at' => $remote->trialEndsAt !== null ? now() : null]));
+            Organization::query()->whereKey($organization->id)->where('trial_ends_at', '>', now())->update(['trial_ends_at' => now()]);
+            $organization->refresh();
 
             return $subscription;
         });

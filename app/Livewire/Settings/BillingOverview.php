@@ -102,6 +102,7 @@ class BillingOverview extends Component
             'rows' => $entitlements->summary($organization),
             'plans' => $billing->plans(),
             'trialDays' => $billing->trialDaysFor($organization),
+            'signupTrial' => $entitlements->trial($organization),
             'overLimits' => fn (Plan $target) => $this->overLimits($target, $entitlements->summary($organization)),
             'periodStart' => $start,
             'periodEnd' => $end->subSecond(),

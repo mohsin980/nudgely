@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\User;
+use App\Services\Billing\BillingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,6 +54,7 @@ class RegistrationController extends Controller
             ])->save();
 
             OrganizationActivity::record($organization, 'business_created', $user);
+            app(BillingService::class)->startSignupTrial($organization);
 
             return $user;
         });

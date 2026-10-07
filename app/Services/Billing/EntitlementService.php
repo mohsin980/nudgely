@@ -7,6 +7,7 @@ use App\Billing\PlanCatalog;
 use App\Enums\Billing\LimitKey;
 use App\Models\Organization;
 use App\Models\Subscription;
+use Carbon\CarbonInterface;
 
 /**
  * What an organization may use right now. The rest of the app asks this service (never the
@@ -23,7 +24,22 @@ class EntitlementService
     {
         $subscription = $this->subscription($organization);
 
-        return ($subscription?->grantsAccess() ? $subscription->planDefinition() : null) ?? $this->plans->default();
+        // A paid subscription first; otherwise the sign-up trial while it lasts; otherwise Free.
+        return ($subscription?->grantsAccess() ? $subscription->planDefinition() : null)
+            ?? $this->trial($organization)['plan']
+            ?? $this->plans->default();
+    }
+
+    /**
+     * The card-free sign-up trial, while it is running (null otherwise).
+     *
+     * @return array{plan: Plan, ends_at: CarbonInterface, days_left: int}|null
+     */
+    public function trial(Organization $organization): ?array
+    {
+        $plan = $organization->trial_ends_at?->isFuture() ? $this->plans->find(config('billing.signup_trial_plan')) : null;
+
+        return $plan === null ? null : ['plan' => $plan, 'ends_at' => $organization->trial_ends_at, 'days_left' => max(1, (int) ceil(now()->floatDiffInDays($organization->trial_ends_at)))];
     }
 
     public function subscription(Organization $organization): ?Subscription
