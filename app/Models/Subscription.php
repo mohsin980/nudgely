@@ -32,6 +32,7 @@ class Subscription extends Model
             'cancel_at_period_end' => 'boolean',
             'canceled_at' => 'datetime',
             'ended_at' => 'datetime',
+            'scheduled_change_at' => 'datetime',
         ];
     }
 
@@ -47,6 +48,11 @@ class Subscription extends Model
      * The plan applies now: the status allows it, a trial hasn't run out, and a cancellation
      * scheduled for the period end hasn't reached it (until a provider sync marks it ended).
      */
+    public function scheduledPlanDefinition(): ?Plan
+    {
+        return app(PlanCatalog::class)->find($this->scheduled_plan);
+    }
+
     public function grantsAccess(): bool
     {
         if (! $this->status->grantsAccess()) {

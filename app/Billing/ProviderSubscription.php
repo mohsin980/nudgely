@@ -21,6 +21,9 @@ final class ProviderSubscription
         public readonly bool $cancelAtPeriodEnd = false,
         public readonly ?CarbonImmutable $canceledAt = null,
         public readonly ?CarbonImmutable $endedAt = null,
+        public readonly ?string $scheduledPlanKey = null,
+        public readonly ?CarbonImmutable $scheduledChangeAt = null,
+        public readonly ?string $scheduleId = null,
     ) {}
 
     /**
@@ -38,6 +41,9 @@ final class ProviderSubscription
             'cancel_at_period_end' => $this->cancelAtPeriodEnd,
             'canceled_at' => $this->canceledAt,
             'ended_at' => $this->endedAt,
+            'scheduled_plan' => $this->scheduledPlanKey,
+            'scheduled_change_at' => $this->scheduledChangeAt,
+            'provider_schedule_id' => $this->scheduleId,
         ];
     }
 }

@@ -8,8 +8,9 @@
 | The single source of plan definitions. Nothing else in the application
 | hard-codes prices or limits: read them through App\Billing\PlanCatalog.
 |
-| provider: which BillingProviderInterface implementation is used ("manual"
-| keeps subscriptions locally until a payment provider is connected).
+| provider: which BillingProviderInterface implementation is used: "stripe"
+| (hosted checkout, billing portal) or "manual" (local, no payments: for
+| development, internal accounts and tests).
 | default_plan: what an organization without a subscription gets.
 |
 | Limits: an integer, or null for "unlimited". Monthly limits reset at the
@@ -22,6 +23,9 @@ return [
     'provider' => env('BILLING_PROVIDER', 'manual'),
 
     'default_plan' => 'free',
+
+    // Free trial for a business's first paid subscription (never repeated).
+    'trial_days' => (int) env('BILLING_TRIAL_DAYS', 14),
 
     'currency' => 'USD',
 
@@ -46,7 +50,7 @@ return [
             'name' => 'Starter',
             'price_cents' => 2900,
             'interval' => 'month',
-            'provider_price_id' => env('BILLING_STARTER_PRICE_ID'),
+            'provider_price_id' => env('STRIPE_PRICE_STARTER'),
             'limits' => [
                 'customers' => 500,
                 'automations' => 15,
@@ -61,7 +65,7 @@ return [
             'name' => 'Pro',
             'price_cents' => 7900,
             'interval' => 'month',
-            'provider_price_id' => env('BILLING_PRO_PRICE_ID'),
+            'provider_price_id' => env('STRIPE_PRICE_PRO'),
             'limits' => [
                 'customers' => 2000,
                 'automations' => 50,

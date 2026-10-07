@@ -2,14 +2,16 @@
 
 namespace App\Services\Billing;
 
+use App\Billing\PlanCatalog;
 use App\Contracts\Billing\BillingProviderInterface;
 use App\Exceptions\Billing\BillingException;
 use App\Services\Billing\Providers\ManualBillingProvider;
+use App\Services\Billing\Providers\StripeBillingProvider;
 use Illuminate\Support\Manager;
 use InvalidArgumentException;
 
 /**
- * Resolves the billing provider (config billing.provider). A Stripe driver is added here later.
+ * Resolves the billing provider (config billing.provider): "stripe" or "manual".
  *
  * @method BillingProviderInterface driver(?string $driver = null)
  */
@@ -32,5 +34,10 @@ class BillingProviderManager extends Manager
     protected function createManualDriver(): BillingProviderInterface
     {
         return new ManualBillingProvider;
+    }
+
+    protected function createStripeDriver(): BillingProviderInterface
+    {
+        return new StripeBillingProvider($this->config->get('services.stripe', []), $this->container->make(PlanCatalog::class));
     }
 }

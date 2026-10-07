@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Automation\AutomationEngine;
+use App\Services\Billing\BillingService;
 use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use Illuminate\Foundation\Inspiring;
@@ -27,7 +28,13 @@ Artisan::command('estimates:expire', function (EstimateService $estimates) {
     $this->info($estimates->expireDue().' estimate(s) expired.');
 })->purpose('Mark sent estimates past their "valid until" date as expired');
 
+Artisan::command('billing:sync-subscriptions', function (BillingService $billing) {
+    $result = $billing->refreshAll();
+    $this->info("{$result['synced']} subscription(s) synced, {$result['failed']} failed.");
+})->purpose('Synchronize current subscriptions with the billing provider (until webhooks exist)');
+
 Schedule::command('follow-ups:process-due')->everyMinute()->withoutOverlapping();
 Schedule::command('follow-ups:notify-overdue')->hourly()->withoutOverlapping();
 Schedule::command('estimates:expire')->hourly()->withoutOverlapping();
 Schedule::command('automations:resume-waiting')->everyMinute()->withoutOverlapping();
+Schedule::command('billing:sync-subscriptions')->hourly()->withoutOverlapping();

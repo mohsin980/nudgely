@@ -44,6 +44,8 @@ class OrganizationActivity extends Model
         'subscription_plan_changed' => 'Plan changed',
         'subscription_cancelled' => 'Subscription cancelled',
         'subscription_resumed' => 'Subscription resumed',
+        'subscription_downgrade_scheduled' => 'Downgrade scheduled',
+        'subscription_change_cancelled' => 'Scheduled plan change cancelled',
         'other_sessions_logged_out' => 'Signed out other sessions',
     ];
 

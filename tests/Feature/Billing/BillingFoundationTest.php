@@ -343,5 +343,25 @@ test('the billing page shows the plan, status and usage', function () {
     Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)
         ->assertSeeInOrder(['Current plan', 'Starter', '$29.00 / month', 'Status', 'Trialing', 'Trial ends'])
         ->assertSeeInOrder(['Usage', 'Customers', '1 / 500', 'Team members', '3 / 3'])
-        ->assertSee('Online payment and plan changes are coming soon.');
+        ->assertSee('Manage payment & invoices', false)->assertSee('Cancel subscription');
+});
+
+test('with the manual provider the same checkout flow completes locally without payment', function () {
+    $page = Livewire::actingAs($this->owner)->test(BillingOverview::class)->call('choosePlan', 'starter');
+    $redirect = $page->effects['redirect'];
+    parse_str((string) parse_url($redirect, PHP_URL_QUERY), $query);
+
+    expect($redirect)->toStartWith(route('settings.billing'))->and($query['session_id'])->toStartWith('manual_cs_');
+
+    Livewire::withQueryParams($query)->actingAs($this->owner->fresh())->test(BillingOverview::class)->assertSee('Your Starter trial has started.');
+
+    $subscription = Subscription::sole();
+    expect($subscription->provider)->toBe('manual')->and($subscription->status)->toBe(SubscriptionStatus::Trialing)
+        ->and($this->entitlements->plan($this->organization)->key)->toBe('starter');
+
+    // Downgrade to Free waits for the period end; the scheduled sync applies it when the time comes.
+    $this->billing->changePlan($this->owner->fresh(), 'free');
+    $this->travelTo($subscription->fresh()->current_period_end->addMinute());
+    $this->artisan('billing:sync-subscriptions')->assertSuccessful();
+    expect($subscription->fresh()->status)->toBe(SubscriptionStatus::Cancelled)->and($this->entitlements->plan($this->organization)->key)->toBe('free');
 });

@@ -1,6 +1,6 @@
-# Billing foundation (Task 14A)
+# Billing (Tasks 14A–14B)
 
-No payments yet: this is the internal architecture the rest of the app talks to.
+The internal billing architecture (14A) connected to Stripe (14B). The rest of the app only talks to `BillingService` and `EntitlementService`.
 
 ## Plans — `config/billing.php` (the only place plan values live)
 
@@ -27,6 +27,26 @@ Each plan: key, name, `price_cents`, `interval`, `limits` (int, or null = unlimi
 
 `Permission::ManageBilling` (owner only) — Gate `manage-billing`, `SubscriptionPolicy`, and `BillingService` checks. Read-only page `/settings/billing`: plan, status, usage vs limits, plan comparison.
 
+## Stripe (Task 14B)
+
+Configuration (environment only, never committed): `BILLING_PROVIDER=stripe`, `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` (for the coming webhooks), `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`. `StripeBillingProvider` calls the Stripe REST API with Laravel's HTTP client (no SDK); every failure becomes a `BillingException` with a safe message and is logged without secrets or object IDs. QuoteFollow never sees or stores card data: customers pay on Stripe Checkout and manage cards, billing details and invoices in the Stripe billing portal.
+
+| Change | How |
+| --- | --- |
+| Free → Starter / Pro | `startCheckout()` → Stripe hosted Checkout (subscription mode, plan price, `client_reference_id` + metadata = organization) → back to `/settings/billing?checkout=success&session_id=…` → `completeCheckout()` verifies the session belongs to this organization and its Stripe customer, then records the subscription (idempotent) |
+| Trial | 14 days (`billing.trial_days`) on a business's first paid subscription only (`organizations.trial_used_at`, or any earlier trial) |
+| Starter → Pro (upgrade) | price switched now with `proration_behavior=create_prorations` |
+| Pro → Starter (downgrade) | Stripe subscription schedule: current price until the period end, then Starter. Locally `scheduled_plan` / `scheduled_change_at`; the plan stays Pro until then. Choosing Pro again releases the schedule |
+| Starter / Pro → Free | cancel at period end |
+| Cancel | default at period end ("Your subscription will remain active until …"); immediate cancel is available to code |
+| Resume | undoes a cancellation scheduled for the period end |
+| Billing portal | `portalUrl()` → Stripe billing portal session, returning to the billing page (which re-syncs) |
+| Synchronization | `refresh()` after returning from Stripe, and `billing:sync-subscriptions` hourly (until webhooks) |
+
+Downgrades never delete data: if usage is above the new plan's limits the billing page says so; existing records stay, and (once enforcement is added) new ones are limited.
+
+The `manual` provider implements the same interface locally (checkout completes immediately, scheduled changes apply when the sync runs after their time).
+
 ## Not yet
 
-Stripe checkout/payments/webhooks, plan changes in the UI, limit enforcement in the features (the services are ready: `EntitlementService::allows()`), expiring ended subscriptions on a schedule.
+Stripe webhooks (status changes between syncs, failed payments), limit enforcement in the features (`EntitlementService::allows()` is ready), annual plans.

@@ -56,6 +56,24 @@ final class PlanCatalog
         return $key === null ? null : ($this->plans[$key] ?? null);
     }
 
+    /**
+     * The plan sold under a provider price ID (e.g. a Stripe price), or null.
+     */
+    public function findByProviderPriceId(?string $priceId): ?Plan
+    {
+        if (blank($priceId)) {
+            return null;
+        }
+
+        foreach ($this->plans as $plan) {
+            if ($plan->providerPriceId === $priceId) {
+                return $plan;
+            }
+        }
+
+        return null;
+    }
+
     public function default(): Plan
     {
         return $this->plans[$this->defaultKey];
