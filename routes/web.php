@@ -133,7 +133,7 @@ Route::redirect('/inbox', '/conversations', 301);
 Route::get('/inbox/{conversationId}', fn (int $conversationId) => redirect()->route('inbox.show', $conversationId, 301))->whereNumber('conversationId');
 
 // Called by Stripe: authenticated by its signature, not by user sessions.
-Route::post('/webhooks/billing/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.billing.stripe');
+Route::post('/webhooks/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.stripe');
 
 // Called by email providers: authenticated by the provider handler, not by user sessions.
 Route::post('/webhooks/email/inbound/{provider}', InboundEmailWebhookController::class)

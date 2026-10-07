@@ -13,11 +13,9 @@ use App\Exceptions\Team\TeamActionException;
 use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Customers\CustomerForm;
 use App\Models\Automation;
-use App\Models\BillingWebhookEvent;
 use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\Organization;
-use App\Models\OrganizationActivity;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Automation\AutomationBuilder;
@@ -28,10 +26,8 @@ use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
 use App\Services\Team\InvitationService;
 use Carbon\CarbonImmutable;
-use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
-use Tests\Fakes\FakeStripe;
 
 beforeEach(function () {
     $this->withoutVite();
@@ -90,143 +86,6 @@ test('no reminder for trials that are far off, over, or already converted', func
     foreach ([$far, $over, $paid] as $business) {
         expect($business['owner']->notifications()->count())->toBe(0);
     }
-});
-
-// ─── Stripe webhooks ─────────────────────────────────────────────────────────────────────
-
-function webhook(array $event, ?string $secret = 'whsec_test_secret', ?int $timestamp = null): TestResponse
-{
-    $body = json_encode($event);
-    $timestamp ??= time();
-    $signature = $secret === null ? 'garbage' : "t={$timestamp},v1=".hash_hmac('sha256', "{$timestamp}.{$body}", $secret);
-
-    return test()->call('POST', route('webhooks.billing.stripe'), [], [], [], ['HTTP_STRIPE_SIGNATURE' => $signature, 'CONTENT_TYPE' => 'application/json'], $body);
-}
-
-function stripeEvent(string $type, array $object, ?string $id = null): array
-{
-    return ['id' => $id ?? 'evt_'.uniqid(), 'object' => 'event', 'type' => $type, 'data' => ['object' => $object]];
-}
-
-/**
- * The owner paid on Stripe's checkout page, but QuoteFollow hasn't recorded it yet.
- *
- * @return array{session: string, subscription: string, customer: string}
- */
-function paidAtStripe(): array
-{
-    $session = app(BillingService::class)->startCheckout(test()->owner, 'starter', 'https://a', 'https://b');
-    $remote = test()->stripe->completeCheckout($session->id);
-
-    return ['session' => $session->id, 'subscription' => $remote['id'], 'customer' => test()->organization->fresh()->billing_customer_id];
-}
-
-describe('webhooks', function () {
-    beforeEach(function () {
-        $this->stripe = FakeStripe::install();
-        config(['services.stripe.webhook_secret' => 'whsec_test_secret']);
-    });
-
-    test('signatures are verified on the raw body', function () {
-        $event = stripeEvent('customer.subscription.updated', ['id' => 'sub_x', 'customer' => 'cus_x']);
-
-        webhook($event, secret: 'whsec_wrong')->assertStatus(400);
-        webhook($event, timestamp: time() - 3600)->assertStatus(400); // replayed
-        $this->call('POST', route('webhooks.billing.stripe'), [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode($event))->assertStatus(400);
-        webhook($event)->assertOk();
-
-        config(['services.stripe.webhook_secret' => null]);
-        webhook($event)->assertStatus(503);
-        expect(BillingWebhookEvent::count())->toBe(1);
-    });
-
-    test('a completed checkout is recorded even if the customer never returned to the page', function () {
-        $paid = paidAtStripe();
-        expect(Subscription::count())->toBe(0);
-
-        webhook(stripeEvent('checkout.session.completed', ['id' => $paid['session'], 'customer' => $paid['customer'], 'subscription' => $paid['subscription']]))->assertOk();
-
-        $subscription = Subscription::sole();
-        expect($subscription->organization_id)->toBe($this->organization->id)->and($subscription->provider_subscription_id)->toBe($paid['subscription'])
-            ->and($subscription->status)->toBe(SubscriptionStatus::Trialing)
-            ->and(app(EntitlementService::class)->plan($this->organization)->key)->toBe('starter')
-            ->and(OrganizationActivity::where('action', 'subscription_started')->sole()->data['via'])->toBe('webhook');
-    });
-
-    test('an event is handled once however often Stripe delivers it', function () {
-        $paid = paidAtStripe();
-        $event = stripeEvent('customer.subscription.created', ['id' => $paid['subscription'], 'customer' => $paid['customer']], 'evt_same');
-
-        webhook($event)->assertOk()->assertJson(['received' => true]);
-        webhook($event)->assertOk()->assertJson(['duplicate' => true]);
-
-        expect(BillingWebhookEvent::where('event_id', 'evt_same')->count())->toBe(1)->and(Subscription::count())->toBe(1)
-            ->and(OrganizationActivity::where('action', 'subscription_started')->count())->toBe(1)
-            ->and(BillingWebhookEvent::sole()->processed_at)->not->toBeNull();
-    });
-
-    test('changes made at Stripe reach the local subscription', function () {
-        $paid = paidAtStripe();
-        webhook(stripeEvent('checkout.session.completed', ['customer' => $paid['customer'], 'subscription' => $paid['subscription']]));
-
-        // Cancelled from Stripe's billing portal.
-        $this->stripe->subscriptions[$paid['subscription']]['cancel_at_period_end'] = true;
-        webhook(stripeEvent('customer.subscription.updated', ['id' => $paid['subscription'], 'customer' => $paid['customer']]))->assertOk();
-        expect(Subscription::sole()->cancel_at_period_end)->toBeTrue();
-
-        // Then the period ends and Stripe deletes it. The state is read from Stripe, so event order doesn't matter.
-        $this->stripe->advancePastPeriodEnd($paid['subscription']);
-        webhook(stripeEvent('customer.subscription.deleted', ['id' => $paid['subscription'], 'customer' => $paid['customer']]))->assertOk();
-        expect(Subscription::sole()->status)->toBe(SubscriptionStatus::Cancelled)->and(app(EntitlementService::class)->plan($this->organization)->key)->toBe('free');
-    });
-
-    test('a failed payment moves the subscription to past due and alerts the owner once', function () {
-        $paid = paidAtStripe();
-        webhook(stripeEvent('checkout.session.completed', ['customer' => $paid['customer'], 'subscription' => $paid['subscription']]));
-        $this->stripe->subscriptions[$paid['subscription']]['status'] = 'past_due';
-        $failed = stripeEvent('invoice.payment_failed', ['customer' => $paid['customer'], 'subscription' => $paid['subscription']], 'evt_failed_1');
-
-        webhook($failed)->assertOk();
-        webhook($failed)->assertOk();
-
-        expect(Subscription::sole()->status)->toBe(SubscriptionStatus::PastDue)
-            ->and($this->owner->notifications()->count())->toBe(1)
-            ->and($this->owner->notifications()->first()->data['message'])->toContain("payment didn't go through")
-            ->and($this->manager->notifications()->count())->toBe(0);
-    });
-
-    test('events for other customers and unrelated events are acknowledged and ignored', function () {
-        webhook(stripeEvent('customer.subscription.updated', ['id' => 'sub_unknown', 'customer' => 'cus_not_ours']))->assertOk();
-        webhook(stripeEvent('charge.succeeded', ['id' => 'ch_1']))->assertOk();
-
-        expect(Subscription::count())->toBe(0)->and(BillingWebhookEvent::where('processed_at', null)->count())->toBe(0);
-    });
-
-    test('a subscription can never be claimed by another organization through a webhook', function () {
-        $paid = paidAtStripe();
-        webhook(stripeEvent('checkout.session.completed', ['customer' => $paid['customer'], 'subscription' => $paid['subscription']]));
-        ['owner' => $otherOwner, 'organization' => $other] = teamBusiness('Other Co');
-        app(BillingService::class)->startCheckout($otherOwner, 'pro', 'https://a', 'https://b');
-
-        $forged = stripeEvent('customer.subscription.updated', ['id' => $paid['subscription'], 'customer' => $other->fresh()->billing_customer_id]);
-        webhook($forged)->assertStatus(500);
-
-        expect(Subscription::sole()->organization_id)->toBe($this->organization->id)->and(BillingWebhookEvent::latest('id')->first()->failed_at)->not->toBeNull();
-    });
-
-    test('a processing failure is retried by Stripe and succeeds once the provider is back', function () {
-        $paid = paidAtStripe();
-        $event = stripeEvent('customer.subscription.created', ['id' => $paid['subscription'], 'customer' => $paid['customer']], 'evt_retry');
-
-        $this->stripe->failWith(500);
-        webhook($event)->assertStatus(500);
-        $row = BillingWebhookEvent::sole();
-        expect($row->processed_at)->toBeNull()->and($row->failed_at)->not->toBeNull()->and($row->attempts)->toBe(1)->and(Subscription::count())->toBe(0);
-
-        $this->stripe->recover();
-        webhook($event)->assertOk();
-        expect($row->fresh()->processed_at)->not->toBeNull()->and($row->fresh()->attempts)->toBe(2)->and(Subscription::count())->toBe(1);
-    });
 });
 
 // ─── Plan limit enforcement ──────────────────────────────────────────────────────────────

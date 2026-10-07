@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\Billing\WebhookEventStatus;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A received billing-provider webhook: kept so each event is handled once and failures can be traced
- * (the payload itself is not stored).
+ * A received billing-provider webhook: kept so each event is handled once and failures can be traced.
+ * Only safe debugging metadata is stored (ids and states), never the payload itself.
  */
 class BillingWebhookEvent extends Model
 {
@@ -15,10 +16,10 @@ class BillingWebhookEvent extends Model
     /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     protected function casts(): array
     {
-        return ['processed_at' => 'datetime', 'failed_at' => 'datetime'];
+        return ['status' => WebhookEventStatus::class, 'metadata' => 'array', 'processed_at' => 'datetime', 'failed_at' => 'datetime'];
     }
 }
