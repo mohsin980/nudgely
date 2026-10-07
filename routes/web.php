@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\Settings\LogoController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
+use App\Http\Controllers\Webhooks\StripeWebhookController;
 use App\Livewire\Automations\AutomationForm;
 use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Automations\AutomationLogs;
@@ -130,6 +131,9 @@ Route::prefix('estimate/view/{token}')->name('estimates.public.')->where(['token
 // Old addresses (e.g. links stored in notifications) keep working.
 Route::redirect('/inbox', '/conversations', 301);
 Route::get('/inbox/{conversationId}', fn (int $conversationId) => redirect()->route('inbox.show', $conversationId, 301))->whereNumber('conversationId');
+
+// Called by Stripe: authenticated by its signature, not by user sessions.
+Route::post('/webhooks/billing/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.billing.stripe');
 
 // Called by email providers: authenticated by the provider handler, not by user sessions.
 Route::post('/webhooks/email/inbound/{provider}', InboundEmailWebhookController::class)

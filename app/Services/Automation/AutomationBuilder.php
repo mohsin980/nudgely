@@ -7,6 +7,7 @@ use App\Enums\Automation\AutomationConditionOperator;
 use App\Enums\Automation\AutomationConditionType;
 use App\Enums\Automation\AutomationStatus;
 use App\Enums\Automation\AutomationTriggerType;
+use App\Enums\Billing\LimitKey;
 use App\Exceptions\Automation\InvalidAutomationConditionException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\Automation;
@@ -20,6 +21,7 @@ use App\Services\Automation\Registry\ConditionFieldRegistry;
 use App\Services\Automation\Registry\Subject;
 use App\Services\Automation\Registry\TriggerDefinition;
 use App\Services\Automation\Registry\TriggerRegistry;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\EmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,6 +52,7 @@ class AutomationBuilder
         private readonly ConditionEvaluator $conditions,
         private readonly EmailTemplateRenderer $templates,
         private readonly EmailService $email,
+        private readonly EntitlementService $entitlements,
     ) {}
 
     /**
@@ -76,6 +79,11 @@ class AutomationBuilder
         }
 
         $data = $this->validated($input, requireActions: $automation?->isActive() ?? false, organization: $organization);
+
+        // A new automation takes one of the plan's slots (archived ones don't count).
+        if ($automation === null) {
+            $this->entitlements->assertAllows($organization, LimitKey::Automations);
+        }
 
         if ($automation?->isActive() && ($sender = $this->senderError($organization, $data['actions'])) !== null) {
             throw ValidationException::withMessages(['actions' => $sender]);
@@ -200,6 +208,7 @@ class AutomationBuilder
     public function restore(Automation $automation, User $user): void
     {
         if ($automation->status === AutomationStatus::Archived) {
+            $this->entitlements->assertAllows($automation->organization, LimitKey::Automations);
             $this->changeStatus($automation, $user, AutomationStatus::Draft, 'restored', ['archived_at' => null]);
         }
     }
@@ -209,6 +218,8 @@ class AutomationBuilder
      */
     public function duplicate(Automation $automation, User $user): Automation
     {
+        $this->entitlements->assertAllows($automation->organization, LimitKey::Automations);
+
         return DB::transaction(function () use ($automation, $user) {
             $copy = new Automation;
             $copy->fill([

@@ -2,11 +2,14 @@
 
 namespace App\Services\Customers;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\CustomerStatus;
 use App\Events\CustomerCreated;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Conversations\DuplicateCustomerException;
 use App\Models\Customer;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +33,12 @@ class CustomerService
         $organization = $actor->organization ?? abort(403);
         $data = $this->validated($input, requireStatus: false);
         $this->assertUniqueEmail($organization->id, $data['email']);
+
+        try {
+            app(EntitlementService::class)->assertAllows($organization, LimitKey::Customers);
+        } catch (PlanLimitException $e) {
+            throw ValidationException::withMessages(['email' => $e->getMessage()]);
+        }
 
         try {
             $customer = DB::transaction(fn () => $organization->customers()->create($data + ['status' => CustomerStatus::Active]));

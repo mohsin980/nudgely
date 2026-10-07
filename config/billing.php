@@ -27,10 +27,17 @@ return [
     // Free trial for a business's first paid subscription (never repeated).
     'trial_days' => (int) env('BILLING_TRIAL_DAYS', 14),
 
+    // The owner is reminded this many days before the sign-up trial ends.
+    'trial_reminder_days' => (int) env('BILLING_TRIAL_REMINDER_DAYS', 3),
+
     // New businesses start a card-free trial of this plan at sign-up; afterwards they choose a plan or use Free.
     'signup_trial_plan' => env('BILLING_SIGNUP_TRIAL_PLAN', 'starter'),
 
     'currency' => 'USD',
+
+    // Plan limits are enforced where things are created. A switch (not a per-plan setting) so a
+    // rollout can start with it off; it stays on in production. Tests turn it off unless testing limits.
+    'enforce_limits' => (bool) env('BILLING_ENFORCE_LIMITS', true),
 
     'plans' => [
 

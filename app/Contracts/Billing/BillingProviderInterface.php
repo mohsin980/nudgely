@@ -95,6 +95,13 @@ interface BillingProviderInterface
     public function retrieveSubscription(Subscription $subscription): ProviderSubscription;
 
     /**
+     * A subscription by the provider's ID (used by webhooks, which only say "this changed").
+     *
+     * @throws BillingException
+     */
+    public function fetchSubscription(string $providerSubscriptionId): ProviderSubscription;
+
+    /**
      * A hosted page where the customer manages payment methods, billing details and invoices.
      *
      * @throws BillingException

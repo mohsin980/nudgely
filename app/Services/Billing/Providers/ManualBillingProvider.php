@@ -131,6 +131,14 @@ class ManualBillingProvider implements BillingProviderInterface
         return $changes === [] ? $current : $this->snapshot($subscription, $changes);
     }
 
+    public function fetchSubscription(string $providerSubscriptionId): ProviderSubscription
+    {
+        $subscription = Subscription::query()->where('provider', $this->name())->where('provider_subscription_id', $providerSubscriptionId)->first()
+            ?? throw new BillingException('Unknown subscription.');
+
+        return $this->retrieveSubscription($subscription);
+    }
+
     /**
      * No hosted portal locally: back to the billing page.
      */

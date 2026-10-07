@@ -13,6 +13,8 @@ enum NotificationType: string
     case AutomationFailed = 'automation_failed';
     case FollowUpDue = 'follow_up_due';
     case TaskAssigned = 'task_assigned';
+    case TrialEnding = 'trial_ending';
+    case PaymentFailed = 'payment_failed';
 
     public function label(): string
     {
@@ -23,6 +25,8 @@ enum NotificationType: string
             self::AutomationFailed => 'Automation failure',
             self::FollowUpDue => 'Follow-up due',
             self::TaskAssigned => 'Task assigned to me',
+            self::TrialEnding => 'Billing: free trial ending (owner)',
+            self::PaymentFailed => 'Billing: payment failed (owner)',
         };
     }
 

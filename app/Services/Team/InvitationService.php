@@ -2,15 +2,18 @@
 
 namespace App\Services\Team;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\OrganizationRole;
 use App\Enums\Team\MemberStatus;
 use App\Enums\Team\Permission;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\Team\TeamActionException;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\EmailService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -65,6 +68,13 @@ class InvitationService
 
         if (TeamInvitation::query()->where('organization_id', $actor->organization_id)->open()->count() >= (int) config('team.max_open_invitations')) {
             throw new TeamActionException('Too many open invitations. Revoke some first.');
+        }
+
+        // Open invitations are promised seats, so they count against the plan's team limit.
+        try {
+            app(EntitlementService::class)->assertAllows($actor->organization, LimitKey::TeamMembers, 1, TeamInvitation::query()->where('organization_id', $actor->organization_id)->open()->count());
+        } catch (PlanLimitException $e) {
+            throw new TeamActionException($e->getMessage());
         }
 
         [$invitation, $token] = DB::transaction(function () use ($actor, $name, $email, $role) {
@@ -159,6 +169,13 @@ class InvitationService
 
             if ($user !== null && ($user->organization_id !== $invitation->organization_id || $user->status !== MemberStatus::Removed)) {
                 throw new TeamActionException('This email is already used by another QuoteFollow account.');
+            }
+
+            // A new (or returning) person takes a seat; the plan may have shrunk since the invitation.
+            try {
+                app(EntitlementService::class)->assertAllows(Organization::findOrFail($invitation->organization_id), LimitKey::TeamMembers);
+            } catch (PlanLimitException $e) {
+                throw new TeamActionException($e->getMessage());
             }
 
             $user ??= new User;
