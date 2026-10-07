@@ -71,29 +71,28 @@ class EstimateService
         $data = $this->validated($organization, $input);
 
         try {
-            app(EntitlementService::class)->assertAllows($organization, LimitKey::Estimates);
+            // Limit check and insert run together under the organization's lock (see EntitlementService::guard).
+            $estimate = app(EntitlementService::class)->guard($organization, LimitKey::Estimates, function () use ($actor, $organization, $data) {
+                $estimate = new Estimate;
+                $estimate->forceFill([
+                    'organization_id' => $organization->id,
+                    'estimate_number' => $this->nextNumber($organization),
+                    'revision' => 1,
+                    'status' => EstimateStatus::Draft,
+                    'currency' => $organization->currencyCode(),
+                    'created_by' => $actor->id,
+                ]);
+                $this->fill($estimate, $data);
+                $estimate->save();
+                $this->saveItems($estimate, $data['lines'], $data['totals']);
+
+                ConversationEvent::recordForEstimate($estimate, 'estimate_created', $actor, ['total' => $estimate->money('total')]);
+
+                return $estimate;
+            });
         } catch (PlanLimitException $e) {
             throw new EstimateException($e->getMessage());
         }
-
-        $estimate = DB::transaction(function () use ($actor, $organization, $data) {
-            $estimate = new Estimate;
-            $estimate->forceFill([
-                'organization_id' => $organization->id,
-                'estimate_number' => $this->nextNumber($organization),
-                'revision' => 1,
-                'status' => EstimateStatus::Draft,
-                'currency' => $organization->currencyCode(),
-                'created_by' => $actor->id,
-            ]);
-            $this->fill($estimate, $data);
-            $estimate->save();
-            $this->saveItems($estimate, $data['lines'], $data['totals']);
-
-            ConversationEvent::recordForEstimate($estimate, 'estimate_created', $actor, ['total' => $estimate->money('total')]);
-
-            return $estimate;
-        });
 
         EstimateCreated::dispatch($organization->id, $estimate->id, $estimate->customer_id, $estimate->conversation_id);
         Log::info('Estimate created.', ['organization_id' => $organization->id, 'estimate_id' => $estimate->id, 'user_id' => $actor->id]);

@@ -21,7 +21,7 @@ Each plan: key, name, `price_cents`, `interval`, `limits` (int, or null = unlimi
 - `BillingProviderInterface` (`createCustomer`, `createSubscription`, `changePlan`, `cancel`, `resume`) returning provider-neutral `ProviderSubscription` data. `BillingProviderManager` resolves `config('billing.provider')`; the `manual` provider keeps subscriptions locally (no payments) until Stripe is added as another driver.
 - `BillingService`: the only caller of the provider. `subscribe`, `changePlan`, `cancel` (now or at period end), `resume` for the actor's own organization (manage-billing permission, transaction, audit entry); `sync()` records provider updates idempotently and refuses to move a subscription between organizations (for webhooks later).
 - `EntitlementService`: the plan in force — a subscription that grants access (trialing within the trial, active, past due; not after a scheduled cancellation reaches the period end), otherwise the default free plan — plus `limit()`, `allows($org, $key, $amount)`, `remaining()`, `hasFeature()`, `summary()`.
-- `UsageService`: usage counted from the records (customers, non-archived automations, non-removed team members, outbound emails and new estimates this calendar month in the business's timezone).
+- `UsageService`: usage counted from the records (non-deleted customers, active automations, active team members; outbound emails (queued, sending, sent; failed ones are free) and new estimates in the billing period).
 
 ## Access
 
@@ -67,17 +67,19 @@ A new business starts a 14-day trial of the Starter plan (`billing.trial_days`, 
 
 ## Limit enforcement
 
-`EntitlementService::assertAllows()` is called where things are created, and only ever refuses *adding*: nothing existing is deleted when a plan shrinks.
+**Usage** is counted from the records. Monthly limits (emails, estimates) follow the **billing period**: the subscription's current period (rolled forward by whole months if Stripe hasn't reported a renewal yet); with no subscription the calendar month in the business's timezone.
+
+**Asking**: `EntitlementService::canCreateCustomer / canAddTeamMember / canCreateAutomation / canSendEmail / canCreateEstimate($org)` answer yes/no (no checks in Blade). **Enforcing** is server-side: `EntitlementService::guard()` runs the check and the creation in one transaction and throws `PlanLimitException` (message, `key`, `limit`, `upgradePlan`, `upgradeUrl()`). Only *adding* is refused: nothing existing is deleted when a plan shrinks.
 
 | Limit | Enforced in |
 | --- | --- |
 | Customers | `CustomerService::create` (form shows the message) |
-| New estimates / month | `EstimateService::create` (revisions don't count) |
-| Active automations | `AutomationBuilder::save` (new), `duplicate`, `restore`; templates; archived ones don't count |
-| Team members | `InvitationService::invite` (open invitations hold a seat) and `accept`; reactivating a suspended person needs no new seat |
-| Outbound emails / month | `EmailService` for customer-facing email (follow-ups, automations, estimates, replies) → the send fails with the message; team invitations and team notifications are never blocked |
+| New estimates / period | `EstimateService::create` (revisions don't count) |
+| Active automations | `AutomationBuilder::activate` (also resuming a paused one); drafts, paused and archived ones don't count |
+| Team members | `InvitationService::invite` (open invitations hold a seat), `accept`, and `TeamService::reactivate` |
+| Outbound emails / period | `EmailService` for customer-facing email → the send fails with the message; team invitations and notices are never blocked |
 
-Inbound customer replies are never blocked. The message reads "Your Free plan allows up to 100 customers. Upgrade your plan to add more." The check is not atomic (two simultaneous creates can exceed a limit by one). `BILLING_ENFORCE_LIMITS=false` turns enforcement off (the test suite does, except in the limit tests).
+**Concurrency**: `guard()` takes a row lock on the organization (`SELECT … FOR UPDATE`) before counting, and holds it until the creation commits, so simultaneous requests for the same organization take turns (99/100 → exactly one succeeds). Other organizations are unaffected. Verified with 4 simultaneous processes. Inbound customer replies are never blocked. `BILLING_ENFORCE_LIMITS=false` turns enforcement off (the test suite does, except in the limit tests).
 
 ## Not yet
 

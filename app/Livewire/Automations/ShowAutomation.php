@@ -84,6 +84,10 @@ class ShowAutomation extends Component
             $this->flash('“'.$this->automation->name.'” can’t be activated yet: '.collect($e->errors())->flatten()->first(), 'error');
 
             return;
+        } catch (PlanLimitException $e) {
+            $this->flash($e->getMessage(), 'error');
+
+            return;
         }
 
         $this->refreshAutomation("“{$this->automation->name}” is active.");

@@ -275,15 +275,6 @@ class EmailService
     ): Message {
         $this->assertCanSendFrom($connection, $connection->organization_id);
 
-        // Customer-facing email counts against the plan; invitations and team notices never block.
-        if (! in_array($metadata['type'] ?? null, self::UNMETERED_TYPES, true)) {
-            try {
-                app(EntitlementService::class)->assertAllows($connection->organization, LimitKey::OutboundEmails);
-            } catch (PlanLimitException $e) {
-                throw EmailSendingNotAllowedException::planLimit($e->getMessage());
-            }
-        }
-
         $to = strtolower(trim($to));
         $replyTo = $replyTo === null ? null : strtolower(trim($replyTo));
 
@@ -295,28 +286,42 @@ class EmailService
             throw EmailSendingNotAllowedException::invalidAddress('reply-to address');
         }
 
-        $message = new Message;
-        $message->forceFill([
-            'organization_id' => $connection->organization_id,
-            'conversation_id' => $conversationId,
-            'email_connection_id' => $connection->id,
-            'direction' => MessageDirection::Outbound,
-            'channel' => MessageChannel::Email,
-            'provider' => $connection->provider,
-            'from_address' => $connection->sender_email,
-            'from_name' => $connection->sender_name,
-            'to_address' => $to,
-            'to_name' => $toName === null ? null : trim(str_replace(["\r", "\n"], ' ', $toName)),
-            'reply_to' => $replyTo,
-            // Subjects are single-line headers.
-            'subject' => trim(str_replace(["\r", "\n"], ' ', $subject)),
-            'body_text' => $text,
-            'body_html' => $html,
-            'metadata' => $metadata ?: null,
-            'status' => MessageStatus::Queued,
-        ])->save();
+        $save = function () use ($connection, $to, $toName, $replyTo, $subject, $text, $html, $metadata, $conversationId): Message {
+            $message = new Message;
+            $message->forceFill([
+                'organization_id' => $connection->organization_id,
+                'conversation_id' => $conversationId,
+                'email_connection_id' => $connection->id,
+                'direction' => MessageDirection::Outbound,
+                'channel' => MessageChannel::Email,
+                'provider' => $connection->provider,
+                'from_address' => $connection->sender_email,
+                'from_name' => $connection->sender_name,
+                'to_address' => $to,
+                'to_name' => $toName === null ? null : trim(str_replace(["\r", "\n"], ' ', $toName)),
+                'reply_to' => $replyTo,
+                // Subjects are single-line headers.
+                'subject' => trim(str_replace(["\r", "\n"], ' ', $subject)),
+                'body_text' => $text,
+                'body_html' => $html,
+                'metadata' => $metadata ?: null,
+                'status' => MessageStatus::Queued,
+            ])->save();
 
-        return $message;
+            return $message;
+        };
+
+        // Customer-facing email counts against the plan (queued and sent ones; failures don't);
+        // invitations and team notices never block. The check and the insert share the organization's lock.
+        if (in_array($metadata['type'] ?? null, self::UNMETERED_TYPES, true)) {
+            return $save();
+        }
+
+        try {
+            return app(EntitlementService::class)->guard($connection->organization, LimitKey::OutboundEmails, $save);
+        } catch (PlanLimitException $e) {
+            throw EmailSendingNotAllowedException::planLimit($e->getMessage());
+        }
     }
 
     /**

@@ -254,8 +254,9 @@ test('limits are checked against real usage', function () {
     $summary = $this->entitlements->summary($this->organization);
     expect($summary['team_members'])->toMatchArray(['used' => 3, 'limit' => 1, 'remaining' => 0, 'over' => true]);
 
-    // Archived automations don't use a slot.
-    Automation::factory()->count(2)->create(['organization_id' => $this->organization->id]);
+    // Only running automations use a slot: drafts, paused and archived ones don't.
+    Automation::factory()->count(2)->create(['organization_id' => $this->organization->id, 'status' => AutomationStatus::Active]);
+    Automation::factory()->create(['organization_id' => $this->organization->id, 'status' => AutomationStatus::Draft]);
     Automation::factory()->create(['organization_id' => $this->organization->id, 'status' => AutomationStatus::Archived]);
     expect($this->entitlements->allows($this->organization, LimitKey::Automations))->toBeTrue()
         ->and($this->entitlements->allows($this->organization, LimitKey::Automations, 2))->toBeFalse();

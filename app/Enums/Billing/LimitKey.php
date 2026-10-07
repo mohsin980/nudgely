@@ -3,7 +3,7 @@
 namespace App\Enums\Billing;
 
 /**
- * What plans limit. Monthly limits reset each calendar month (organization timezone);
+ * What plans limit. Monthly limits reset with the billing period (calendar month without a subscription);
  * the others count what exists now.
  */
 enum LimitKey: string
@@ -20,8 +20,8 @@ enum LimitKey: string
             self::Customers => 'Customers',
             self::Automations => 'Automations',
             self::TeamMembers => 'Team members',
-            self::OutboundEmails => 'Outbound emails / month',
-            self::Estimates => 'Estimates / month',
+            self::OutboundEmails => 'Outbound emails / period',
+            self::Estimates => 'Estimates / period',
         };
     }
 

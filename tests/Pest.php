@@ -1,5 +1,8 @@
 <?php
 
+use App\Billing\PlanCatalog;
+use App\Billing\ProviderSubscription;
+use App\Enums\Billing\SubscriptionStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Models\Automation;
@@ -10,11 +13,14 @@ use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\Organization;
+use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Billing\BillingService;
 use App\Services\Email\EmailProviderManager;
 use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
@@ -241,4 +247,25 @@ function teamBusiness(string $name = 'Dallas HVAC'): array
     $customer = Customer::factory()->for($organization)->create(['name' => 'Pat Customer', 'email' => 'pat@example.com']);
 
     return ['owner' => $owner, 'manager' => $manager, 'staff' => $staff, 'organization' => $organization->refresh(), 'customer' => $customer];
+}
+
+/**
+ * Small Free-plan limits so limit tests stay fast, with enforcement switched on.
+ *
+ * @param  array<string, int>  $limits
+ */
+function tightFreePlan(array $limits): void
+{
+    foreach ($limits as $key => $value) {
+        config(["billing.plans.free.limits.{$key}" => $value]);
+    }
+
+    config(['billing.enforce_limits' => true]);
+    app()->forgetInstance(PlanCatalog::class);
+}
+
+function moveToPlan(Organization $organization, string $plan): Subscription
+{
+    return app(BillingService::class)->sync($organization, 'manual', new ProviderSubscription('manual_sub_'.uniqid(), $plan, SubscriptionStatus::Active,
+        currentPeriodStart: CarbonImmutable::now(), currentPeriodEnd: CarbonImmutable::now()->addMonth()));
 }

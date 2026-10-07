@@ -70,19 +70,22 @@ class InvitationService
             throw new TeamActionException('Too many open invitations. Revoke some first.');
         }
 
-        // Open invitations are promised seats, so they count against the plan's team limit.
+        // Open invitations are promised seats, so they count against the plan's team limit; the check and the insert share the organization's lock.
         try {
-            app(EntitlementService::class)->assertAllows($actor->organization, LimitKey::TeamMembers, 1, TeamInvitation::query()->where('organization_id', $actor->organization_id)->open()->count());
+            [$invitation, $token] = app(EntitlementService::class)->guard(
+                $actor->organization,
+                LimitKey::TeamMembers,
+                function () use ($actor, $name, $email, $role) {
+                    [$invitation, $token] = $this->create($actor, $name, $email, $role);
+                    OrganizationActivity::record($actor->organization_id, 'member_invited', $actor, ['name' => $name, 'email' => $email, 'role' => $role->value]);
+
+                    return [$invitation, $token];
+                },
+                fn () => TeamInvitation::query()->where('organization_id', $actor->organization_id)->open()->count(),
+            );
         } catch (PlanLimitException $e) {
             throw new TeamActionException($e->getMessage());
         }
-
-        [$invitation, $token] = DB::transaction(function () use ($actor, $name, $email, $role) {
-            [$invitation, $token] = $this->create($actor, $name, $email, $role);
-            OrganizationActivity::record($actor->organization_id, 'member_invited', $actor, ['name' => $name, 'email' => $email, 'role' => $role->value]);
-
-            return [$invitation, $token];
-        });
 
         return ['invitation' => $invitation, 'link' => $this->link($token), 'emailed' => $this->sendEmail($invitation, $token, $actor)];
     }
@@ -172,31 +175,32 @@ class InvitationService
             }
 
             // A new (or returning) person takes a seat; the plan may have shrunk since the invitation.
+            // The check and the activation share the organization's lock.
             try {
-                app(EntitlementService::class)->assertAllows(Organization::findOrFail($invitation->organization_id), LimitKey::TeamMembers);
+                return app(EntitlementService::class)->guard(Organization::findOrFail($invitation->organization_id), LimitKey::TeamMembers, function () use ($user, $invitation, $name, $password) {
+                    $user ??= new User;
+                    $user->forceFill([
+                        'name' => $name,
+                        'email' => $invitation->email,
+                        'password' => Hash::make($password),
+                        'organization_id' => $invitation->organization_id,
+                        'role' => $invitation->role,
+                        'status' => MemberStatus::Active,
+                        'suspended_at' => null,
+                        'removed_at' => null,
+                        // The emailed link proves the address.
+                        'email_verified_at' => now(),
+                    ])->save();
+
+                    $invitation->forceFill(['accepted_at' => now(), 'accepted_user_id' => $user->id])->save();
+                    OrganizationActivity::record($invitation->organization_id, 'invitation_accepted', $user, ['role' => $invitation->role->value], $user);
+                    Log::info('Invitation accepted.', ['organization_id' => $invitation->organization_id, 'user_id' => $user->id, 'invitation_id' => $invitation->id]);
+
+                    return $user;
+                });
             } catch (PlanLimitException $e) {
                 throw new TeamActionException($e->getMessage());
             }
-
-            $user ??= new User;
-            $user->forceFill([
-                'name' => $name,
-                'email' => $invitation->email,
-                'password' => Hash::make($password),
-                'organization_id' => $invitation->organization_id,
-                'role' => $invitation->role,
-                'status' => MemberStatus::Active,
-                'suspended_at' => null,
-                'removed_at' => null,
-                // The emailed link proves the address.
-                'email_verified_at' => now(),
-            ])->save();
-
-            $invitation->forceFill(['accepted_at' => now(), 'accepted_user_id' => $user->id])->save();
-            OrganizationActivity::record($invitation->organization_id, 'invitation_accepted', $user, ['role' => $invitation->role->value], $user);
-            Log::info('Invitation accepted.', ['organization_id' => $invitation->organization_id, 'user_id' => $user->id, 'invitation_id' => $invitation->id]);
-
-            return $user;
         });
     }
 
