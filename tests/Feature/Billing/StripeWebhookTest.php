@@ -8,7 +8,6 @@ use App\Models\Subscription;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\EntitlementService;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeStripe;
 
 beforeEach(function () {
@@ -17,20 +16,6 @@ beforeEach(function () {
     $this->stripe = FakeStripe::install();
     config(['services.stripe.webhook_secret' => 'whsec_test_secret']);
 });
-
-function webhook(array $event, ?string $secret = 'whsec_test_secret', ?int $timestamp = null): TestResponse
-{
-    $body = json_encode($event);
-    $timestamp ??= time();
-    $signature = $secret === null ? 'garbage' : "t={$timestamp},v1=".hash_hmac('sha256', "{$timestamp}.{$body}", $secret);
-
-    return test()->call('POST', route('webhooks.stripe'), [], [], [], ['HTTP_STRIPE_SIGNATURE' => $signature, 'CONTENT_TYPE' => 'application/json'], $body);
-}
-
-function stripeEvent(string $type, array $object, ?string $id = null): array
-{
-    return ['id' => $id ?? 'evt_'.uniqid(), 'object' => 'event', 'type' => $type, 'data' => ['object' => $object]];
-}
 
 /**
  * The owner paid on Stripe's checkout page, but QuoteFollow hasn't recorded it yet.

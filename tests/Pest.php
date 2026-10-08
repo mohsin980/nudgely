@@ -22,6 +22,7 @@ use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
 
@@ -268,4 +269,21 @@ function moveToPlan(Organization $organization, string $plan): Subscription
 {
     return app(BillingService::class)->sync($organization, 'manual', new ProviderSubscription('manual_sub_'.uniqid(), $plan, SubscriptionStatus::Active,
         currentPeriodStart: CarbonImmutable::now(), currentPeriodEnd: CarbonImmutable::now()->addMonth()));
+}
+
+/**
+ * POST a signed Stripe webhook to the app.
+ */
+function webhook(array $event, ?string $secret = 'whsec_test_secret', ?int $timestamp = null): TestResponse
+{
+    $body = json_encode($event);
+    $timestamp ??= time();
+    $signature = $secret === null ? 'garbage' : "t={$timestamp},v1=".hash_hmac('sha256', "{$timestamp}.{$body}", $secret);
+
+    return test()->call('POST', route('webhooks.stripe'), [], [], [], ['HTTP_STRIPE_SIGNATURE' => $signature, 'CONTENT_TYPE' => 'application/json'], $body);
+}
+
+function stripeEvent(string $type, array $object, ?string $id = null): array
+{
+    return ['id' => $id ?? 'evt_'.uniqid(), 'object' => 'event', 'type' => $type, 'data' => ['object' => $object]];
 }

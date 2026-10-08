@@ -1,9 +1,14 @@
 <?php
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\Billing\SubscriptionStatus;
+use App\Livewire\Customers\CustomerForm;
 use App\Livewire\Settings\BillingOverview;
 use App\Livewire\Settings\BillingPlans;
+use App\Livewire\Settings\BillingUsage;
+use App\Models\BillingWebhookEvent;
 use App\Models\Customer;
+use App\Models\OrganizationActivity;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\BillingService;
@@ -108,4 +113,56 @@ test('a business gets one trial only and trials are per business', function () {
     app(BillingService::class)->completeCheckout($one->fresh(), $session->id);
     expect(app(EntitlementService::class)->trial($two->organization->fresh()))->not->toBeNull()
         ->and(app(EntitlementService::class)->trial($one->organization->fresh()))->toBeNull();
+});
+
+test('a business that hits a limit upgrades through Stripe and the new plan unlocks the feature, even if the owner never returns', function () {
+    $this->withoutVite();
+    $stripe = FakeStripe::install();
+    config(['services.stripe.webhook_secret' => 'whsec_test_secret']);
+    ['owner' => $owner, 'manager' => $manager, 'organization' => $org] = teamBusiness('Limit Co');
+    $org->forceFill(['trial_ends_at' => null])->save();
+    tightFreePlan(['customers' => 2]); // the helper's customer + one more fill the Free plan
+    $add = fn ($by, string $email) => Livewire::actingAs($by->fresh())->test(CustomerForm::class)
+        ->set('first_name', 'New')->set('last_name', 'Person')->set('email', $email)->call('save');
+
+    // 1. Limit reached: the form blocks the customer, says why, and offers the upgrade (to the owner only).
+    $add($owner, 'one@example.com')->assertHasNoErrors();
+    $blocked = $add($owner, 'two@example.com')->assertHasErrors('email')->assertSee('Your Free plan allows up to 2 customers')->assertSee('Upgrade to Starter')->assertSee('Upgrade Plan');
+    expect($blocked->html())->toContain(route('settings.billing.plans'))
+        ->and(Customer::where('organization_id', $org->id)->count())->toBe(2);
+    $add($manager, 'two@example.com')->assertHasErrors('email')->assertDontSee('Upgrade Plan');
+
+    // 2. The usage page agrees, and the plans page offers Starter.
+    Livewire::actingAs($owner->fresh())->test(BillingUsage::class)->assertSee('2 / 2')->assertSee('Upgrade Plan');
+    $plans = Livewire::actingAs($owner->fresh())->test(BillingPlans::class)->assertSee('Start 14-day free trial');
+
+    // 3. Select the plan: straight to Stripe Checkout (nothing is recorded locally yet).
+    $plans->call('choosePlan', 'starter')->assertRedirect('https://checkout.stripe.test/c/'.array_key_first($stripe->sessions));
+    $sessionId = array_key_first($stripe->sessions);
+    expect(Subscription::count())->toBe(0)->and(app(EntitlementService::class)->plan($org)->key)->toBe('free');
+
+    // 4. The customer pays on Stripe and closes the tab; Stripe's webhooks are the only thing that tells us.
+    $remote = $stripe->completeCheckout($sessionId);
+    $customerId = $org->fresh()->billing_customer_id;
+    webhook(stripeEvent('checkout.session.completed', ['id' => $sessionId, 'customer' => $customerId, 'subscription' => $remote['id']], 'evt_e2e_1'))->assertOk();
+    webhook(stripeEvent('customer.subscription.created', ['id' => $remote['id'], 'customer' => $customerId], 'evt_e2e_2'))->assertOk();
+    webhook(stripeEvent('checkout.session.completed', ['id' => $sessionId, 'customer' => $customerId, 'subscription' => $remote['id']], 'evt_e2e_1'))->assertOk()->assertJson(['duplicate' => true]);
+
+    // 5. The subscription is recorded once and the entitlements change straight away.
+    $subscription = Subscription::sole();
+    $entitlements = app(EntitlementService::class);
+    expect($subscription->organization_id)->toBe($org->id)->and($subscription->plan)->toBe('starter')->and($subscription->status)->toBe(SubscriptionStatus::Trialing)
+        ->and($entitlements->plan($org)->key)->toBe('starter')->and($entitlements->limit($org, LimitKey::Customers))->toBe(500)
+        ->and($entitlements->canCreateCustomer($org))->toBeTrue();
+
+    // 6. The blocked action now works, and nothing was removed or duplicated along the way.
+    $add($owner, 'two@example.com')->assertHasNoErrors();
+    expect(Customer::where('organization_id', $org->id)->count())->toBe(3);
+    Livewire::actingAs($owner->fresh())->test(BillingUsage::class)->assertSee('3 / 500')->assertDontSee("You've reached your customer limit.", false);
+    Livewire::actingAs($owner->fresh())->test(BillingOverview::class)->assertSee('Starter')->assertSee('Trialing');
+
+    // 7. If the owner does return from Checkout later, nothing changes.
+    Livewire::withQueryParams(['checkout' => 'success', 'session_id' => $sessionId])->actingAs($owner->fresh())->test(BillingOverview::class);
+    expect(Subscription::count())->toBe(1)->and(OrganizationActivity::where('action', 'subscription_started')->count())->toBe(1)
+        ->and(BillingWebhookEvent::where('status', 'processed')->count())->toBe(2);
 });
