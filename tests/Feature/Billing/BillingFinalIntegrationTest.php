@@ -562,3 +562,67 @@ test('workflow: trial → expiring → ends → restricted → choose plan → a
     Livewire::actingAs($this->owner->fresh())->test(CustomerForm::class)->set('first_name', 'A')->set('last_name', 'B')->set('email', 'allowed@example.com')->call('save')->assertHasNoErrors();
     expect(audit($org, 'trial_expired')->count())->toBe(1)->and(Customer::where('organization_id', $org->id)->count())->toBe(132);
 });
+
+// ─── Workflow: Active → Payment Failed → Past Due → Grace → (Recovered → Active | Grace Ends → Restricted) ───
+
+test('workflow: active → payment failed → past due → grace → recovered or restricted', function () {
+    // Two businesses fail to pay on the same day and then take different paths.
+    $recovers = ['owner' => $this->owner, 'organization' => $this->organization];
+    ['owner' => $lapsesOwner, 'organization' => $lapses] = teamBusiness('Lapsing Co');
+    $lapses->forceFill(['trial_ends_at' => null])->save();
+    $a = paying($recovers['owner']);
+    $b = paying($lapsesOwner);
+    Customer::factory()->count(150)->for($lapses)->create(); // fine on Starter, over Free
+
+    // Active → Payment failed → Past due.
+    foreach ([$a, $b] as $subscription) {
+        stripeSays($subscription, ['status' => 'past_due']);
+        tellApp('invoice.payment_failed', $subscription);
+    }
+
+    foreach ([$recovers['organization'], $lapses] as $organization) {
+        $subscription = Subscription::where('organization_id', $organization->id)->sole();
+        expect($subscription->status)->toBe(SubscriptionStatus::PastDue)->and($subscription->inGracePeriod())->toBeTrue()
+            ->and($subscription->graceEndsAt()->isSameDay(now()->addDays(7)))->toBeTrue()
+            ->and(audit($organization, 'payment_failed')->count())->toBe(1)
+            ->and(app(EntitlementService::class)->plan($organization)->key)->toBe('starter') // grace: normal access
+            ->and(banner($organization))->toBe('past_due');
+    }
+
+    // Grace period, day 3: nothing changes, and a retry that fails again adds no second notice.
+    $this->travel(3)->days();
+    tellApp('invoice.payment_failed', $a, 'evt_retry_a');
+    expect(app(BillingLifecycle::class)->checkGracePeriods())->toMatchArray(['restricted' => 0, 'recovered' => 0])
+        ->and(ownerNotices($recovers['owner'], 'payment_failed'))->toHaveCount(1);
+
+    // Branch 1: payment recovered → Active.
+    stripeSays($a, ['status' => 'active']);
+    tellApp('invoice.paid', $a);
+    $a = $a->fresh();
+    expect($a->status)->toBe(SubscriptionStatus::Active)->and($a->past_due_since)->toBeNull()->and($a->restricted_at)->toBeNull()
+        ->and(audit($recovers['organization'], 'payment_recovered')->count())->toBe(1)
+        ->and(ownerNotices($recovers['owner'], 'payment_recovered'))->toHaveCount(1)
+        ->and(banner($recovers['organization']))->toBeNull();
+    expectConsistent($recovers['owner'], 'starter', SubscriptionStatus::Active);
+
+    // Branch 2: grace ends with the payment still failing → Restricted.
+    $this->travel(5)->days(); // day 8
+    $result = app(BillingLifecycle::class)->checkGracePeriods();
+    $b = $b->fresh();
+    expect($result)->toMatchArray(['restricted' => 1, 'recovered' => 0])
+        ->and($b->status)->toBe(SubscriptionStatus::PastDue)->and($b->restricted_at)->not->toBeNull()->and($b->grantsAccess())->toBeFalse()
+        ->and(audit($lapses, 'billing_restriction_applied')->sole()->data)->toMatchArray(['reason' => 'grace_expired', 'plan' => 'free'])
+        ->and(ownerNotices($lapsesOwner, 'billing_restricted'))->toHaveCount(1)
+        ->and(app(EntitlementService::class)->plan($lapses)->key)->toBe('free')
+        ->and(app(EntitlementService::class)->canCreateCustomer($lapses))->toBeFalse()
+        ->and(Customer::where('organization_id', $lapses->id)->count())->toBe(151) // nothing deleted
+        ->and(banner($lapses))->toBe('restricted');
+
+    // The recovered business was never touched by the grace check.
+    expect(audit($recovers['organization'], 'billing_restriction_applied')->count())->toBe(0)->and(app(EntitlementService::class)->plan($recovers['organization'])->key)->toBe('starter');
+
+    // And a restricted business can still come back by paying.
+    stripeSays($b, ['status' => 'active']);
+    tellApp('invoice.paid', $b);
+    expect(app(EntitlementService::class)->plan($lapses)->key)->toBe('starter')->and(audit($lapses, 'billing_restriction_lifted')->count())->toBe(1)->and(banner($lapses))->toBeNull();
+});
