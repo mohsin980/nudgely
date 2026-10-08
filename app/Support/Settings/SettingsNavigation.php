@@ -38,6 +38,7 @@ final class SettingsNavigation
             ],
             'Account' => [
                 ['Account & Security', 'settings.security', null],
+                ['Billing', 'settings.billing', Permission::ManageBilling],
             ],
         ];
 

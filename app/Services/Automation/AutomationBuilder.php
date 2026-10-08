@@ -7,6 +7,7 @@ use App\Enums\Automation\AutomationConditionOperator;
 use App\Enums\Automation\AutomationConditionType;
 use App\Enums\Automation\AutomationStatus;
 use App\Enums\Automation\AutomationTriggerType;
+use App\Enums\Billing\LimitKey;
 use App\Exceptions\Automation\InvalidAutomationConditionException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\Automation;
@@ -20,6 +21,7 @@ use App\Services\Automation\Registry\ConditionFieldRegistry;
 use App\Services\Automation\Registry\Subject;
 use App\Services\Automation\Registry\TriggerDefinition;
 use App\Services\Automation\Registry\TriggerRegistry;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\EmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,6 +52,7 @@ class AutomationBuilder
         private readonly ConditionEvaluator $conditions,
         private readonly EmailTemplateRenderer $templates,
         private readonly EmailService $email,
+        private readonly EntitlementService $entitlements,
     ) {}
 
     /**
@@ -161,7 +164,10 @@ class AutomationBuilder
     }
 
     /**
+     * Only automations that run use a plan slot, so this (and resuming a paused one) is where the limit applies.
+     *
      * @throws ValidationException when the automation is incomplete or invalid
+     * @throws PlanLimitException when the plan has no free slot
      */
     public function activate(Automation $automation, User $user): void
     {
@@ -171,7 +177,8 @@ class AutomationBuilder
             throw ValidationException::withMessages($errors);
         }
 
-        $this->changeStatus($automation, $user, AutomationStatus::Active, 'activated');
+        $this->entitlements->guard($automation->organization, LimitKey::Automations,
+            fn () => $this->changeStatus($automation, $user, AutomationStatus::Active, 'activated'));
     }
 
     /**

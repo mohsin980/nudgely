@@ -2,11 +2,14 @@
 
 namespace App\Services\Customers;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\CustomerStatus;
 use App\Events\CustomerCreated;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Conversations\DuplicateCustomerException;
 use App\Models\Customer;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -32,7 +35,11 @@ class CustomerService
         $this->assertUniqueEmail($organization->id, $data['email']);
 
         try {
-            $customer = DB::transaction(fn () => $organization->customers()->create($data + ['status' => CustomerStatus::Active]));
+            // The limit check and the insert happen under the organization's lock, so concurrent requests can't overshoot.
+            $customer = app(EntitlementService::class)->guard($organization, LimitKey::Customers,
+                fn () => $organization->customers()->create($data + ['status' => CustomerStatus::Active]));
+        } catch (PlanLimitException $e) {
+            throw ValidationException::withMessages(['email' => $e->getMessage()]);
         } catch (UniqueConstraintViolationException) {
             // Two people adding the same customer at once: the database unique index decides.
             throw new DuplicateCustomerException($organization->customers()->where('email', $data['email'])->firstOrFail());

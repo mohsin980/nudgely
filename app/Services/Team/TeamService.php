@@ -3,17 +3,21 @@
 namespace App\Services\Team;
 
 use App\Enums\Automation\AutomationStatus;
+use App\Enums\Billing\LimitKey;
 use App\Enums\FollowUpStatus;
 use App\Enums\OrganizationRole;
 use App\Enums\TaskStatus;
 use App\Enums\Team\MemberStatus;
 use App\Enums\Team\Permission;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Team\TeamActionException;
 use App\Models\Automation;
 use App\Models\FollowUp;
 use App\Models\OrganizationActivity;
 use App\Models\Task;
+use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -97,8 +101,15 @@ class TeamService
                 throw new TeamActionException('Only suspended members can be reactivated.');
             }
 
-            $member->forceFill(['status' => MemberStatus::Active, 'suspended_at' => null])->save();
-            OrganizationActivity::record($member->organization_id, 'member_reactivated', $actor, [], $member);
+            // Coming back takes a seat again, and the plan may have changed since the suspension.
+            try {
+                app(EntitlementService::class)->guard($member->organization, LimitKey::TeamMembers, function () use ($member, $actor) {
+                    $member->forceFill(['status' => MemberStatus::Active, 'suspended_at' => null])->save();
+                    OrganizationActivity::record($member->organization_id, 'member_reactivated', $actor, [], $member);
+                }, fn () => TeamInvitation::query()->where('organization_id', $member->organization_id)->open()->count());
+            } catch (PlanLimitException $e) {
+                throw new TeamActionException($e->getMessage());
+            }
 
             return $member;
         });

@@ -32,6 +32,15 @@
             </div>
         </header>
 
+        @auth
+            @can('manage-billing')
+                @php($billingBanner = request()->routeIs('settings.billing*') ? null : app(\App\Services\Billing\BillingBanner::class)->for(auth()->user()->organization))
+                @if ($billingBanner)
+                    <x-billing.banner :banner="$billingBanner" />
+                @endif
+            @endcan
+        @endauth
+
         <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:grid lg:grid-cols-[13rem_1fr] lg:gap-10 lg:py-10">
             <nav aria-label="Main" class="mb-6 lg:mb-0">
                 <ul class="flex gap-1 overflow-x-auto lg:flex-col">

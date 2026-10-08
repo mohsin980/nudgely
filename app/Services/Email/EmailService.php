@@ -2,10 +2,12 @@
 
 namespace App\Services\Email;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailProviderException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Jobs\SendEmailJob;
@@ -13,6 +15,7 @@ use App\Models\Conversation;
 use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +30,9 @@ use Illuminate\Support\Str;
  */
 class EmailService
 {
+    /** Message types that don't count against (or wait for) the monthly email limit. */
+    private const UNMETERED_TYPES = ['team_invitation', 'team_notification'];
+
     public const TEST_EMAIL_SUBJECT = 'QuoteFlow test email';
 
     public const TEST_EMAIL_BODY = 'This is a test email from QuoteFlow. Your business email connection is working correctly.';
@@ -280,28 +286,42 @@ class EmailService
             throw EmailSendingNotAllowedException::invalidAddress('reply-to address');
         }
 
-        $message = new Message;
-        $message->forceFill([
-            'organization_id' => $connection->organization_id,
-            'conversation_id' => $conversationId,
-            'email_connection_id' => $connection->id,
-            'direction' => MessageDirection::Outbound,
-            'channel' => MessageChannel::Email,
-            'provider' => $connection->provider,
-            'from_address' => $connection->sender_email,
-            'from_name' => $connection->sender_name,
-            'to_address' => $to,
-            'to_name' => $toName === null ? null : trim(str_replace(["\r", "\n"], ' ', $toName)),
-            'reply_to' => $replyTo,
-            // Subjects are single-line headers.
-            'subject' => trim(str_replace(["\r", "\n"], ' ', $subject)),
-            'body_text' => $text,
-            'body_html' => $html,
-            'metadata' => $metadata ?: null,
-            'status' => MessageStatus::Queued,
-        ])->save();
+        $save = function () use ($connection, $to, $toName, $replyTo, $subject, $text, $html, $metadata, $conversationId): Message {
+            $message = new Message;
+            $message->forceFill([
+                'organization_id' => $connection->organization_id,
+                'conversation_id' => $conversationId,
+                'email_connection_id' => $connection->id,
+                'direction' => MessageDirection::Outbound,
+                'channel' => MessageChannel::Email,
+                'provider' => $connection->provider,
+                'from_address' => $connection->sender_email,
+                'from_name' => $connection->sender_name,
+                'to_address' => $to,
+                'to_name' => $toName === null ? null : trim(str_replace(["\r", "\n"], ' ', $toName)),
+                'reply_to' => $replyTo,
+                // Subjects are single-line headers.
+                'subject' => trim(str_replace(["\r", "\n"], ' ', $subject)),
+                'body_text' => $text,
+                'body_html' => $html,
+                'metadata' => $metadata ?: null,
+                'status' => MessageStatus::Queued,
+            ])->save();
 
-        return $message;
+            return $message;
+        };
+
+        // Customer-facing email counts against the plan (queued and sent ones; failures don't);
+        // invitations and team notices never block. The check and the insert share the organization's lock.
+        if (in_array($metadata['type'] ?? null, self::UNMETERED_TYPES, true)) {
+            return $save();
+        }
+
+        try {
+            return app(EntitlementService::class)->guard($connection->organization, LimitKey::OutboundEmails, $save);
+        } catch (PlanLimitException $e) {
+            throw EmailSendingNotAllowedException::planLimit($e->getMessage());
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Livewire\Automations;
 
 use App\Enums\Automation\AutomationConditionOperator;
 use App\Enums\Automation\AutomationStatus;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Automation;
 use App\Models\User;
 use App\Services\Automation\AutomationBuilder;
@@ -245,6 +246,11 @@ class AutomationForm extends Component
             $this->addMappedErrors(array_map(fn (array $m) => $m[0], $e->errors()));
 
             return;
+        } catch (PlanLimitException $e) {
+            $this->step = 5;
+            $this->addMappedErrors(['actions' => $e->getMessage()]);
+
+            return;
         }
 
         session()->flash('automation-status', "“{$automation->name}” is active.");
@@ -339,6 +345,12 @@ class AutomationForm extends Component
             $automation = $builder->save($this->currentOrganization(), Auth::user(), $this->input(), $existing);
         } catch (ValidationException $e) {
             $this->addMappedErrors(array_map(fn (array $m) => $m[0], $e->errors()));
+
+            return null;
+        } catch (PlanLimitException $e) {
+            // Shown on the first step, where the name is.
+            $this->step = 1;
+            $this->addError('name', $e->getMessage());
 
             return null;
         }

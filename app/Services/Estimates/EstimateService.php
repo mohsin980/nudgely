@@ -2,6 +2,7 @@
 
 namespace App\Services\Estimates;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
 use App\Enums\DiscountType;
 use App\Enums\EstimateDeclineReason;
@@ -14,6 +15,7 @@ use App\Events\EstimateExpired;
 use App\Events\EstimateSent;
 use App\Events\EstimateViewed;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\Estimates\EstimateException;
 use App\Models\Conversation;
@@ -23,6 +25,7 @@ use App\Models\Estimate;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\EmailService;
 use App\Services\FollowUps\FollowUpService;
 use App\Support\Money;
@@ -67,24 +70,29 @@ class EstimateService
         $organization = $this->organizationOf($actor);
         $data = $this->validated($organization, $input);
 
-        $estimate = DB::transaction(function () use ($actor, $organization, $data) {
-            $estimate = new Estimate;
-            $estimate->forceFill([
-                'organization_id' => $organization->id,
-                'estimate_number' => $this->nextNumber($organization),
-                'revision' => 1,
-                'status' => EstimateStatus::Draft,
-                'currency' => $organization->currencyCode(),
-                'created_by' => $actor->id,
-            ]);
-            $this->fill($estimate, $data);
-            $estimate->save();
-            $this->saveItems($estimate, $data['lines'], $data['totals']);
+        try {
+            // Limit check and insert run together under the organization's lock (see EntitlementService::guard).
+            $estimate = app(EntitlementService::class)->guard($organization, LimitKey::Estimates, function () use ($actor, $organization, $data) {
+                $estimate = new Estimate;
+                $estimate->forceFill([
+                    'organization_id' => $organization->id,
+                    'estimate_number' => $this->nextNumber($organization),
+                    'revision' => 1,
+                    'status' => EstimateStatus::Draft,
+                    'currency' => $organization->currencyCode(),
+                    'created_by' => $actor->id,
+                ]);
+                $this->fill($estimate, $data);
+                $estimate->save();
+                $this->saveItems($estimate, $data['lines'], $data['totals']);
 
-            ConversationEvent::recordForEstimate($estimate, 'estimate_created', $actor, ['total' => $estimate->money('total')]);
+                ConversationEvent::recordForEstimate($estimate, 'estimate_created', $actor, ['total' => $estimate->money('total')]);
 
-            return $estimate;
-        });
+                return $estimate;
+            });
+        } catch (PlanLimitException $e) {
+            throw new EstimateException($e->getMessage());
+        }
 
         EstimateCreated::dispatch($organization->id, $estimate->id, $estimate->customer_id, $estimate->conversation_id);
         Log::info('Estimate created.', ['organization_id' => $organization->id, 'estimate_id' => $estimate->id, 'user_id' => $actor->id]);

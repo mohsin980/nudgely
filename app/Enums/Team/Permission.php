@@ -16,6 +16,7 @@ enum Permission: string
     case ViewAutomations = 'view-automations';
     case ReclassifyReplies = 'reclassify-replies';
     case TransferOwnership = 'transfer-ownership';
+    case ManageBilling = 'manage-billing';
 
     public function label(): string
     {
@@ -28,6 +29,7 @@ enum Permission: string
             self::ViewAutomations => 'View automations and their execution logs',
             self::ReclassifyReplies => 'Re-run AI classification of customer replies',
             self::TransferOwnership => 'Transfer ownership of the business',
+            self::ManageBilling => 'View and change the subscription plan',
         };
     }
 }
