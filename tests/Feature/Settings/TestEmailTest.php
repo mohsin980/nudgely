@@ -216,7 +216,7 @@ class TestEmailTest extends TestCase
         $this->settings()
             ->call('openTestEmail', $connection->id)
             ->call('sendTestEmail')
-            ->assertSet('statusMessage', 'The email provider did not respond. The message will be retried when appropriate.');
+            ->assertSet('statusMessage', 'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.');
 
         $this->assertSame(MessageStatus::Failed, $this->organization->messages()->sole()->status);
     }

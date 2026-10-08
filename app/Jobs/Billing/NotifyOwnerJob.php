@@ -20,6 +20,8 @@ class NotifyOwnerJob implements ShouldQueue
 
     public int $tries = 3;
 
+    public int $timeout = 60;
+
     /**
      * @var list<int>
      */

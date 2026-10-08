@@ -22,6 +22,7 @@ use App\Services\Email\Data\OutboundEmail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * The single entry point for sending email on behalf of an organization.
@@ -162,6 +163,7 @@ class EmailService
 
         $message->refresh();
 
+        // Everything before the provider request is safe to retry: nothing has left the server yet.
         try {
             $connection = $message->emailConnection ?? throw EmailSendingNotAllowedException::connectionRemoved();
             $this->assertCanSendFrom($connection, $message->organization_id);
@@ -170,7 +172,17 @@ class EmailService
                 throw EmailSendingNotAllowedException::senderMismatch();
             }
 
-            $result = $this->providers->for($connection->provider)->send(new OutboundEmail(
+            $provider = $this->providers->for($connection->provider);
+        } catch (EmailSendingNotAllowedException $e) {
+            return $this->markFailed($message, EmailSendResult::failed('not_allowed', $e->getMessage()));
+        } catch (Throwable $e) {
+            $this->requeue($message);
+
+            throw $e;
+        }
+
+        try {
+            $result = $provider->send(new OutboundEmail(
                 organizationId: $message->organization_id,
                 fromEmail: $connection->sender_email,
                 fromName: $connection->sender_name,
@@ -182,11 +194,10 @@ class EmailService
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
             ));
-        } catch (EmailSendingNotAllowedException $e) {
-            return $this->markFailed($message, EmailSendResult::failed('not_allowed', $e->getMessage()));
         } catch (EmailProviderException $e) {
+            // A provider that answered with a known temporary error did not accept the email.
             if ($e->isTransient() && $retryTransientFailures) {
-                $message->forceFill(['status' => MessageStatus::Queued])->save();
+                $this->requeue($message);
                 Log::warning('Email send deferred after a transient provider failure.', [
                     'organization_id' => $message->organization_id,
                     'message_id' => $message->id,
@@ -197,6 +208,16 @@ class EmailService
             }
 
             return $this->markFailed($message, EmailSendResult::failed($e->reason, $e->userMessage()));
+        } catch (Throwable $e) {
+            // Timeouts and crashes can happen after the provider accepted the email. Resending could
+            // duplicate it, so the outcome is recorded as unknown and the message is not retried.
+            Log::error('Email outcome unknown after an unexpected provider error.', [
+                'organization_id' => $message->organization_id,
+                'message_id' => $message->id,
+                'exception' => $e::class,
+            ]);
+
+            return $this->markFailed($message, EmailSendResult::failed(EmailProviderException::OUTCOME_UNKNOWN, 'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.'));
         }
 
         $message->forceFill([
@@ -215,6 +236,44 @@ class EmailService
         ]);
 
         return $result;
+    }
+
+    /**
+     * Put a claimed message back in the queue so a job can retry it.
+     */
+    private function requeue(Message $message): void
+    {
+        Message::query()->whereKey($message->getKey())->where('status', MessageStatus::Sending)
+            ->update(['status' => MessageStatus::Queued, 'updated_at' => now()]);
+        $message->refresh();
+    }
+
+    /**
+     * A worker that died while a message was "sending" leaves it there forever. Such messages may or
+     * may not have reached the customer, so they are marked failed with that reason and never resent.
+     *
+     * @return int How many were recovered.
+     */
+    public function recoverStuckSends(int $olderThanMinutes): int
+    {
+        $cutoff = now()->subMinutes($olderThanMinutes);
+        $recovered = 0;
+
+        $ids = Message::query()->where('status', MessageStatus::Sending)->where('updated_at', '<', $cutoff)
+            ->orderBy('id')->limit(200)->pluck('id');
+
+        foreach ($ids as $id) {
+            $updated = Message::query()->whereKey($id)->where('status', MessageStatus::Sending)->where('updated_at', '<', $cutoff)
+                ->update(['status' => MessageStatus::Failed, 'failed_at' => now(), 'failure_reason' => 'Delivery could not be confirmed. It was not resent, to avoid a duplicate.', 'updated_at' => now()]);
+
+            if ($updated === 1) {
+                $recovered++;
+                $this->redactIfSensitive(Message::query()->findOrFail($id));
+                Log::warning('Stuck email recovered without resending.', ['message_id' => $id]);
+            }
+        }
+
+        return $recovered;
     }
 
     /**

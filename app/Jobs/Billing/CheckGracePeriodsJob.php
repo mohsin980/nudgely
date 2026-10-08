@@ -17,6 +17,17 @@ class CheckGracePeriodsJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 3300;
 
+    /** Stripe is called once per overdue subscription; keep under the queue's retry_after. */
+    public int $timeout = 240;
+
+    /** Hourly and idempotent: a failed run is simply retried a few times, then the next hour picks it up. */
+    public int $tries = 3;
+
+    /**
+     * @var list<int>
+     */
+    public array $backoff = [60, 300];
+
     public function handle(BillingLifecycle $lifecycle): void
     {
         $lifecycle->checkGracePeriods();
