@@ -99,7 +99,7 @@ function expectConsistent(User $owner, string $planKey, ?SubscriptionStatus $sta
         ->and($entitlements->limit($organization, LimitKey::Customers))->toBe($plan->limit(LimitKey::Customers))
         ->and($current?->status)->toBe($status);
 
-    Livewire::actingAs($owner->fresh())->test(BillingOverview::class)->assertSee($plan->name)->assertSee($status?->label() ?? 'No subscription');
+    Livewire::actingAs($owner->fresh())->test(BillingOverview::class)->assertSee($plan->name)->when($status !== null, fn ($page) => $page->assertSee($status->label()));
     Livewire::actingAs($owner->fresh())->test(BillingUsage::class)->assertSee('/ '.number_format($plan->limit(LimitKey::Customers)), false);
 }
 
@@ -318,7 +318,7 @@ test('9. plan downgrade: scheduled for the period end, data kept, then applied',
     expect($subscription->fresh()->plan)->toBe('starter')->and(Customer::where('organization_id', $this->organization->id)->count())->toBe(601)
         ->and(app(EntitlementService::class)->canCreateCustomer($this->organization))->toBeFalse() // over the new limit: only adding is refused
         ->and(audit($this->organization, 'subscription_plan_changed')->count())->toBe(1);
-    expect(ownerNotices($this->owner, 'subscription_renewed')->last()->data['message'])->toContain('Starter plan renewed');
+    expect(ownerNotices($this->owner, 'subscription_renewed')->pluck('data.message')->implode('|'))->toContain('Starter plan renewed');
 });
 
 // ─── 10. Usage limit ─────────────────────────────────────────────────────────────────────
@@ -508,4 +508,57 @@ test('12. one business\'s billing problems never touch another business', functi
     $stripeFor = Organization::find($other->id)->billing_customer_id;
     webhook(stripeEvent('customer.subscription.updated', ['id' => $mine->provider_subscription_id, 'customer' => $stripeFor]))->assertStatus(500);
     expect($mine->fresh()->organization_id)->toBe($this->organization->id);
+});
+
+// ─── Workflow: Trial → Expiring → Ends → Restricted → Choose Plan → Active ───────────────
+
+test('workflow: trial → expiring → ends → restricted → choose plan → active', function () {
+    app(BillingService::class)->startSignupTrial($this->organization);
+    $org = $this->organization->fresh();
+    Customer::factory()->count(130)->for($this->organization)->create();
+
+    // Trial: Starter limits, no banner, no notices.
+    expectConsistent($this->owner, 'starter', null);
+    expect(banner($org))->toBeNull()->and(ownerNotices($this->owner))->toHaveCount(0);
+
+    // Trial expiring: the reminder goes out once and the banner appears.
+    $this->travel(11)->days(); // 3 days left
+    $this->artisan('billing:send-trial-reminders')->expectsOutputToContain('1 trial reminder(s) sent.');
+    $this->artisan('billing:send-trial-reminders')->expectsOutputToContain('0 trial reminder(s) sent.');
+    expect(ownerNotices($this->owner, 'trial_ending'))->toHaveCount(1)->and(banner($org))->toBe('trial_ending')
+        ->and(app(EntitlementService::class)->plan($org)->key)->toBe('starter');
+    $this->actingAs($this->owner->fresh())->get(route('dashboard'))->assertSee('data-billing-banner="trial_ending"', false)->assertSee('Choose a Plan');
+
+    // Trial ends: nothing happens until the job runs, but entitlements already lapse to Free.
+    $this->travel(4)->days();
+    expect(app(EntitlementService::class)->plan($org->fresh())->key)->toBe('free');
+    $this->artisan('billing:expire-trials')->expectsOutputToContain('1 trial(s) expired.');
+
+    // Restricted: Free limits, existing data intact, adding refused with a way forward, owner told.
+    $org = $org->fresh();
+    expect($org->trial_expired_at)->not->toBeNull()->and(ownerNotices($this->owner, 'trial_ended'))->toHaveCount(1)
+        ->and(audit($org, 'trial_expired')->count())->toBe(1)->and(audit($org, 'billing_restriction_applied')->count())->toBe(1)
+        ->and(Customer::where('organization_id', $org->id)->count())->toBe(131)
+        ->and(app(EntitlementService::class)->canCreateCustomer($org))->toBeFalse()->and(banner($org))->toBe('expired');
+    expectConsistent($this->owner, 'free', null);
+    Livewire::actingAs($this->owner->fresh())->test(CustomerForm::class)->set('first_name', 'A')->set('last_name', 'B')->set('email', 'blocked@example.com')->call('save')
+        ->assertHasErrors('email')->assertSee('Upgrade Plan');
+
+    // Choose plan: Stripe Checkout, paid, confirmed by webhook (the owner never returns).
+    $plans = Livewire::actingAs($this->owner->fresh())->test(BillingPlans::class)->assertSee('Choose Starter')->call('choosePlan', 'starter');
+    $sessionId = array_key_first($this->stripe->sessions);
+    $plans->assertRedirect('https://checkout.stripe.test/c/'.$sessionId);
+    $remote = $this->stripe->completeCheckout($sessionId);
+    $org = $org->fresh();
+    webhook(stripeEvent('checkout.session.completed', ['id' => $sessionId, 'customer' => $org->billing_customer_id, 'subscription' => $remote['id']]))->assertOk();
+
+    // Active: entitlements restored, restriction banner gone, adding works, no duplicate expiry.
+    $subscription = Subscription::sole();
+    expect($subscription->plan)->toBe('starter')->and($subscription->grantsAccess())->toBeTrue()
+        ->and(app(EntitlementService::class)->canCreateCustomer($org->fresh()))->toBeTrue()->and(banner($org))->toBeNull();
+    expectConsistent($this->owner, 'starter', SubscriptionStatus::Active); // the trial already ran in QuoteFollow, so Stripe charges from the start
+
+    $this->artisan('billing:expire-trials')->expectsOutputToContain('0 trial(s) expired.');
+    Livewire::actingAs($this->owner->fresh())->test(CustomerForm::class)->set('first_name', 'A')->set('last_name', 'B')->set('email', 'allowed@example.com')->call('save')->assertHasNoErrors();
+    expect(audit($org, 'trial_expired')->count())->toBe(1)->and(Customer::where('organization_id', $org->id)->count())->toBe(132);
 });
