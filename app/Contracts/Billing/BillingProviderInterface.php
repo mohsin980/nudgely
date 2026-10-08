@@ -4,6 +4,8 @@ namespace App\Contracts\Billing;
 
 use App\Billing\CheckoutSession;
 use App\Billing\CompletedCheckout;
+use App\Billing\InvoiceSummary;
+use App\Billing\PaymentMethodSummary;
 use App\Billing\Plan;
 use App\Billing\ProviderSubscription;
 use App\Exceptions\Billing\BillingException;
@@ -107,4 +109,20 @@ interface BillingProviderInterface
      * @throws BillingException
      */
     public function createPortalSession(string $customerId, string $returnUrl): string;
+
+    /**
+     * The customer's default card, in safe terms only (brand, last four, expiry), or null.
+     *
+     * @throws BillingException
+     */
+    public function paymentMethod(string $customerId): ?PaymentMethodSummary;
+
+    /**
+     * The customer's most recent invoices, newest first.
+     *
+     * @return list<InvoiceSummary>
+     *
+     * @throws BillingException
+     */
+    public function invoices(string $customerId, int $limit = 24): array;
 }

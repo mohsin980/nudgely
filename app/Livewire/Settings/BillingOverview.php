@@ -2,28 +2,28 @@
 
 namespace App\Livewire\Settings;
 
-use App\Billing\Plan;
+use App\Billing\PaymentMethodSummary;
 use App\Enums\Billing\LimitKey;
 use App\Enums\Team\Permission;
 use App\Exceptions\Billing\BillingException;
-use App\Livewire\Settings\Concerns\SettingsPage;
+use App\Livewire\Settings\Concerns\ManagesSubscription;
 use App\Models\Subscription;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\EntitlementService;
-use App\Services\Billing\UsageService;
+use Carbon\CarbonInterface;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * Plan, subscription and usage (owner). Paying and card details happen on the provider's
- * hosted checkout and billing portal; this page only starts those and shows the result.
+ * Billing home (owner): the current plan, what happens next, and the saved card. Paying and card
+ * details happen on the provider's hosted checkout and billing portal; this page only starts those.
  */
 #[Layout('components.layouts.app')]
 #[Title('Billing')]
 class BillingOverview extends Component
 {
-    use SettingsPage;
+    use ManagesSubscription;
 
     public function mount(BillingService $billing): void
     {
@@ -43,115 +43,60 @@ class BillingOverview extends Component
             $this->statusMessage = 'Checkout was cancelled. Nothing was charged.';
             $this->statusType = 'info';
         } elseif (request()->boolean('portal')) {
+            $billing->forgetProviderCache($this->organization());
             $this->attempt(fn () => $billing->refresh($this->organization()));
         }
     }
 
-    /**
-     * Free → paid: hosted checkout. Paid → another plan: upgrade now, downgrade at period end.
-     */
-    public function choosePlan(string $planKey, BillingService $billing): void
-    {
-        $this->authorize(Permission::ManageBilling->value);
-
-        $this->attempt(function () use ($billing, $planKey) {
-            if ($billing->currentSubscription($this->organization()) === null) {
-                $session = $billing->startCheckout($this->user(), $planKey,
-                    route('settings.billing').'?checkout=success&session_id={CHECKOUT_SESSION_ID}',
-                    route('settings.billing', ['checkout' => 'cancelled']));
-                $this->redirect($session->url);
-
-                return;
-            }
-
-            $subscription = $billing->changePlan($this->user(), $planKey);
-            $this->saved($this->describe($subscription));
-        });
-    }
-
-    public function cancelSubscription(BillingService $billing): void
-    {
-        $this->authorize(Permission::ManageBilling->value);
-        $this->attempt(fn () => $this->saved($this->describe($billing->cancel($this->user(), atPeriodEnd: true))));
-    }
-
-    public function resumeSubscription(BillingService $billing): void
-    {
-        $this->authorize(Permission::ManageBilling->value);
-        $this->attempt(fn () => $this->saved('Your subscription will continue. '.$this->describe($billing->resume($this->user()))));
-    }
-
-    public function openPortal(BillingService $billing): void
-    {
-        $this->authorize(Permission::ManageBilling->value);
-        $this->attempt(fn () => $this->redirect($billing->portalUrl($this->user(), route('settings.billing', ['portal' => 1]))));
-    }
-
-    public function render(EntitlementService $entitlements, BillingService $billing, UsageService $usage)
+    public function render(EntitlementService $entitlements, BillingService $billing)
     {
         $organization = $this->organization();
-        [$start, $end] = $usage->period($organization);
         $subscription = $billing->currentSubscription($organization);
-        $plan = $entitlements->plan($organization);
 
         return view('livewire.settings.billing-overview', [
             'organization' => $organization,
-            'plan' => $plan,
+            'plan' => $entitlements->plan($organization),
             'subscription' => $subscription,
             'notice' => $subscription ? $this->describe($subscription) : null,
-            'rows' => $entitlements->summary($organization),
-            'plans' => $billing->plans(),
-            'trialDays' => $billing->trialDaysFor($organization),
+            'nextBilling' => $subscription ? $this->nextBilling($subscription) : null,
             'signupTrial' => $entitlements->trial($organization),
-            'overLimits' => fn (Plan $target) => $this->overLimits($target, $entitlements->summary($organization)),
-            'periodStart' => $start,
-            'periodEnd' => $end->subSecond(),
+            'trialDays' => $billing->trialDaysFor($organization),
+            'payment' => $this->payment($billing),
+            'atLimit' => array_map(fn (string $key) => LimitKey::from($key)->shortName(), array_keys(array_filter($entitlements->summary($organization), fn (array $row) => $row['limit'] !== null && $row['used'] >= $row['limit']))),
         ]);
     }
 
     /**
-     * The sentence the page shows for the subscription's state.
+     * The saved card, or an explanation when the provider can't be asked right now.
+     *
+     * @return array{card: ?PaymentMethodSummary, error: ?string}
      */
-    private function describe(Subscription $subscription): string
+    private function payment(BillingService $billing): array
     {
-        $organization = $this->organization();
-        $name = $subscription->planDefinition()?->name ?? ucfirst($subscription->plan);
+        if ($this->organization()->billing_customer_id === null) {
+            return ['card' => null, 'error' => null];
+        }
 
-        return match (true) {
-            $subscription->cancel_at_period_end && $subscription->current_period_end !== null => "Your subscription will remain active until {$organization->formatDate($subscription->current_period_end)}. After that you'll be on the Free plan.",
-            $subscription->scheduled_plan !== null => "You're on {$name} until {$organization->formatDate($subscription->scheduled_change_at)}, then {$subscription->scheduledPlanDefinition()?->name}. Nothing is deleted.",
-            $subscription->onTrial() => "Your {$name} trial ends on {$organization->formatDate($subscription->trial_ends_at)}.",
-            default => "You're on the {$name} plan.",
-        };
+        try {
+            return ['card' => $billing->paymentMethod($this->user()), 'error' => null];
+        } catch (BillingException) {
+            return ['card' => null, 'error' => "Payment details can't be loaded right now."];
+        }
     }
 
     /**
-     * Limits the business already exceeds on a smaller plan (data is kept; new items would be limited).
+     * What the next charge is, if there is one: [label, date, plan name]. Cancelling subscriptions have none.
      *
-     * @param  array<string, array{label: string, used: int}>  $summary
-     * @return list<string>
+     * @return array{date: CarbonInterface, plan: string}|null
      */
-    private function overLimits(Plan $target, array $summary): array
+    private function nextBilling(Subscription $subscription): ?array
     {
-        $over = [];
-
-        foreach (LimitKey::cases() as $key) {
-            $limit = $target->limit($key);
-
-            if ($limit !== null && ($summary[$key->value]['used'] ?? 0) > $limit) {
-                $over[] = "{$summary[$key->value]['label']}: {$summary[$key->value]['used']} of {$limit}";
-            }
+        if ($subscription->cancel_at_period_end || $subscription->current_period_end === null || ! $subscription->grantsAccess()) {
+            return null;
         }
 
-        return $over;
-    }
+        $next = $subscription->scheduled_plan !== null ? $subscription->scheduledPlanDefinition() : $subscription->planDefinition();
 
-    private function attempt(\Closure $action): void
-    {
-        try {
-            $action();
-        } catch (BillingException $e) {
-            $this->failed($e->getMessage());
-        }
+        return $next === null ? null : ['date' => $subscription->current_period_end, 'plan' => $next->name];
     }
 }

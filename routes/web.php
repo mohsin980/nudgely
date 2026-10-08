@@ -22,7 +22,10 @@ use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
 use App\Livewire\Settings\AccountSecurity;
 use App\Livewire\Settings\AutomationDefaults;
+use App\Livewire\Settings\BillingHistory;
 use App\Livewire\Settings\BillingOverview;
+use App\Livewire\Settings\BillingPlans;
+use App\Livewire\Settings\BillingUsage;
 use App\Livewire\Settings\BusinessPreferences;
 use App\Livewire\Settings\BusinessProfile;
 use App\Livewire\Settings\EmailSettings;
@@ -91,7 +94,12 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
     Route::get('/automation', AutomationDefaults::class)->middleware('can:manage-business-defaults')->name('automation');
 
     Route::get('/security', AccountSecurity::class)->name('security');
-    Route::get('/billing', BillingOverview::class)->middleware('can:manage-billing')->name('billing');
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('/billing', BillingOverview::class)->name('billing');
+        Route::get('/billing/plans', BillingPlans::class)->name('billing.plans');
+        Route::get('/billing/usage', BillingUsage::class)->name('billing.usage');
+        Route::get('/billing/history', BillingHistory::class)->name('billing.history');
+    });
 
     // Automations moved to /automations (Task 12); old links keep working.
     Route::get('/automations/{path?}', fn (?string $path = null) => redirect('/automations'.($path ? '/'.str_replace('/runs', '/logs', $path) : ''), 301))->where('path', '.*')->name('automations.legacy');

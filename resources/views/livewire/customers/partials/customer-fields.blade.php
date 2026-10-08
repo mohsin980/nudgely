@@ -12,6 +12,9 @@
                         @if ($name === 'email' && ($duplicateCustomerId ?? null))
                             <a href="{{ route('customers.show', $duplicateCustomerId) }}" wire:navigate class="ml-1 font-medium text-indigo-700 underline">View Customer</a>
                         @endif
+                        @if ($name === 'email' && ($limitReached ?? false))
+                            <x-billing.upgrade-link class="ml-1" />
+                        @endif
                     </p>
                 @enderror
             </div>

@@ -3,6 +3,8 @@
 namespace App\Services\Billing;
 
 use App\Billing\CheckoutSession;
+use App\Billing\InvoiceSummary;
+use App\Billing\PaymentMethodSummary;
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
 use App\Billing\ProviderSubscription;
@@ -18,6 +20,7 @@ use App\Services\Team\TeamDirectory;
 use App\Services\Team\TeamNotifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -291,6 +294,63 @@ class BillingService
         }
 
         return $provider->createPortalSession($organization->billing_customer_id, $returnUrl);
+    }
+
+    /**
+     * The saved card in safe terms (brand, last four, expiry), or null when there is none.
+     * Briefly cached so page refreshes don't call the provider each time.
+     *
+     * @throws AuthorizationException|BillingException
+     */
+    public function paymentMethod(User $actor): ?PaymentMethodSummary
+    {
+        $customerId = $this->billingCustomerFor($actor);
+
+        if ($customerId === null) {
+            return null;
+        }
+
+        // false stands for "no card", so that answer is cached too.
+        $card = Cache::remember($this->cacheKey('payment-method', $customerId), 300, fn () => $this->provider()->paymentMethod($customerId) ?? false);
+
+        return $card ?: null;
+    }
+
+    /**
+     * Past invoices of the actor's own organization, newest first.
+     *
+     * @return list<InvoiceSummary>
+     *
+     * @throws AuthorizationException|BillingException
+     */
+    public function invoices(User $actor): array
+    {
+        $customerId = $this->billingCustomerFor($actor);
+
+        return $customerId === null ? [] : Cache::remember($this->cacheKey('invoices', $customerId), 300, fn () => $this->provider()->invoices($customerId));
+    }
+
+    /**
+     * Forget what was cached from the provider (after the customer used its billing pages).
+     */
+    public function forgetProviderCache(Organization $organization): void
+    {
+        if ($organization->billing_customer_id !== null) {
+            Cache::forget($this->cacheKey('payment-method', $organization->billing_customer_id));
+            Cache::forget($this->cacheKey('invoices', $organization->billing_customer_id));
+        }
+    }
+
+    private function billingCustomerFor(User $actor): ?string
+    {
+        $organization = $this->authorize($actor);
+
+        return $organization->billing_customer_id !== null && $organization->billing_provider === $this->provider()->name() ? $organization->billing_customer_id : null;
+    }
+
+    private function cacheKey(string $what, string $customerId): string
+    {
+        return "billing:{$this->provider()->name()}:{$what}:{$customerId}";
     }
 
     /**

@@ -2,6 +2,7 @@
 
 use App\Enums\Billing\SubscriptionStatus;
 use App\Livewire\Settings\BillingOverview;
+use App\Livewire\Settings\BillingPlans;
 use App\Models\Customer;
 use App\Models\Subscription;
 use App\Models\User;
@@ -39,7 +40,8 @@ test('a business goes from sign-up through a free trial to a managed Stripe subs
     $this->actingAs($owner)->get('/dashboard')->assertOk()->assertSee('Your free Starter trial: 14 days left.');
 
     // Choose plan → Stripe Checkout. The trial already ran inside QuoteFollow, so Stripe adds none.
-    Livewire::actingAs($owner)->test(BillingOverview::class)->assertSee('Your free Starter trial ends on')->assertSee('Choose Pro')->call('choosePlan', 'pro');
+    Livewire::actingAs($owner)->test(BillingOverview::class)->assertSee('Your free Starter trial ends on');
+    Livewire::actingAs($owner)->test(BillingPlans::class)->assertSee('Choose Pro')->call('choosePlan', 'pro');
     $sessionId = array_key_first($stripe->sessions);
     expect($stripe->sessions[$sessionId]['subscription_data'])->not->toHaveKey('trial_period_days');
 
@@ -51,7 +53,7 @@ test('a business goes from sign-up through a free trial to a managed Stripe subs
         ->and($entitlements->trial($org->fresh()))->toBeNull()->and($entitlements->plan($org)->key)->toBe('pro');
 
     // Downgrade (period end), upgrade back, cancel, resume.
-    $manage = Livewire::actingAs($owner->fresh())->test(BillingOverview::class);
+    $manage = Livewire::actingAs($owner->fresh())->test(BillingPlans::class);
     $manage->call('choosePlan', 'starter')->assertSee("You're on Pro until");
     expect($subscription->fresh()->scheduled_plan)->toBe('starter')->and($entitlements->plan($org)->key)->toBe('pro');
 
@@ -81,7 +83,7 @@ test('when the free trial ends without a plan the business moves to Free and not
         ->and(Customer::where('organization_id', $org->id)->count())->toBe(150)
         ->and($entitlements->summary($org)['customers']['over'])->toBeTrue();
 
-    Livewire::actingAs($owner->fresh())->test(BillingOverview::class)->assertSee('Free')->assertSee('Choose Starter');
+    Livewire::actingAs($owner->fresh())->test(BillingPlans::class)->assertSee('Free')->assertSee('Choose Starter');
 });
 
 test('a business gets one trial only and trials are per business', function () {

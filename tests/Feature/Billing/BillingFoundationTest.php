@@ -11,6 +11,7 @@ use App\Enums\MessageDirection;
 use App\Enums\Team\MemberStatus;
 use App\Exceptions\Billing\BillingException;
 use App\Livewire\Settings\BillingOverview;
+use App\Livewire\Settings\BillingUsage;
 use App\Models\Automation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
@@ -342,9 +343,11 @@ test('the billing page shows the plan, status and usage', function () {
     $this->billing->subscribe($this->owner, 'starter', trialDays: 14);
 
     Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)
-        ->assertSeeInOrder(['Current plan', 'Starter', '$29.00 / month', 'Status', 'Trialing', 'Trial ends'])
-        ->assertSeeInOrder(['Usage', 'Customers', '1 / 500', 'Team members', '3 / 3'])
-        ->assertSee('Manage payment & invoices', false)->assertSee('Cancel subscription');
+        ->assertSeeInOrder(['Current plan', 'Starter', '$29.00 / month', 'Trialing', 'Billing period', 'Trial ends', 'Next billing date'])
+        ->assertSee('Manage billing')->assertSee('Change plan')->assertSee('Cancel subscription');
+
+    Livewire::actingAs($this->owner->fresh())->test(BillingUsage::class)
+        ->assertSeeInOrder(['Customers', '1 / 500', 'Team members', '3 / 3']);
 });
 
 test('with the manual provider the same checkout flow completes locally without payment', function () {

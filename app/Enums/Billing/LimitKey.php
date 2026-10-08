@@ -26,6 +26,20 @@ enum LimitKey: string
     }
 
     /**
+     * "customer" in "You've reached your customer limit."
+     */
+    public function shortName(): string
+    {
+        return match ($this) {
+            self::Customers => 'customer',
+            self::Automations => 'automation',
+            self::TeamMembers => 'team member',
+            self::OutboundEmails => 'email',
+            self::Estimates => 'estimate',
+        };
+    }
+
+    /**
      * How the limit reads in a sentence: "allows up to 100 customers".
      */
     public function noun(): string

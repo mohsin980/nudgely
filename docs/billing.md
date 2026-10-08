@@ -25,7 +25,7 @@ Each plan: key, name, `price_cents`, `interval`, `limits` (int, or null = unlimi
 
 ## Access
 
-`Permission::ManageBilling` (owner only) — Gate `manage-billing`, `SubscriptionPolicy`, and `BillingService` checks. Read-only page `/settings/billing`: plan, status, usage vs limits, plan comparison.
+`Permission::ManageBilling` (owner only) — Gate `manage-billing`, `SubscriptionPolicy`, and `BillingService` checks. Billing pages (owner only, `can:manage-billing`): `/settings/billing` (current plan, status, billing period, next billing date, cancellation/resume, saved card as brand + last four), `/settings/billing/plans` (plans from `PlanCatalog`, upgrade/downgrade), `/settings/billing/usage` (used / limit with progress bars), `/settings/billing/history` (invoices with links to the provider's hosted invoice page). Actions call `BillingService`; the views hold no plan data or billing rules (feature names come from `billing.feature_labels`). Card brand/last four and invoices are read through `BillingProviderInterface::paymentMethod()` / `invoices()` and cached for 5 minutes. An "Upgrade Plan" link follows a limit message only for people who can manage billing.
 
 ## Stripe (Task 14B)
 

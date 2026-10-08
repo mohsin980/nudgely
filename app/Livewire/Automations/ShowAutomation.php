@@ -34,6 +34,9 @@ class ShowAutomation extends Component
 
     public ?string $statusMessage = null;
 
+    /** The last action was refused because the plan's limit is reached. */
+    public bool $limitReached = false;
+
     public string $statusType = 'success';
 
     public function mount(int $automationId): void
@@ -85,6 +88,7 @@ class ShowAutomation extends Component
 
             return;
         } catch (PlanLimitException $e) {
+            $this->limitReached = true;
             $this->flash($e->getMessage(), 'error');
 
             return;
@@ -179,6 +183,7 @@ class ShowAutomation extends Component
 
     private function flash(string $message, string $type = 'success'): void
     {
+        $this->limitReached = $this->limitReached && $type === 'error';
         $this->statusMessage = $message;
         $this->statusType = $type;
     }

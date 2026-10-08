@@ -13,8 +13,8 @@
 | development, internal accounts and tests).
 | default_plan: what an organization without a subscription gets.
 |
-| Limits: an integer, or null for "unlimited". Monthly limits reset at the
-| start of each calendar month in the organization's timezone.
+| Limits: an integer, or null for "unlimited". Monthly limits follow the
+| billing period (the calendar month without a subscription).
 |
 */
 
@@ -38,6 +38,17 @@ return [
     // Plan limits are enforced where things are created. A switch (not a per-plan setting) so a
     // rollout can start with it off; it stays on in production. Tests turn it off unless testing limits.
     'enforce_limits' => (bool) env('BILLING_ENFORCE_LIMITS', true),
+
+    // What each feature key is called on the plan pages.
+    'feature_labels' => [
+        'estimates' => 'Estimates',
+        'follow_ups' => 'Automatic follow-ups',
+        'automations' => 'Automations',
+        'ai_reply_classification' => 'AI reply sorting',
+        'team_roles' => 'Team roles & permissions',
+        'custom_branding' => 'Custom branding',
+        'priority_support' => 'Priority support',
+    ],
 
     'plans' => [
 
