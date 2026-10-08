@@ -50,4 +50,12 @@ class EmailSendingNotAllowedException extends RuntimeException
     {
         return new self('This customer has opted out of email.');
     }
+
+    /**
+     * The address bounced or complained before. It is not emailed again until it changes.
+     */
+    public static function suppressed(): self
+    {
+        return new self('This customer\'s email address bounced or was reported. Check the address before sending again.');
+    }
 }

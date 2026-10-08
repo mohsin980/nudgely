@@ -19,6 +19,7 @@ use App\Models\Organization;
 use App\Services\Billing\EntitlementService;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
+use App\Support\CorrelationId;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -89,6 +90,10 @@ class EmailService
             throw EmailSendingNotAllowedException::optedOut();
         }
 
+        if ($customer->isEmailSuppressed()) {
+            throw EmailSendingNotAllowedException::suppressed();
+        }
+
         $connection = $this->defaultConnection($organization);
 
         $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text, $metadata) {
@@ -108,11 +113,7 @@ class EmailService
 
         SendEmailJob::dispatch($message->id)->afterCommit();
 
-        Log::info('Email queued.', [
-            'organization_id' => $message->organization_id,
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
-        ]);
+        $this->logQueued($message);
 
         return $message;
     }
@@ -153,7 +154,7 @@ class EmailService
         $claimed = Message::query()
             ->whereKey($message->getKey())
             ->where('status', MessageStatus::Queued)
-            ->update(['status' => MessageStatus::Sending, 'updated_at' => now()]);
+            ->update(['status' => MessageStatus::Sending, 'send_attempts' => DB::raw('send_attempts + 1'), 'updated_at' => now()]);
 
         if ($claimed === 0) {
             $message->refresh();
@@ -181,6 +182,9 @@ class EmailService
             throw $e;
         }
 
+        $started = hrtime(true);
+        $this->log('email.sending', $message, ['attempt' => $message->send_attempts]);
+
         try {
             $result = $provider->send(new OutboundEmail(
                 organizationId: $message->organization_id,
@@ -198,11 +202,7 @@ class EmailService
             // A provider that answered with a known temporary error did not accept the email.
             if ($e->isTransient() && $retryTransientFailures) {
                 $this->requeue($message);
-                Log::warning('Email send deferred after a transient provider failure.', [
-                    'organization_id' => $message->organization_id,
-                    'message_id' => $message->id,
-                    'reason' => $e->reason,
-                ]);
+                $this->log('email.retry_scheduled', $message, ['reason' => $e->reason]);
 
                 throw $e;
             }
@@ -211,11 +211,7 @@ class EmailService
         } catch (Throwable $e) {
             // Timeouts and crashes can happen after the provider accepted the email. Resending could
             // duplicate it, so the outcome is recorded as unknown and the message is not retried.
-            Log::error('Email outcome unknown after an unexpected provider error.', [
-                'organization_id' => $message->organization_id,
-                'message_id' => $message->id,
-                'exception' => $e::class,
-            ]);
+            $this->log('email.failed', $message, ['reason' => EmailProviderException::OUTCOME_UNKNOWN, 'exception' => $e::class]);
 
             return $this->markFailed($message, EmailSendResult::failed(EmailProviderException::OUTCOME_UNKNOWN, 'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.'));
         }
@@ -228,11 +224,9 @@ class EmailService
         ])->save();
         $this->redactIfSensitive($message);
 
-        Log::info('Email sent.', [
-            'organization_id' => $message->organization_id,
-            'message_id' => $message->id,
-            'provider' => $connection->provider->value,
+        $this->log('email.sent', $message, [
             'provider_message_id' => $result->providerMessageId,
+            'duration_ms' => round((hrtime(true) - $started) / 1e6, 1),
         ]);
 
         return $result;
@@ -286,7 +280,7 @@ class EmailService
             ->whereIn('status', [MessageStatus::Queued, MessageStatus::Sending])
             ->update(['status' => MessageStatus::Failed, 'failed_at' => now(), 'failure_reason' => $reason, 'updated_at' => now()]);
 
-        Log::warning('Email failed.', ['organization_id' => $message->organization_id, 'message_id' => $message->id, 'reason' => 'retries_exhausted']);
+        $this->log('email.failed', $message, ['reason' => 'retries_exhausted']);
     }
 
     /**
@@ -371,6 +365,7 @@ class EmailService
                 'body_html' => $html,
                 'metadata' => $metadata ?: null,
                 'status' => MessageStatus::Queued,
+                'correlation_id' => CorrelationId::new(),
             ])->save();
 
             return $message;
@@ -387,6 +382,30 @@ class EmailService
         } catch (PlanLimitException $e) {
             throw EmailSendingNotAllowedException::planLimit($e->getMessage());
         }
+    }
+
+    private function logQueued(Message $message): void
+    {
+        $this->log('email.queued', $message);
+    }
+
+    /**
+     * One log shape for every email event, so an operator can follow a message across the request,
+     * the job and the provider response. Bodies, addresses and credentials are never included.
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    private function log(string $event, Message $message, array $extra = []): void
+    {
+        Log::info($event, [
+            'event' => $event,
+            'organization_id' => $message->organization_id,
+            'conversation_id' => $message->conversation_id,
+            'message_id' => $message->id,
+            'provider' => $message->provider?->value,
+            'status' => $message->status?->value,
+            'correlation_id' => $message->correlation_id,
+        ] + $extra);
     }
 
     /**
@@ -409,11 +428,7 @@ class EmailService
         ])->save();
         $this->redactIfSensitive($message);
 
-        Log::warning('Email failed.', [
-            'organization_id' => $message->organization_id,
-            'message_id' => $message->id,
-            'reason' => $result->errorCode,
-        ]);
+        $this->log('email.failed', $message, ['reason' => $result->errorCode]);
 
         return $result;
     }

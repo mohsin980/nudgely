@@ -37,7 +37,7 @@ class UsageService
             LimitKey::TeamMembers => User::query()->where('organization_id', $organization->id)->where('status', MemberStatus::Active)->count(),
             // Emails that went out or are on their way; failed ones never reached the customer, so they are free.
             LimitKey::OutboundEmails => Message::query()->where('organization_id', $organization->id)->where('direction', MessageDirection::Outbound)
-                ->whereIn('status', [MessageStatus::Queued, MessageStatus::Sending, MessageStatus::Sent])
+                ->whereIn('status', array_map(fn (MessageStatus $status) => $status->value, array_filter(MessageStatus::cases(), fn (MessageStatus $status) => $status->countsAsSent())))
                 ->where('created_at', '>=', $start)->where('created_at', '<', $end)->count(),
             // New estimates only: a revision of a sent estimate isn't a new estimate.
             LimitKey::Estimates => Estimate::query()->where('organization_id', $organization->id)->where('revision', 1)

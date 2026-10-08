@@ -5,6 +5,7 @@ use App\Billing\ProviderSubscription;
 use App\Enums\Billing\SubscriptionStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Jobs\SendEmailJob;
 use App\Models\Automation;
 use App\Models\Conversation;
 use App\Models\Customer;
@@ -17,12 +18,14 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Services\Email\EmailProviderManager;
+use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
@@ -302,4 +305,84 @@ function withoutTenantTriggers(string $table, Closure $build): mixed
     } finally {
         DB::unprepared("ALTER TABLE {$table} ENABLE TRIGGER USER");
     }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Email and webhook reliability helpers
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Known webhook credentials, and the fake provider, for the email reliability tests.
+ */
+function configureEmailWebhooks(): void
+{
+    config([
+        'email.providers.postmark.inbound_webhook_username' => 'postmark',
+        'email.providers.postmark.inbound_webhook_secret' => 'inbound-secret',
+        'email.providers.postmark.events_webhook_username' => 'postmark',
+        'email.providers.postmark.events_webhook_secret' => 'events-secret',
+        'email.inbound.reply_domain' => 'inbound.quoteflow.ai',
+    ]);
+}
+
+/**
+ * An email that went through the real path (queue, job, provider) and was accepted: status sent,
+ * provider message ID stored. Returns the message.
+ */
+function sentEmail(array $business, string $subject = 'Your estimate'): Message
+{
+    $conversation = Conversation::factory()->for($business['customer'])->create([
+        'organization_id' => $business['organization']->id,
+        'subject' => $subject,
+    ]);
+    $message = app(EmailService::class)->sendToConversation($conversation, $subject, '<p>Hi Pat</p>', 'Hi Pat');
+    (new SendEmailJob($message->id))->handle(app(EmailService::class));
+
+    return $message->refresh();
+}
+
+/**
+ * POST a Postmark delivery event with the events credentials (or whatever the caller passes).
+ */
+function postDeliveryEvent(array $payload, ?string $user = 'postmark', ?string $secret = 'events-secret'): TestResponse
+{
+    $headers = $user === null ? [] : ['Authorization' => 'Basic '.base64_encode("{$user}:{$secret}")];
+
+    return test()->postJson(route('webhooks.email.events', ['provider' => 'postmark']), $payload, $headers);
+}
+
+/**
+ * A Postmark delivery report for a message, shaped like the provider's payload.
+ */
+function deliveryReport(string $recordType, string $messageId, string $recipient, array $extra = []): array
+{
+    return array_merge([
+        'RecordType' => $recordType,
+        'MessageID' => $messageId,
+        'Recipient' => $recipient,
+        'Email' => $recipient,
+        'MessageStream' => 'outbound',
+    ], $extra);
+}
+
+/**
+ * Collect every log call (level, message, context) made while the callback runs.
+ *
+ * @return list<array{level: string, message: string, context: array<string, mixed>}>
+ */
+function captureLogs(Closure $callback): array
+{
+    $captured = [];
+
+    foreach (['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency', 'log'] as $level) {
+        Log::shouldReceive($level)->andReturnUsing(function (...$args) use (&$captured, $level) {
+            $captured[] = ['level' => $level, 'message' => (string) ($args[0] ?? ''), 'context' => $args[1] ?? []];
+        });
+    }
+
+    $callback();
+
+    return $captured;
 }

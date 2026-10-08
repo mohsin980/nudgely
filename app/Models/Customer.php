@@ -69,6 +69,15 @@ class Customer extends Model
     }
 
     /**
+     * The customer's current address bounced or complained. Changing the address lifts the suppression.
+     */
+    public function isEmailSuppressed(): bool
+    {
+        return $this->email_suppressed_address !== null
+            && strtolower((string) $this->email) === $this->email_suppressed_address;
+    }
+
+    /**
      * @return BelongsTo<Organization, $this>
      */
     public function organization(): BelongsTo

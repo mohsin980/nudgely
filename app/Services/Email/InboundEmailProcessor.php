@@ -19,6 +19,7 @@ use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Turns a stored inbound-email webhook event into an inbound Message.
@@ -50,15 +51,37 @@ class InboundEmailProcessor
 
     public function process(WebhookEvent $event): string
     {
+        if ($event->isFinished()) {
+            return self::OUTCOME_ALREADY_PROCESSED;
+        }
+
+        $started = hrtime(true);
+        $event->markProcessing();
+
         try {
             $outcome = DB::transaction(fn () => $this->processLocked($event->id));
         } catch (UniqueConstraintViolationException) {
             // Another event already stored this provider message.
-            $this->finish($event->id, failureReason: null);
+            $event->refresh()->markIgnored('Duplicate of an email that was already stored.');
             $outcome = self::OUTCOME_DUPLICATE;
+        } catch (Throwable $e) {
+            // Retried by the job; the reason is kept generic, the exception class goes to the log only.
+            $event->refresh()->markAttemptFailed('Processing attempt failed; it will be retried.');
+            Log::error('webhook.failed', ['event' => 'webhook.failed', 'webhook_event_id' => $event->id, 'attempt' => $event->attempt_count, 'exception' => $e::class]);
+
+            throw $e;
         }
 
-        Log::info('Inbound email processed.', ['webhook_event_id' => $event->id, 'outcome' => $outcome]);
+        Log::info('webhook.processed', [
+            'event' => 'webhook.processed',
+            'webhook_event_id' => $event->id,
+            'provider' => $event->provider,
+            'organization_id' => $event->refresh()->organization_id,
+            'outcome' => $outcome,
+            'attempt' => $event->attempt_count,
+            'correlation_id' => $event->correlation_id,
+            'duration_ms' => round((hrtime(true) - $started) / 1e6, 1),
+        ]);
 
         return $outcome;
     }
@@ -74,7 +97,7 @@ class InboundEmailProcessor
         try {
             $email = $this->providers->driver($event->provider)->parse($event->payload);
         } catch (InvalidInboundEmailException) {
-            $this->finish($event->id, failureReason: 'Payload is not a valid inbound email.');
+            $event->markFailed('Payload is not a valid inbound email.');
 
             return self::OUTCOME_INVALID;
         }
@@ -84,11 +107,15 @@ class InboundEmailProcessor
         [$conversation, $customer] = $route === null ? [null, null] : $this->routeTarget($route);
 
         if ($route === null || $conversation === null || $customer === null) {
-            $this->finish($event->id, failureReason: 'No active reply route matches this email.');
-            Log::warning('Inbound email has no usable reply route.', ['webhook_event_id' => $event->id]);
+            // Nothing to attach to, and no tenant is known, so nothing is stored: recorded as ignored.
+            $event->markIgnored('No active reply route matches this email.');
+            Log::warning('webhook.ignored', ['event' => 'webhook.ignored', 'webhook_event_id' => $event->id, 'provider' => $event->provider, 'reason' => 'unroutable']);
 
             return self::OUTCOME_UNROUTABLE;
         }
+
+        // Trusted: taken from the reply route, which the token located, never from the payload.
+        $event->forceFill(['organization_id' => $route->organization_id])->save();
 
         $senderMatches = hash_equals($customer->email, $email->fromEmail);
 
@@ -107,7 +134,7 @@ class InboundEmailProcessor
             }
         }
 
-        $this->finish($event->id, failureReason: null);
+        $event->markProcessed();
 
         Log::info('Inbound email stored.', [
             'webhook_event_id' => $event->id,
@@ -171,12 +198,5 @@ class InboundEmailProcessor
         ])->save();
 
         return $message;
-    }
-
-    private function finish(int $eventId, ?string $failureReason): void
-    {
-        WebhookEvent::query()->whereKey($eventId)->update($failureReason === null
-            ? ['processed_at' => now(), 'updated_at' => now()]
-            : ['failed_at' => now(), 'failure_reason' => $failureReason, 'updated_at' => now()]);
     }
 }

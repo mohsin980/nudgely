@@ -1,7 +1,11 @@
 <?php
 
+use App\Enums\Billing\WebhookEventStatus;
+use App\Exceptions\Webhooks\WebhookReplayException;
 use App\Jobs\Billing\CheckGracePeriodsJob;
 use App\Jobs\Billing\ExpireTrialsJob;
+use App\Models\Message;
+use App\Models\WebhookEvent;
 use App\Services\Automation\AutomationEngine;
 use App\Services\Billing\BillingLifecycle;
 use App\Services\Billing\BillingService;
@@ -10,6 +14,7 @@ use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\Maintenance\RetentionPruner;
 use App\Services\Reliability\OperationsReport;
+use App\Services\Webhooks\WebhookReplayService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -83,3 +88,70 @@ Schedule::command('billing:send-trial-reminders')->dailyAt('09:00')->withoutOver
 Schedule::command('retention:prune')->dailyAt('03:30')->withoutOverlapping()->onOneServer();
 Schedule::job(new ExpireTrialsJob)->hourlyAt(5)->name('billing-expire-trials')->withoutOverlapping()->onOneServer();
 Schedule::job(new CheckGracePeriodsJob)->hourlyAt(35)->name('billing-check-grace-periods')->withoutOverlapping()->onOneServer();
+
+Artisan::command('webhooks:failed {--organization= : Only this organization} {--limit=20}', function () {
+    $rows = WebhookEvent::query()
+        ->where('status', WebhookEventStatus::Failed)
+        ->when($this->option('organization'), fn ($query, $org) => $query->where('organization_id', (int) $org))
+        ->orderByDesc('failed_at')
+        ->limit((int) $this->option('limit'))
+        ->get(['id', 'provider', 'event_type', 'organization_id', 'attempt_count', 'failure_reason', 'correlation_id', 'failed_at']);
+
+    $this->table(['ID', 'Provider', 'Type', 'Org', 'Attempts', 'Reason', 'Correlation', 'Failed at'], $rows->map(fn ($e) => [
+        $e->id, $e->provider, $e->event_type, $e->organization_id ?? '-', $e->attempt_count, $e->failure_reason, $e->correlation_id ?? '-', $e->failed_at?->toIso8601String(),
+    ])->all());
+})->purpose('List failed webhook events: what failed, for which organization, how often it was tried');
+
+Artisan::command('webhooks:replay {id : Webhook event ID} {--organization= : Only if the event belongs to this organization}', function (WebhookReplayService $replays) {
+    try {
+        $event = $replays->replay((int) $this->argument('id'), $this->option('organization') === null ? null : (int) $this->option('organization'));
+        $this->info("Event {$event->id} queued for processing again (status: {$event->status->value}).");
+    } catch (WebhookReplayException $e) {
+        $this->error($e->getMessage());
+
+        return 1;
+    }
+})->purpose('Process a failed webhook event again. Safe: the original identity is kept and processing is idempotent');
+
+Artisan::command('email:trace {message : Message ID}', function () {
+    $message = Message::query()->find((int) $this->argument('message'));
+
+    if ($message === null) {
+        $this->error('Message not found.');
+
+        return 1;
+    }
+
+    $this->line(json_encode([
+        'message_id' => $message->id,
+        'organization_id' => $message->organization_id,
+        'conversation_id' => $message->conversation_id,
+        'direction' => $message->direction->value,
+        'provider' => $message->provider?->value,
+        'provider_message_id' => $message->provider_message_id,
+        'status' => $message->status->value,
+        'send_attempts' => $message->send_attempts,
+        'failure_reason' => $message->failure_reason,
+        'correlation_id' => $message->correlation_id,
+        'created_at' => $message->created_at?->toIso8601String(),
+        'sent_at' => $message->sent_at?->toIso8601String(),
+        'delivered_at' => $message->delivered_at?->toIso8601String(),
+        'bounced_at' => $message->bounced_at?->toIso8601String(),
+        'complained_at' => $message->complained_at?->toIso8601String(),
+        'failed_at' => $message->failed_at?->toIso8601String(),
+        // Addresses and bodies are not printed here; use the inbox for the content.
+    ], JSON_PRETTY_PRINT));
+
+    $events = WebhookEvent::query()
+        ->where('organization_id', $message->organization_id)
+        ->where('provider', $message->provider?->value)
+        ->where('event_type', WebhookEvent::TYPE_DELIVERY_EVENT)
+        // Bounce and complaint events are keyed by their own ID, so match the message ID inside the payload.
+        ->whereRaw("payload->>'MessageID' = ?", [$message->provider_message_id])
+        ->get(['id', 'status', 'attempt_count', 'failure_reason', 'correlation_id', 'received_at']);
+
+    $this->line('Provider events: '.$events->count());
+    foreach ($events as $event) {
+        $this->line("  #{$event->id} {$event->status->value} attempts={$event->attempt_count} ".($event->failure_reason ?? ''));
+    }
+})->purpose('Show one outbound message: status, timestamps, attempts, correlation ID and its provider events');

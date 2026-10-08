@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Email;
 
+use App\Enums\Billing\WebhookEventStatus;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
@@ -132,7 +133,7 @@ class InboundEmailProcessingTest extends TestCase
 
         $this->assertDatabaseCount('messages', 0);
         $event = WebhookEvent::sole();
-        $this->assertNotNull($event->failed_at);
+        $this->assertSame(WebhookEventStatus::Ignored, $event->status);
         $this->assertSame('No active reply route matches this email.', $event->failure_reason);
     }
 
@@ -152,7 +153,7 @@ class InboundEmailProcessingTest extends TestCase
         $this->receive();
 
         $this->assertDatabaseCount('messages', 0);
-        $this->assertNotNull(WebhookEvent::sole()->failed_at);
+        $this->assertSame(WebhookEventStatus::Ignored, WebhookEvent::sole()->status);
     }
 
     public function test_inactive_route_is_rejected(): void
@@ -192,7 +193,7 @@ class InboundEmailProcessingTest extends TestCase
         $this->receive();
 
         $this->assertDatabaseCount('messages', 0);
-        $this->assertNotNull(WebhookEvent::sole()->failed_at);
+        $this->assertSame(WebhookEventStatus::Ignored, WebhookEvent::sole()->status);
     }
 
     public function test_customer_from_another_organization_is_rejected(): void
