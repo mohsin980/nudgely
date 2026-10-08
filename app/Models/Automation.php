@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * organization_id, created_by and updated_by are not mass assignable: they come from
  * the authenticated context, never from browser input.
  */
-#[Fillable(['name', 'description', 'status', 'trigger_type'])]
+#[Fillable(['name', 'description', 'trigger_type'])]
 class Automation extends Model
 {
     /** @use HasFactory<AutomationFactory> */

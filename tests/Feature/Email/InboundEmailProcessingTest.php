@@ -198,7 +198,7 @@ class InboundEmailProcessingTest extends TestCase
     public function test_customer_from_another_organization_is_rejected(): void
     {
         $foreignCustomer = Customer::factory()->create(['email' => 'john@example.com']);
-        Conversation::query()->whereKey($this->conversation->id)->update(['customer_id' => $foreignCustomer->id]);
+        withoutTenantTriggers('conversations', fn () => Conversation::query()->whereKey($this->conversation->id)->update(['customer_id' => $foreignCustomer->id]));
 
         $this->receive();
 

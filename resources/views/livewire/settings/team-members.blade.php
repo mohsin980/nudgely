@@ -6,10 +6,10 @@
     @include('livewire.settings.partials.status')
     @error('team') <div role="alert" class="rounded-md bg-red-50 p-3 text-sm text-red-800">{{ $message }}</div> @enderror
 
-    @if ($inviteLink)
+    @if ($this->inviteLink)
         <div class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" data-invite-link>
             <p class="font-medium">Invitation link (works once, expires in {{ config('team.invitation_days') }} days):</p>
-            <input type="text" readonly value="{{ $inviteLink }}" aria-label="Invitation link" class="mt-1 w-full rounded border-0 bg-white px-2 py-1 font-mono text-xs ring-1 ring-blue-200" x-on:focus="$el.select()">
+            <input type="text" readonly value="{{ $this->inviteLink }}" aria-label="Invitation link" class="mt-1 w-full rounded border-0 bg-white px-2 py-1 font-mono text-xs ring-1 ring-blue-200" x-on:focus="$el.select()">
         </div>
     @endif
 

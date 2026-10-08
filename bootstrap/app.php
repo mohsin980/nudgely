@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureActiveMember;
 use App\Http\Middleware\RedirectToOnboarding;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['onboarding' => RedirectToOnboarding::class]);
 
         // Suspended and removed members are signed out on their next request.
-        $middleware->web(append: [EnsureActiveMember::class]);
+        $middleware->web(append: [EnsureActiveMember::class, SecurityHeaders::class]);
 
         // Provider webhooks authenticate themselves and carry no CSRF token.
         $middleware->validateCsrfTokens(except: ['webhooks/*']);

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * tenancy is set through the organization relationship and verification state is owned
  * by the system.
  */
-#[Fillable(['provider', 'domain', 'sender_email', 'sender_name', 'is_default'])]
+#[Fillable(['provider', 'domain', 'sender_email', 'sender_name'])]
 class EmailConnection extends Model
 {
     /** @use HasFactory<EmailConnectionFactory> */

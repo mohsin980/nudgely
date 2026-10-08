@@ -6,6 +6,7 @@ use App\Enums\Team\Permission;
 use App\Exceptions\Billing\BillingException;
 use App\Models\Subscription;
 use App\Services\Billing\BillingService;
+use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * The subscription actions of the billing pages. Each one authorizes on the server and then calls
@@ -73,6 +74,17 @@ trait ManagesSubscription
 
     protected function attempt(\Closure $action): void
     {
+        // Each of these makes the payment provider do work, so a script can't hammer it for a business.
+        $key = 'billing-actions:'.$this->organization()->id;
+
+        if (RateLimiter::tooManyAttempts($key, 30)) {
+            $this->failed('Too many billing requests. Please wait a few minutes and try again.');
+
+            return;
+        }
+
+        RateLimiter::hit($key, 600);
+
         try {
             $action();
         } catch (BillingException $e) {

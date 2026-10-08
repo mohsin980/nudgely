@@ -205,7 +205,7 @@ class EmailServiceTest extends TestCase
     public function test_a_connection_from_another_organization_is_never_used_for_delivery(): void
     {
         $foreign = $this->defaultSender(Organization::factory()->create());
-        $message = Message::factory()->create(['organization_id' => $this->organization->id, 'email_connection_id' => $foreign->id, 'from_address' => 'sales@example.com']);
+        $message = withoutTenantTriggers('messages', fn () => Message::factory()->create(['organization_id' => $this->organization->id, 'email_connection_id' => $foreign->id, 'from_address' => 'sales@example.com']));
 
         $result = $this->emails->deliver($message);
 

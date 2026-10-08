@@ -422,7 +422,7 @@ class AutomationEngineTest extends TestCase
         $this->engine()->evaluate($this->classified());
         [$first, $second] = AutomationActionRun::orderBy('id')->get();
 
-        $automation->update(['status' => 'paused']);
+        $automation->forceFill(['status' => 'paused'])->save();
         $this->engine()->executeActionRun($first->id);
 
         $this->assertSame(AutomationActionRunStatus::Skipped, $first->refresh()->status);
@@ -431,7 +431,7 @@ class AutomationEngineTest extends TestCase
         // A tampered run that points at another organization's automation is refused.
         $foreign = Automation::factory()->active()->create();
         DB::table('automation_runs')->where('id', $first->automation_run_id)->update(['context' => json_encode(['organization_id' => $foreign->organization_id] + $first->run->context)]);
-        $automation->update(['status' => 'active']);
+        $automation->forceFill(['status' => 'active'])->save();
         $this->engine()->executeActionRun($second->id);
 
         $this->assertSame(AutomationActionRunStatus::Failed, $second->refresh()->status);
@@ -495,7 +495,7 @@ class AutomationEngineTest extends TestCase
         event($this->classified());
 
         // Organization approval off, but this action still requires approval.
-        $organizationApproval->update(['status' => 'paused']);
+        $organizationApproval->forceFill(['status' => 'paused'])->save();
         $this->organization()->forceFill(['require_approval_for_email' => false])->save();
         $this->emailAutomation(requiresApproval: true);
         event($this->classified());
