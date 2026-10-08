@@ -12,6 +12,7 @@ use App\Exceptions\Email\EmailProviderException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Jobs\SendEmailJob;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
@@ -277,6 +278,11 @@ class EmailService
 
         $to = strtolower(trim($to));
         $replyTo = $replyTo === null ? null : strtolower(trim($replyTo));
+
+        // Sample customers (onboarding demo data) never receive real email, whatever asked for it.
+        if (Customer::query()->where('organization_id', $connection->organization_id)->where('is_demo', true)->whereRaw('lower(email) = ?', [$to])->exists()) {
+            throw EmailSendingNotAllowedException::sampleCustomer();
+        }
 
         if (! filter_var($to, FILTER_VALIDATE_EMAIL)) {
             throw EmailSendingNotAllowedException::invalidAddress('recipient');

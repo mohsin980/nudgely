@@ -9,7 +9,8 @@
         <a href="{{ route('customers.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">&larr; Customers</a>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-                <h1 class="text-2xl font-semibold tracking-tight text-gray-900">{{ $this->customer->name }}</h1>
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-900">{{ $this->customer->name }}@if ($this->customer->is_demo)<span class="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif</h1>
+                @if ($this->customer->is_demo)<p class="mt-1 text-sm text-amber-800" data-sample-note>Sample data: this customer never receives real emails and doesn't count toward your plan. You can delete it from setup.</p>@endif
                 <p class="break-words text-sm text-gray-600">
                     <a href="mailto:{{ $this->customer->email }}" class="hover:underline">{{ $this->customer->email }}</a>
                     @if ($this->customer->phone) · {{ $this->customer->phone }} @endif

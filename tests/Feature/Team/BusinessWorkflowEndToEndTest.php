@@ -60,7 +60,7 @@ test('a new business runs from sign-up to staff completing an automation task', 
     $this->post('/register', [
         'business_name' => 'Dallas HVAC', 'name' => 'John Smith', 'email' => 'John@DallasHVAC.com',
         'password' => 'correct-horse-battery', 'password_confirmation' => 'correct-horse-battery',
-    ])->assertRedirect(route('settings.business'));
+    ])->assertRedirect(route('onboarding.show'));
 
     $owner = User::where('email', 'john@dallashvac.com')->sole();
     $organization = $owner->organization;

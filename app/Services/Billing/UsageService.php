@@ -29,7 +29,8 @@ class UsageService
         [$start, $end] = $this->period($organization);
 
         return match ($key) {
-            LimitKey::Customers => Customer::query()->where('organization_id', $organization->id)->count(),
+            // Sample customers from onboarding are demo data, not part of the plan's customer count.
+            LimitKey::Customers => Customer::query()->where('organization_id', $organization->id)->where('is_demo', false)->count(),
             // Only automations that run use a slot; drafts, paused and archived ones don't.
             LimitKey::Automations => Automation::query()->where('organization_id', $organization->id)->where('status', AutomationStatus::Active)->count(),
             // Seats: active members. (Open invitations are added by the caller; suspended people need a seat again to come back.)

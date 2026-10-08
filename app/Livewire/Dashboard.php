@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Task;
 use App\Services\Dashboard\DashboardService;
+use App\Services\Onboarding\OnboardingService;
 use App\Services\Tasks\TaskService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -62,6 +63,7 @@ class Dashboard extends Component
         return view('livewire.dashboard', [
             'd' => $snapshot,
             'organization' => $user->organization,
+            'checklist' => app(OnboardingService::class)->checklist($user),
             'greeting' => match (true) {
                 $hour < 12 => 'Good morning',
                 $hour < 17 => 'Good afternoon',

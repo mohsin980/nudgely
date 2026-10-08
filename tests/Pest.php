@@ -36,7 +36,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding');
 
 /*
 |--------------------------------------------------------------------------

@@ -41,6 +41,11 @@ class EmailSendingNotAllowedException extends RuntimeException
         return new self($message);
     }
 
+    public static function sampleCustomer(): self
+    {
+        return new self('This is a sample customer, so no email was sent. Sample customers never receive real emails.');
+    }
+
     public static function optedOut(): self
     {
         return new self('This customer has opted out of email.');
