@@ -626,3 +626,73 @@ test('workflow: active → payment failed → past due → grace → recovered o
     tellApp('invoice.paid', $b);
     expect(app(EntitlementService::class)->plan($lapses)->key)->toBe('starter')->and(audit($lapses, 'billing_restriction_lifted')->count())->toBe(1)->and(banner($lapses))->toBeNull();
 });
+
+// ─── Workflow: Active → Cancel Requested → Cancel at Period End → Period Ends → Cancelled ───
+
+test('workflow: active → cancel requested → cancel at period end → period ends → cancelled', function () {
+    $subscription = paying($this->owner);
+    $periodEnd = $subscription->current_period_end;
+    Customer::factory()->count(150)->for($this->organization)->create();
+
+    // Active: no banner, nothing pending.
+    expect(banner($this->organization))->toBeNull();
+
+    // Cancel requested: scheduled for the period end, not immediate.
+    Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)->call('cancelSubscription')->assertSee('remains active until');
+    $subscription = $subscription->fresh();
+    expect($subscription->cancel_at_period_end)->toBeTrue()->and($subscription->status)->toBe(SubscriptionStatus::Active)
+        ->and($this->stripe->subscriptions[$subscription->provider_subscription_id]['cancel_at_period_end'])->toBeTrue()
+        ->and(audit($this->organization, 'subscription_cancelled')->count())->toBe(1)
+        ->and(ownerNotices($this->owner, 'subscription_cancelling'))->toHaveCount(1);
+
+    // Cancel at period end: the paid plan keeps working until the end, with a banner and a way back.
+    $this->travel(10)->days();
+    expect(app(EntitlementService::class)->plan($this->organization)->key)->toBe('starter')->and($subscription->fresh()->grantsAccess())->toBeTrue()
+        ->and(banner($this->organization))->toBe('cancel_scheduled')
+        ->and(app(BillingLifecycle::class)->checkGracePeriods()['restricted'])->toBe(0);
+    $this->actingAs($this->owner->fresh())->get(route('dashboard'))->assertSee('Your subscription ends on')->assertSee('Resume Subscription');
+    expectConsistent($this->owner, 'starter', SubscriptionStatus::Active);
+
+    // Period ends: access stops at that moment even before Stripe's webhook arrives (and nothing is deleted)...
+    $this->travelTo($periodEnd->copy()->addMinute());
+    expect($subscription->fresh()->grantsAccess())->toBeFalse()->and(app(EntitlementService::class)->plan($this->organization)->key)->toBe('free')
+        ->and(Customer::where('organization_id', $this->organization->id)->count())->toBe(151);
+
+    // ...and Stripe's deletion event (or the hourly sync) records the final state.
+    $this->stripe->advancePastPeriodEnd($subscription->provider_subscription_id);
+    tellApp('customer.subscription.deleted', $subscription);
+
+    // Cancelled.
+    $subscription = $subscription->fresh();
+    expect($subscription->status)->toBe(SubscriptionStatus::Cancelled)->and($subscription->ended_at)->not->toBeNull()
+        ->and(app(BillingService::class)->currentSubscription($this->organization))->toBeNull()
+        ->and(audit($this->organization, 'subscription_ended')->count())->toBe(1)
+        ->and(ownerNotices($this->owner, 'subscription_ended'))->toHaveCount(1)
+        ->and(ownerNotices($this->owner, 'subscription_ended')->first()->data['url'])->toBe(route('settings.billing.plans'))
+        ->and(banner($this->organization))->toBe('expired')
+        ->and(app(EntitlementService::class)->canCreateCustomer($this->organization))->toBeFalse() // Free limits; existing data stays
+        ->and(Customer::where('organization_id', $this->organization->id)->count())->toBe(151);
+    expectConsistent($this->owner, 'free', null);
+
+    // The hourly sync and a repeated webhook change nothing more.
+    app(BillingService::class)->refreshAll();
+    tellApp('customer.subscription.deleted', $subscription);
+    expect(audit($this->organization, 'subscription_ended')->count())->toBe(1)->and(ownerNotices($this->owner, 'subscription_ended'))->toHaveCount(1);
+
+    // The owner can start again from the Plans page.
+    Livewire::actingAs($this->owner->fresh())->test(BillingPlans::class)->assertSee('Choose Starter');
+});
+
+test('a cancellation can be taken back any time before the period ends', function () {
+    $subscription = paying($this->owner);
+    $page = Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)->call('cancelSubscription');
+    $this->travel(20)->days();
+
+    $page->call('resumeSubscription');
+
+    expect($subscription->fresh()->cancel_at_period_end)->toBeFalse()->and(banner($this->organization))->toBeNull()
+        ->and(audit($this->organization, 'subscription_resumed')->count())->toBe(1);
+    $this->travel(30)->days(); // well past the old period end
+    app(BillingService::class)->refreshAll();
+    expect(app(EntitlementService::class)->plan($this->organization->fresh())->key)->toBe('starter');
+});
