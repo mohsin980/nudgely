@@ -3,18 +3,15 @@
 namespace App\Services\Billing;
 
 use App\Billing\WebhookOutcome;
-use App\Enums\Team\NotificationType;
 use App\Exceptions\Billing\BillingException;
-use App\Models\Organization;
-use App\Services\Team\TeamDirectory;
-use App\Services\Team\TeamNotifier;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Turns a verified Stripe event into "re-read this subscription": the event only tells us which
  * customer and subscription changed; the state always comes from Stripe, so the handler is
  * idempotent and safe against out-of-order delivery. Events for customers that aren't ours
- * are ignored.
+ * are ignored. Audit and owner notifications (payment failed/recovered, cancellation, renewal)
+ * come from BillingLifecycle when the re-read state differs, so Stripe's repeated events notify once.
  */
 class BillingWebhookHandler
 {
@@ -25,11 +22,7 @@ class BillingWebhookHandler
 
     private const INVOICE_EVENTS = ['invoice.paid', 'invoice.payment_failed', 'invoice.payment_action_required'];
 
-    public function __construct(
-        private readonly BillingService $billing,
-        private readonly TeamDirectory $team,
-        private readonly TeamNotifier $notifier,
-    ) {}
+    public function __construct(private readonly BillingService $billing) {}
 
     public function handles(string $type): bool
     {
@@ -71,21 +64,6 @@ class BillingWebhookHandler
 
         $this->billing->syncFromProvider($organization, $subscriptionId, $type);
 
-        if ($type === 'invoice.payment_failed') {
-            $this->alertPaymentFailed($organization, (string) ($event['id'] ?? ''));
-        }
-
         return WebhookOutcome::processed($organization->id);
-    }
-
-    private function alertPaymentFailed(Organization $organization, string $eventId): void
-    {
-        $owner = $this->team->owner($organization->id);
-
-        if ($owner !== null) {
-            $this->notifier->notify($organization, NotificationType::PaymentFailed, [$owner],
-                'Your last payment didn\'t go through. Update your payment method to keep your plan.',
-                route('settings.billing'), "payment-failed:{$eventId}");
-        }
     }
 }

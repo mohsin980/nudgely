@@ -54,6 +54,7 @@ class Organization extends Model
             'settings' => 'array',
             'trial_ends_at' => 'datetime',
             'trial_used_at' => 'datetime',
+            'trial_expired_at' => 'datetime',
         ];
     }
 

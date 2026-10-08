@@ -33,6 +33,16 @@ return [
     // New businesses start a card-free trial of this plan at sign-up; afterwards they choose a plan or use Free.
     'signup_trial_plan' => env('BILLING_SIGNUP_TRIAL_PLAN', 'starter'),
 
+    // A failed payment keeps the plan for this many days while the provider retries and the owner
+    // fixes the card. After that, paid-only limits stop applying (Free limits; nothing is deleted).
+    'grace_days' => (int) env('BILLING_GRACE_DAYS', 7),
+
+    // The "trial ending soon" banner appears this many days before a trial ends.
+    'trial_banner_days' => (int) env('BILLING_TRIAL_BANNER_DAYS', 7),
+
+    // The "trial/subscription ended" banner stays this many days.
+    'ended_banner_days' => (int) env('BILLING_ENDED_BANNER_DAYS', 30),
+
     'currency' => 'USD',
 
     // Plan limits are enforced where things are created. A switch (not a per-plan setting) so a

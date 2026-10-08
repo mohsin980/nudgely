@@ -42,7 +42,7 @@ test('a business goes from sign-up through a free trial to a managed Stripe subs
         ->and($trial['plan']->key)->toBe('starter')->and($trial['days_left'])->toBe(14)
         ->and($entitlements->plan($org)->key)->toBe('starter')->and($stripe->requests)->toBe([]);
 
-    $this->actingAs($owner)->get('/dashboard')->assertOk()->assertSee('Your free Starter trial: 14 days left.');
+    $this->actingAs($owner)->get('/dashboard')->assertOk()->assertDontSee('data-billing-banner', false); // 14 days out: no banner yet
 
     // Choose plan → Stripe Checkout. The trial already ran inside QuoteFollow, so Stripe adds none.
     Livewire::actingAs($owner)->test(BillingOverview::class)->assertSee('Your free Starter trial ends on');

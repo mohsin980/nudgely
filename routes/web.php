@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Billing\PaymentMethodController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\Settings\LogoController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
@@ -99,6 +100,7 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
         Route::get('/billing/plans', BillingPlans::class)->name('billing.plans');
         Route::get('/billing/usage', BillingUsage::class)->name('billing.usage');
         Route::get('/billing/history', BillingHistory::class)->name('billing.history');
+        Route::get('/billing/payment-method', PaymentMethodController::class)->name('billing.payment-method');
     });
 
     // Automations moved to /automations (Task 12); old links keep working.

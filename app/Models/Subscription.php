@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
 use App\Enums\Billing\SubscriptionStatus;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +33,8 @@ class Subscription extends Model
             'cancel_at_period_end' => 'boolean',
             'canceled_at' => 'datetime',
             'ended_at' => 'datetime',
+            'past_due_since' => 'datetime',
+            'restricted_at' => 'datetime',
             'scheduled_change_at' => 'datetime',
         ];
     }
@@ -59,11 +62,34 @@ class Subscription extends Model
             return false;
         }
 
+        // Past due keeps the plan only during the grace period.
+        if ($this->status === SubscriptionStatus::PastDue && ! $this->inGracePeriod()) {
+            return false;
+        }
+
         if ($this->status === SubscriptionStatus::Trialing && $this->trial_ends_at !== null && $this->trial_ends_at->isPast()) {
             return false;
         }
 
         return ! ($this->cancel_at_period_end && $this->current_period_end !== null && $this->current_period_end->isPast());
+    }
+
+    /**
+     * When the grace period after a failed payment ends (null if payment hasn't failed).
+     */
+    public function graceEndsAt(): ?CarbonInterface
+    {
+        return $this->status === SubscriptionStatus::PastDue && $this->past_due_since !== null
+            ? $this->past_due_since->copy()->addDays(max(0, (int) config('billing.grace_days')))
+            : null;
+    }
+
+    /**
+     * Past due and still inside the grace period (or the failure time is unknown: benefit of the doubt).
+     */
+    public function inGracePeriod(): bool
+    {
+        return $this->status === SubscriptionStatus::PastDue && ($this->graceEndsAt()?->isFuture() ?? true);
     }
 
     public function onTrial(): bool

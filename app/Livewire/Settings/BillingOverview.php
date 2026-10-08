@@ -29,6 +29,10 @@ class BillingOverview extends Component
     {
         $this->authorize(Permission::ManageBilling->value);
 
+        if (session()->has('billing-error')) {
+            $this->failed((string) session('billing-error'));
+        }
+
         // Back from the provider: record the checkout, or pick up portal changes.
         $sessionId = request()->query('session_id');
 

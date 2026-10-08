@@ -47,6 +47,13 @@ class OrganizationActivity extends Model
         'subscription_resumed' => 'Subscription resumed',
         'subscription_downgrade_scheduled' => 'Downgrade scheduled',
         'subscription_change_cancelled' => 'Scheduled plan change cancelled',
+        'trial_expired' => 'Free trial ended',
+        'trial_converted' => 'Trial converted to a paid plan',
+        'payment_failed' => 'Payment failed',
+        'payment_recovered' => 'Payment recovered',
+        'subscription_ended' => 'Subscription ended',
+        'billing_restriction_applied' => 'Billing restriction applied',
+        'billing_restriction_lifted' => 'Billing restriction lifted',
         'other_sessions_logged_out' => 'Signed out other sessions',
     ];
 

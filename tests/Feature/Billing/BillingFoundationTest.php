@@ -173,7 +173,7 @@ test('plan changes, cancellation and resuming go through the billing service', f
     // A new subscription can start after the old one ended; history keeps both.
     $this->billing->subscribe($this->owner, 'starter');
     expect(Subscription::where('organization_id', $this->organization->id)->count())->toBe(2)
-        ->and(OrganizationActivity::where('action', 'like', 'subscription_%')->count())->toBe(6);
+        ->and(OrganizationActivity::where('action', 'like', 'subscription_%')->count())->toBe(7); // incl. subscription_ended
 });
 
 test('the application can use another provider without changing the services', function () {

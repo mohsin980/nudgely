@@ -215,6 +215,9 @@
                                         @else
                                             <p class="text-gray-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
                                         @endif
+                                        @if (! empty($notification->data['action']) && ! empty($notification->data['url']))
+                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-indigo-700 hover:underline">{{ $notification->data['action'] }}</a>
+                                        @endif
                                         <time class="text-xs text-gray-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
                                     </div>
                                     <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">

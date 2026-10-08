@@ -39,6 +39,7 @@ class BillingService
     public function __construct(
         private readonly BillingProviderManager $providers,
         private readonly PlanCatalog $plans,
+        private readonly BillingLifecycle $lifecycle,
     ) {}
 
     public function provider(): BillingProviderInterface
@@ -222,14 +223,14 @@ class BillingService
                 return $subscription;
             }
 
-            $subscription = $this->apply($subscription, $provider->cancelScheduledChange($subscription));
+            $subscription = $this->apply($subscription, $provider->cancelScheduledChange($subscription), $actor);
             OrganizationActivity::record($organization, 'subscription_change_cancelled', $actor, ['plan' => $plan->key]);
 
             return $subscription;
         }
 
         if ($current === null || $plan->priceCents > $current->priceCents) {
-            $subscription = $this->apply($subscription, $provider->changePlan($subscription, $plan));
+            $subscription = $this->apply($subscription, $provider->changePlan($subscription, $plan), $actor);
             OrganizationActivity::record($organization, 'subscription_plan_changed', $actor, ['changes' => ['Plan' => ['from' => $from, 'to' => $plan->key]]]);
 
             return $subscription;
@@ -237,7 +238,7 @@ class BillingService
 
         $at = $subscription->current_period_end ?? $subscription->trial_ends_at
             ?? throw new BillingException('The current billing period end is unknown. Please try again later.');
-        $subscription = $this->apply($subscription, $provider->scheduleChange($subscription, $plan, CarbonImmutable::instance($at)));
+        $subscription = $this->apply($subscription, $provider->scheduleChange($subscription, $plan, CarbonImmutable::instance($at)), $actor);
         OrganizationActivity::record($organization, 'subscription_downgrade_scheduled', $actor, ['from' => $from, 'to' => $plan->key, 'at' => $subscription->scheduled_change_at?->toIso8601String()]);
 
         return $subscription;
@@ -253,7 +254,7 @@ class BillingService
         $organization = $this->authorize($actor);
         $subscription = $this->currentSubscription($organization) ?? throw new BillingException('This business has no subscription.');
 
-        $subscription = $this->apply($subscription, $this->providerFor($subscription)->cancel($subscription, $atPeriodEnd));
+        $subscription = $this->apply($subscription, $this->providerFor($subscription)->cancel($subscription, $atPeriodEnd), $actor);
         OrganizationActivity::record($organization, 'subscription_cancelled', $actor, ['plan' => $subscription->plan, 'at_period_end' => $atPeriodEnd]);
 
         return $subscription;
@@ -273,7 +274,7 @@ class BillingService
             throw new BillingException('This subscription is not scheduled to cancel.');
         }
 
-        $subscription = $this->apply($subscription, $this->providerFor($subscription)->resume($subscription));
+        $subscription = $this->apply($subscription, $this->providerFor($subscription)->resume($subscription), $actor);
         OrganizationActivity::record($organization, 'subscription_resumed', $actor, ['plan' => $subscription->plan]);
 
         return $subscription;
@@ -521,16 +522,31 @@ class BillingService
     private function store(Organization $organization, string $provider, ProviderSubscription $remote): Subscription
     {
         $subscription = new Subscription;
-        $subscription->forceFill(['organization_id' => $organization->id, 'provider' => $provider] + $remote->toAttributes())->save();
+        $subscription->forceFill(['organization_id' => $organization->id, 'provider' => $provider] + $remote->toAttributes() + $this->lifecycle->graceAttributes(null, $remote->status))->save();
 
         return $subscription;
     }
 
-    private function apply(Subscription $subscription, ProviderSubscription $remote): Subscription
+    /**
+     * Save the provider's state and let the lifecycle react to what changed (audit, notifications, grace period).
+     */
+    private function apply(Subscription $subscription, ProviderSubscription $remote, ?User $actor = null): Subscription
     {
         $this->plans->get($remote->planKey);
-        $subscription->forceFill($remote->toAttributes())->save();
+        $before = $this->lifecycle->snapshot($subscription);
+        $subscription->forceFill($remote->toAttributes() + $this->lifecycle->graceAttributes($subscription, $remote->status))->save();
+        $this->lifecycle->transition($subscription->organization, $before, $subscription, $actor);
 
         return $subscription;
+    }
+
+    /**
+     * Re-read one subscription from its provider (used by the scheduled grace-period check).
+     *
+     * @throws BillingException
+     */
+    public function refreshSubscription(Subscription $subscription): Subscription
+    {
+        return $this->apply($subscription, $this->providerFor($subscription)->retrieveSubscription($subscription));
     }
 }

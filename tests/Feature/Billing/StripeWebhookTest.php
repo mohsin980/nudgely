@@ -143,7 +143,7 @@ test('7. payment succeeded keeps the subscription active', function () {
 
     webhook(invoiceEvent('invoice.paid', $paid))->assertOk();
 
-    expect(Subscription::sole()->status)->toBe(SubscriptionStatus::Active)->and($this->owner->notifications()->count())->toBe(0);
+    expect(Subscription::sole()->status)->toBe(SubscriptionStatus::Active)->and($this->owner->notifications()->get()->pluck('data.kind')->all())->not->toContain('payment_failed', 'payment_recovered');
 });
 
 test('8. payment failed moves the subscription to past due and alerts the owner once', function () {
@@ -156,7 +156,7 @@ test('8. payment failed moves the subscription to past due and alerts the owner 
 
     expect(Subscription::sole()->status)->toBe(SubscriptionStatus::PastDue)
         ->and($this->owner->notifications()->count())->toBe(1)
-        ->and($this->owner->notifications()->first()->data['message'])->toContain("payment didn't go through")
+        ->and($this->owner->notifications()->first()->data['message'])->toContain("couldn't process your payment")
         ->and($this->manager->notifications()->count())->toBe(0);
 });
 

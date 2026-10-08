@@ -81,6 +81,30 @@ A new business starts a 14-day trial of the Starter plan (`billing.trial_days`, 
 
 **Concurrency**: `guard()` takes a row lock on the organization (`SELECT … FOR UPDATE`) before counting, and holds it until the creation commits, so simultaneous requests for the same organization take turns (99/100 → exactly one succeeds). Other organizations are unaffected. Verified with 4 simultaneous processes. Inbound customer replies are never blocked. `BILLING_ENFORCE_LIMITS=false` turns enforcement off (the test suite does, except in the limit tests).
 
+## Lifecycle, grace period and notifications (Task 14F)
+
+`BillingLifecycle` reacts to every state change. All provider-driven updates (webhook, hourly sync, return from the portal) pass through `BillingService::apply()`, which hands the state before and after to `transition()`, so the same rules apply however a change arrives. Audit entries and notifications fire on a *change of state*, never per event, and notifications are keyed, so Stripe's repeated events notify once.
+
+| Change | Audit (`organization_activity`) | Owner notification (queued `NotifyOwnerJob`) |
+| --- | --- | --- |
+| Trial (sign-up) runs out | `trial_expired`, `billing_restriction_applied` (reason `trial_expired`, with any over-limit counts) | "Your QuoteFollow trial has ended." → Choose a Plan |
+| Payment fails (→ past due) | `payment_failed` | "We couldn't process your payment…" → Update Payment Method (once per failure episode) |
+| Payment recovers | `payment_recovered`, `billing_restriction_lifted` | "Your payment was successful and your account is active again." |
+| Grace period ends unpaid, or Stripe marks `unpaid` | `billing_restriction_applied` (reason `grace_expired` / `unpaid`) | "…paid features are paused…" → Update Payment Method |
+| Cancellation scheduled | `subscription_cancelled` (portal changes too; owner actions keep their own entry) | "…stays active until {date}…" → Resume Subscription |
+| Cancellation undone | `subscription_resumed` | none |
+| Subscription ends | `subscription_ended` | "Your {plan} subscription has ended…" → Choose a Plan |
+| Trial converts / period renews | `trial_converted` / none | "…subscription is now active" / "Your {plan} plan renewed. Next renewal: {date}" |
+| Plan changes | `subscription_plan_changed`, `subscription_downgrade_scheduled` | none |
+
+**Billing states** (what the owner sees and what entitlements apply): *trial* (sign-up trial or Stripe trial), *active*, *past due – in grace* (plan unchanged), *restricted* (past due beyond `BILLING_GRACE_DAYS`, default 7, or `unpaid`: Free limits apply), *cancellation scheduled* (plan unchanged until the period end), *ended/expired* (Free). Restriction means the Free plan's limits (existing records stay; only adding is refused). Nothing is ever deleted because of billing.
+
+**Grace period**: `subscriptions.past_due_since` is set when payment first fails and cleared on recovery. `Subscription::grantsAccess()` is true for past-due only while `past_due_since + grace_days` is in the future, so the plan lapses by itself even if no job has run yet; `billing:check-grace-periods` then re-checks Stripe, and if still unpaid records the restriction once (`restricted_at`) and notifies the owner.
+
+**Scheduler** (`routes/console.php`): `ExpireTrialsJob` (hourly :05, also `billing:expire-trials`), `CheckGracePeriodsJob` (hourly :35, also `billing:check-grace-periods`), `billing:sync-subscriptions` (hourly, reconciles missed webhooks), `billing:send-trial-reminders` (daily 09:00). All are idempotent: each organization/subscription is claimed once under a lock, and the jobs are `ShouldBeUnique`.
+
+**Banner** (`BillingBanner`, owner only, hidden on the billing pages): payment problem, restriction, trial ending soon (`BILLING_TRIAL_BANNER_DAYS`, 7), cancellation scheduled, ended/expired (for `BILLING_ENDED_BANNER_DAYS`, 30). Healthy subscriptions show nothing. It makes two small queries and no provider calls. "Update Payment Method" links go to `/settings/billing/payment-method`, which redirects the owner to Stripe's billing portal.
+
 ## Not yet
 
 Annual plans; email notices when a limit is nearly reached.
