@@ -499,7 +499,7 @@ test('a member can change their password and sign out other sessions', function 
 
 test('sign-up creates a business owned by the new account', function () {
     $this->post('/register', ['business_name' => 'Austin Plumbing', 'name' => 'Ana Ruiz', 'email' => 'ana@austinplumbing.com', 'password' => 'a-good-password-1', 'password_confirmation' => 'a-good-password-1'])
-        ->assertRedirect(route('settings.business'));
+        ->assertRedirect(route('onboarding.show'));
 
     $ana = User::where('email', 'ana@austinplumbing.com')->sole();
     expect($ana->role)->toBe(OrganizationRole::Owner)->and($ana->organization->name)->toBe('Austin Plumbing')->and($ana->organization_id)->not->toBe($this->organization->id);

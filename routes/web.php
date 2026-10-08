@@ -21,6 +21,7 @@ use App\Livewire\Estimates\ShowEstimate;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
+use App\Livewire\Onboarding\Wizard;
 use App\Livewire\Settings\AccountSecurity;
 use App\Livewire\Settings\AutomationDefaults;
 use App\Livewire\Settings\BillingHistory;
@@ -49,7 +50,8 @@ Route::get('/', function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', Dashboard::class)->middleware('can:access-organization')->name('dashboard');
+    Route::get('/dashboard', Dashboard::class)->middleware(['can:access-organization', 'onboarding'])->name('dashboard');
+    Route::get('/onboarding', Wizard::class)->middleware(['can:access-organization', 'can:manage-onboarding'])->name('onboarding.show');
     Route::get('/follow-ups', FollowUpIndex::class)->middleware('can:viewAny,'.FollowUp::class)->name('follow-ups.index');
     // Customer IDs are looked up inside the user's organization by each component.
     Route::middleware('can:access-organization')->group(function () {

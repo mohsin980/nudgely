@@ -35,7 +35,7 @@ class BusinessSettingsService
 
     private const PROFILE_LABELS = [
         'name' => 'Business name', 'legal_name' => 'Legal name', 'email' => 'Business email', 'phone' => 'Phone', 'website' => 'Website',
-        'address_line1' => 'Address line 1', 'address_line2' => 'Address line 2', 'city' => 'City', 'state' => 'State', 'postal_code' => 'ZIP / postal code', 'country' => 'Country',
+        'business_type' => 'Business type', 'address_line1' => 'Address line 1', 'address_line2' => 'Address line 2', 'city' => 'City', 'state' => 'State', 'postal_code' => 'ZIP / postal code', 'country' => 'Country',
     ];
 
     /**
@@ -55,6 +55,7 @@ class BusinessSettingsService
             'email' => ['nullable', 'email:rfc', 'max:255'],
             'phone' => ['nullable', 'string', 'max:32', 'regex:/^\+?[0-9().\-\s]{7,25}$/'],
             'website' => ['nullable', 'url:http,https', 'max:255'],
+            'business_type' => ['nullable', Rule::in(array_keys(config('onboarding.business_types')))],
             'address_line1' => ['nullable', 'string', 'max:150'],
             'address_line2' => ['nullable', 'string', 'max:150'],
             'city' => ['nullable', 'string', 'max:100'],

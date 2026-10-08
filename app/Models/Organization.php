@@ -55,6 +55,11 @@ class Organization extends Model
             'trial_ends_at' => 'datetime',
             'trial_used_at' => 'datetime',
             'trial_expired_at' => 'datetime',
+            'onboarding_progress' => 'array',
+            'onboarding_started_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
+            'onboarding_skipped_at' => 'datetime',
+            'onboarding_checklist_done_at' => 'datetime',
         ];
     }
 

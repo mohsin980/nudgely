@@ -49,7 +49,7 @@
                             <a href="{{ route('customers.show', $customer->id) }}" wire:navigate class="grid gap-2 px-4 py-3 hover:bg-gray-50 focus:outline-none focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
                                 <div class="min-w-0">
                                     <p class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
-                                        <span class="truncate">{{ $customer->name }}</span>
+                                        <span class="truncate">{{ $customer->name }}</span>@if ($customer->is_demo)<span class="ml-2 shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif
                                         @if (! $customer->isActive())
                                             <span class="rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">Inactive</span>
                                         @endif

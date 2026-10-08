@@ -51,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
             Gate::define($permission->value, fn (User $user) => $user->hasPermission($permission));
         }
 
+        // First-run setup belongs to the business owner only; invited members are never put through it.
+        Gate::define('manage-onboarding', fn (User $user) => $user->isOwner());
+
         RateLimiter::for('email-webhooks', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
         // Customer estimate links: generous for people, slow for anyone guessing tokens.
         RateLimiter::for('public-estimates', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));

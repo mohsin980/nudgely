@@ -63,6 +63,13 @@ class AutomationEngine
             return [];
         }
 
+        // Sample customers (onboarding demo data) never trigger automations.
+        if ($context->customer()?->is_demo) {
+            Log::info('Automation event ignored: sample customer.', $log);
+
+            return [];
+        }
+
         $limit = (int) config('automation.limits.max_automations_per_event');
         $automations = Automation::query()
             ->forOrganization($organization)
