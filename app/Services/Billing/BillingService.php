@@ -132,7 +132,7 @@ class BillingService
         $provider = $this->provider();
         $session = $provider->createCheckout($organization, $this->customerId($organization, $provider), $plan, $this->trialDaysFor($organization), $successUrl, $cancelUrl);
 
-        Log::info('Checkout started.', ['organization_id' => $organization->id, 'plan' => $plan->key, 'provider' => $provider->name()]);
+        Log::info('Checkout started.', ['event' => 'billing.checkout.started', 'organization_id' => $organization->id, 'plan' => $plan->key, 'provider' => $provider->name()]);
 
         return $session;
     }
@@ -150,7 +150,7 @@ class BillingService
         $completed = $provider->completedCheckout($sessionId) ?? throw new BillingException('The checkout isn\'t complete yet. If you paid, refresh this page in a moment.');
 
         if ($completed->organizationId !== $organization->id || $completed->customerId === null || $completed->customerId !== $organization->billing_customer_id) {
-            Log::warning('Checkout completion rejected: it belongs to another organization.', ['organization_id' => $organization->id]);
+            Log::warning('Checkout completion rejected: it belongs to another organization.', ['event' => 'billing.checkout.rejected', 'organization_id' => $organization->id]);
 
             throw new BillingException('This checkout belongs to another business.');
         }
@@ -188,7 +188,7 @@ class BillingService
         $subscription = $this->sync($organization, $provider->name(), $remote);
 
         OrganizationActivity::record($organization, 'subscription_started', $actor, ['plan' => $plan->key, 'status' => $subscription->status->value]);
-        Log::info('Subscription started.', ['organization_id' => $organization->id, 'subscription_id' => $subscription->id, 'plan' => $plan->key]);
+        Log::info('Subscription started.', ['event' => 'billing.subscription.started', 'organization_id' => $organization->id, 'subscription_id' => $subscription->id, 'plan' => $plan->key]);
 
         return $subscription;
     }
@@ -413,7 +413,7 @@ class BillingService
                     $result['synced']++;
                 } catch (BillingException $e) {
                     $result['failed']++;
-                    Log::warning('Subscription sync failed.', ['subscription_id' => $subscription->id, 'organization_id' => $subscription->organization_id]);
+                    Log::warning('Subscription sync failed.', ['event' => 'billing.sync.failed', 'subscription_id' => $subscription->id, 'organization_id' => $subscription->organization_id]);
                 }
             }
         });
@@ -435,7 +435,7 @@ class BillingService
             $existing = Subscription::query()->where('provider', $provider)->where('provider_subscription_id', $remote->id)->lockForUpdate()->first();
 
             if ($existing !== null && $existing->organization_id !== $organization->id) {
-                Log::warning('Billing sync rejected: subscription belongs to another organization.', ['subscription_id' => $existing->id, 'organization_id' => $organization->id]);
+                Log::warning('Billing sync rejected: subscription belongs to another organization.', ['event' => 'billing.sync.rejected', 'subscription_id' => $existing->id, 'organization_id' => $organization->id]);
 
                 throw new BillingException('This subscription belongs to another organization.');
             }

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Billing\PlanCatalog;
 use App\Contracts\Email\EmailProviderInterface;
 use App\Enums\Team\Permission;
+use App\Listeners\LogQueueLifecycle;
 use App\Models\User;
 use App\Services\AI\ReplyClassifierManager;
 use App\Services\Automation\AutomationExecutionScope;
@@ -14,6 +15,13 @@ use App\Services\Email\Events\PostmarkDeliveryEvents;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Events\JobQueued;
+use Illuminate\Queue\Events\JobTimedOut;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -43,6 +51,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $queueLog = app(LogQueueLifecycle::class);
+        Event::listen(JobQueued::class, [$queueLog, 'queued']);
+        Event::listen(JobProcessing::class, [$queueLog, 'processing']);
+        Event::listen(JobProcessed::class, [$queueLog, 'processed']);
+        Event::listen(JobExceptionOccurred::class, [$queueLog, 'exceptionOccurred']);
+        Event::listen(JobFailed::class, [$queueLog, 'failed']);
+        Event::listen(JobTimedOut::class, [$queueLog, 'timedOut']);
+
         // Production never shows stack traces, whatever APP_DEBUG says (a leaked .env must not leak internals).
         if ($this->app->isProduction() && config('app.debug')) {
             config(['app.debug' => false]);

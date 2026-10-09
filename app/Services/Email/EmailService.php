@@ -20,6 +20,7 @@ use App\Services\Billing\EntitlementService;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use App\Support\CorrelationId;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -202,7 +203,7 @@ class EmailService
             // A provider that answered with a known temporary error did not accept the email.
             if ($e->isTransient() && $retryTransientFailures) {
                 $this->requeue($message);
-                $this->log('email.retry_scheduled', $message, ['reason' => $e->reason]);
+                $this->log('email.retry_scheduled', $message, ['reason' => $e->reason, 'retryable' => true], 'warning');
 
                 throw $e;
             }
@@ -211,7 +212,7 @@ class EmailService
         } catch (Throwable $e) {
             // Timeouts and crashes can happen after the provider accepted the email. Resending could
             // duplicate it, so the outcome is recorded as unknown and the message is not retried.
-            $this->log('email.failed', $message, ['reason' => EmailProviderException::OUTCOME_UNKNOWN, 'exception' => $e::class]);
+            $this->log('email.failed', $message, ['reason' => EmailProviderException::OUTCOME_UNKNOWN, 'exception' => $e::class], 'warning');
 
             return $this->markFailed($message, EmailSendResult::failed(EmailProviderException::OUTCOME_UNKNOWN, 'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.'));
         }
@@ -280,7 +281,7 @@ class EmailService
             ->whereIn('status', [MessageStatus::Queued, MessageStatus::Sending])
             ->update(['status' => MessageStatus::Failed, 'failed_at' => now(), 'failure_reason' => $reason, 'updated_at' => now()]);
 
-        $this->log('email.failed', $message, ['reason' => 'retries_exhausted']);
+        $this->log('email.failed', $message, ['reason' => 'retries_exhausted'], 'warning');
     }
 
     /**
@@ -365,7 +366,8 @@ class EmailService
                 'body_html' => $html,
                 'metadata' => $metadata ?: null,
                 'status' => MessageStatus::Queued,
-                'correlation_id' => CorrelationId::new(),
+                // The request's or job's ID, so the message traces back to what caused it.
+                'correlation_id' => Context::get(CorrelationId::ATTRIBUTE) ?? CorrelationId::new(),
             ])->save();
 
             return $message;
@@ -395,9 +397,9 @@ class EmailService
      *
      * @param  array<string, mixed>  $extra
      */
-    private function log(string $event, Message $message, array $extra = []): void
+    private function log(string $event, Message $message, array $extra = [], string $level = 'info'): void
     {
-        Log::info($event, [
+        Log::log($level, $event, [
             'event' => $event,
             'organization_id' => $message->organization_id,
             'conversation_id' => $message->conversation_id,
@@ -428,7 +430,7 @@ class EmailService
         ])->save();
         $this->redactIfSensitive($message);
 
-        $this->log('email.failed', $message, ['reason' => $result->errorCode]);
+        $this->log('email.failed', $message, ['reason' => $result->errorCode], 'warning');
 
         return $result;
     }
