@@ -74,14 +74,25 @@ class FollowUpProcessor
     {
         $now = now();
 
-        $rows = DB::select(
-            'update follow_ups set status = ?, updated_at = ?
-             where status = ? and id in (
-                 select id from follow_ups where status = ? and due_at <= ? order by due_at limit ? for update skip locked
-             )
-             returning id, organization_id, customer_id, conversation_id, estimate_id, due_at',
-            [FollowUpStatus::Due->value, $now, FollowUpStatus::Pending->value, FollowUpStatus::Pending->value, $now, (int) config('follow_ups.batch_size')],
-        );
+        // Pick a bounded set under row locks, then flip exactly those rows. Both steps share a transaction, so the
+        // batch size is a hard limit: an IN (subquery ... LIMIT ... FOR UPDATE) can be re-run per row by the planner.
+        $rows = DB::transaction(function () use ($now) {
+            $ids = collect(DB::select(
+                'select id from follow_ups where status = ? and due_at <= ? order by due_at limit ? for update skip locked',
+                [FollowUpStatus::Pending->value, $now, (int) config('follow_ups.batch_size')],
+            ))->pluck('id')->map(fn ($id) => (int) $id);
+
+            if ($ids->isEmpty()) {
+                return [];
+            }
+
+            return DB::select(
+                'update follow_ups set status = ?, updated_at = ?
+                 where status = ? and id = any(?::bigint[])
+                 returning id, organization_id, customer_id, conversation_id, estimate_id, due_at',
+                [FollowUpStatus::Due->value, $now, FollowUpStatus::Pending->value, '{'.$ids->implode(',').'}'],
+            );
+        });
 
         foreach ($rows as $row) {
             ProcessFollowUpJob::dispatch((int) $row->id);

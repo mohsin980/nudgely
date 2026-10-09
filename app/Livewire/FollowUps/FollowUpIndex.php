@@ -43,27 +43,59 @@ class FollowUpIndex extends Component
     }
 
     /**
-     * Open follow-ups grouped by the organization's today.
+     * The page lists at most this many follow-ups per section; the section headings still show the true totals.
+     */
+    public const SECTION_LIMIT = 100;
+
+    /**
+     * Open follow-ups grouped by the organization's today. Each section is one bounded, index-backed query:
+     * a tenant with thousands of open follow-ups no longer loads all of them on every render.
      *
      * @return array{overdue: Collection<int, FollowUp>, due_today: Collection<int, FollowUp>, upcoming: Collection<int, FollowUp>}
      */
     #[Computed]
     public function sections(): array
     {
+        [$overdue, $dueToday, $upcoming] = $this->sectionQueries();
+
+        return [
+            'overdue' => $overdue->limit(self::SECTION_LIMIT)->get(),
+            'due_today' => $dueToday->limit(self::SECTION_LIMIT)->get(),
+            'upcoming' => $upcoming->limit(self::SECTION_LIMIT)->get(),
+        ];
+    }
+
+    /**
+     * The true size of each section, counted in the database (the lists above are capped).
+     *
+     * @return array{overdue: int, due_today: int, upcoming: int}
+     */
+    #[Computed]
+    public function sectionCounts(): array
+    {
+        [$overdue, $dueToday, $upcoming] = $this->sectionQueries();
+
+        return ['overdue' => $overdue->count(), 'due_today' => $dueToday->count(), 'upcoming' => $upcoming->count()];
+    }
+
+    /**
+     * @return array{0: Builder, 1: Builder, 2: Builder}
+     */
+    private function sectionQueries(): array
+    {
         [$start, $end] = app(FollowUpService::class)->today($this->organization());
 
-        $open = FollowUp::query()
+        $open = fn () => FollowUp::query()
             ->forOrganization($this->organization())
             ->open()
             ->with(['customer:id,name', 'assignee:id,name'])
             ->orderBy('due_at')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
 
         return [
-            'overdue' => $open->filter(fn (FollowUp $f) => $f->due_at->lt($start))->values(),
-            'due_today' => $open->filter(fn (FollowUp $f) => $f->due_at->betweenIncluded($start, $end))->values(),
-            'upcoming' => $open->filter(fn (FollowUp $f) => $f->due_at->gt($end))->values(),
+            $open()->where('due_at', '<', $start),
+            $open()->whereBetween('due_at', [$start, $end]),
+            $open()->where('due_at', '>', $end),
         ];
     }
 
@@ -109,7 +141,7 @@ class FollowUpIndex extends Component
 
     protected function followUpsChanged(): void
     {
-        unset($this->sections, $this->completed, $this->closed);
+        unset($this->sections, $this->sectionCounts, $this->completed, $this->closed);
     }
 
     /**
