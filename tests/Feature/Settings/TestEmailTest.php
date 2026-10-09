@@ -15,6 +15,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -44,7 +45,8 @@ class TestEmailTest extends TestCase
         parent::setUp();
 
         config(['email.provider' => 'postmark', 'email.providers.postmark.server_token' => self::SERVER_TOKEN]);
-        $this->postmark = fn () => Http::response(['MessageID' => 'pm-msg-1', 'ErrorCode' => 0, 'Message' => 'OK']);
+        // A new ID per send, as the provider does: the provider message ID is unique per organization.
+        $this->postmark = fn () => Http::response(['MessageID' => 'pm-msg-'.Str::uuid(), 'ErrorCode' => 0, 'Message' => 'OK']);
         Http::fake(['api.postmarkapp.com/email' => fn () => ($this->postmark)()]);
 
         $this->admin = User::factory()->admin()->create(['email' => 'owner@dallascooling.test']);
@@ -101,7 +103,7 @@ class TestEmailTest extends TestCase
 
         $message = $this->organization->messages()->sole();
         $this->assertSame(MessageStatus::Sent, $message->status);
-        $this->assertSame('pm-msg-1', $message->provider_message_id);
+        $this->assertStringStartsWith('pm-msg-', $message->provider_message_id);
         $this->assertSame('sales@example.com', $message->from_address);
         $this->assertSame(['type' => 'test_email'], $message->metadata);
     }

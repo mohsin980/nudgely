@@ -10,6 +10,7 @@ use App\Services\AI\ReplyClassifierManager;
 use App\Services\Automation\AutomationExecutionScope;
 use App\Services\Billing\BillingProviderManager;
 use App\Services\Email\EmailProviderManager;
+use App\Services\Email\Events\PostmarkDeliveryEvents;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(EmailProviderManager::class);
+        $this->app->bind(PostmarkDeliveryEvents::class, fn () => new PostmarkDeliveryEvents(config('email.providers.postmark', [])));
         $this->app->bind(EmailProviderInterface::class, fn ($app) => $app->make(EmailProviderManager::class)->driver());
         $this->app->singleton(InboundEmailProviderManager::class);
         $this->app->singleton(ReplyClassifierManager::class);

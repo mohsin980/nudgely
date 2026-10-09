@@ -57,6 +57,9 @@ class Message extends Model
             'received_at' => 'datetime',
             'read_at' => 'datetime',
             'failed_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'bounced_at' => 'datetime',
+            'complained_at' => 'datetime',
         ];
     }
 

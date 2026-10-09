@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Billing\PaymentMethodController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\Settings\LogoController;
+use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
 use App\Livewire\Automations\AutomationForm;
@@ -152,3 +153,8 @@ Route::post('/webhooks/email/inbound/{provider}', InboundEmailWebhookController:
     ->whereAlpha('provider')
     ->middleware('throttle:email-webhooks')
     ->name('webhooks.email.inbound');
+
+Route::post('/webhooks/email/events/{provider}', DeliveryEventWebhookController::class)
+    ->whereAlpha('provider')
+    ->middleware('throttle:email-webhooks')
+    ->name('webhooks.email.events');

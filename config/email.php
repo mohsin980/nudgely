@@ -27,6 +27,9 @@ return [
             // Inbound webhook: Basic auth credentials embedded in the webhook URL configured in Postmark.
             'inbound_webhook_username' => env('POSTMARK_INBOUND_WEBHOOK_USERNAME', 'postmark'),
             'inbound_webhook_secret' => env('POSTMARK_INBOUND_WEBHOOK_SECRET'),
+            // Delivery events (delivered, bounced, spam complaint): a separate Basic auth credential, so it can be rotated alone.
+            'events_webhook_username' => env('POSTMARK_EVENTS_WEBHOOK_USERNAME', 'postmark'),
+            'events_webhook_secret' => env('POSTMARK_EVENTS_WEBHOOK_SECRET'),
             'base_url' => env('POSTMARK_API_URL', 'https://api.postmarkapp.com'),
             'timeout' => (int) env('POSTMARK_TIMEOUT', 15),
             'return_path_subdomain' => env('POSTMARK_RETURN_PATH_SUBDOMAIN', 'pm-bounces'),

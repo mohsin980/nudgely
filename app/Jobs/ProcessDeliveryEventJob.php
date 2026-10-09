@@ -3,44 +3,33 @@
 namespace App\Jobs;
 
 use App\Models\WebhookEvent;
-use App\Services\Email\InboundEmailProcessor;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
+use App\Services\Email\DeliveryEventProcessor;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Processes one stored inbound-email webhook event. Safe to run more than once.
+ * Applies one stored delivery event. Retried when it arrives before the send is recorded.
  */
-class ProcessInboundEmailJob implements ShouldBeUnique, ShouldQueue
+class ProcessDeliveryEventJob implements ShouldQueue
 {
     use Queueable;
 
     public int $tries = 5;
 
-    public int $timeout = 120;
+    public int $timeout = 60;
 
-    public int $uniqueFor = 3600;
+    /**
+     * @var list<int>
+     */
+    public array $backoff = [30, 120, 600, 1800];
 
     public function __construct(public readonly int $webhookEventId) {}
 
-    /**
-     * @return list<int>
-     */
-    public function backoff(): array
+    public function handle(DeliveryEventProcessor $processor): void
     {
-        return [10, 60, 300, 900];
-    }
-
-    public function uniqueId(): string
-    {
-        return (string) $this->webhookEventId;
-    }
-
-    public function handle(InboundEmailProcessor $processor): void
-    {
-        $event = WebhookEvent::find($this->webhookEventId);
+        $event = WebhookEvent::query()->whereKey($this->webhookEventId)->first();
 
         if ($event !== null) {
             $processor->process($event);
@@ -51,12 +40,6 @@ class ProcessInboundEmailJob implements ShouldBeUnique, ShouldQueue
     {
         $event = WebhookEvent::query()->whereKey($this->webhookEventId)->first();
 
-        if ($event !== null) {
-            app(InboundEmailProcessor::class)->assignOrganizationFromRoute($event);
-            $event->refresh();
-        }
-
-        // Only an event still waiting is marked failed; one that finished in an earlier attempt is left alone.
         if ($event !== null && ! $event->isFinished()) {
             $event->markFailed('Processing failed after several attempts. An operator can replay it.');
         }
