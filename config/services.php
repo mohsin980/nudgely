@@ -18,6 +18,15 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    // Stripe billing (keys only from the environment; never committed).
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'api_base' => env('STRIPE_API_BASE', 'https://api.stripe.com/v1'),
+        'timeout' => (int) env('STRIPE_TIMEOUT', 15),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
