@@ -31,7 +31,7 @@ class StripeWebhookController extends Controller
         $secret = config('services.stripe.webhook_secret');
 
         if (blank($secret)) {
-            Log::error('Stripe webhook received but STRIPE_WEBHOOK_SECRET is not configured.');
+            Log::error('Stripe webhook received but STRIPE_WEBHOOK_SECRET is not configured.', ['event' => 'billing.webhook.misconfigured']);
 
             return response()->json(['message' => 'Webhooks are not configured.'], 503);
         }
@@ -39,7 +39,7 @@ class StripeWebhookController extends Controller
         $body = $request->getContent();
 
         if (strlen($body) > self::MAX_BYTES || ! $verifier->verify($body, $request->header('Stripe-Signature'), $secret)) {
-            Log::warning('Stripe webhook signature verification failed.', ['ip' => $request->ip()]);
+            Log::warning('Stripe webhook signature verification failed.', ['event' => 'billing.webhook.rejected', 'reason' => 'signature']);
 
             return response()->json(['message' => 'Invalid signature.'], 400);
         }
@@ -53,6 +53,8 @@ class StripeWebhookController extends Controller
         $record = $this->record($event);
 
         if (! $this->claim($record)) {
+            Log::info('Stripe webhook duplicate ignored.', ['event' => 'billing.webhook.duplicate', 'event_type' => $event['type'], 'provider_event_id' => $event['id']]);
+
             return response()->json(['received' => true, 'duplicate' => true]);
         }
 
@@ -60,7 +62,7 @@ class StripeWebhookController extends Controller
             $outcome = $handler->handle($event);
         } catch (\Throwable $e) {
             $record->forceFill(['status' => WebhookEventStatus::Failed, 'failed_at' => now(), 'detail' => mb_substr($e::class, 0, 255)])->save();
-            Log::warning('Stripe webhook processing failed.', ['event_type' => $event['type'], 'exception' => $e::class]);
+            Log::warning('Stripe webhook processing failed.', ['event' => 'billing.webhook.failed', 'event_type' => $event['type'], 'provider_event_id' => $event['id'], 'exception' => $e::class]);
             report($e);
 
             return response()->json(['message' => 'Processing failed.'], 500);

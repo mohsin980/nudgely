@@ -40,7 +40,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability', 'Feature/Performance');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability', 'Feature/Performance', 'Feature/Observability');
 
 /*
 |--------------------------------------------------------------------------
@@ -376,11 +376,16 @@ function captureLogs(Closure $callback): array
 {
     $captured = [];
 
-    foreach (['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency', 'log'] as $level) {
+    foreach (['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'] as $level) {
         Log::shouldReceive($level)->andReturnUsing(function (...$args) use (&$captured, $level) {
             $captured[] = ['level' => $level, 'message' => (string) ($args[0] ?? ''), 'context' => $args[1] ?? []];
         });
     }
+
+    // Log::log($level, $message, $context) carries the level first.
+    Log::shouldReceive('log')->andReturnUsing(function (...$args) use (&$captured) {
+        $captured[] = ['level' => (string) ($args[0] ?? ''), 'message' => (string) ($args[1] ?? ''), 'context' => $args[2] ?? []];
+    });
 
     $callback();
 
