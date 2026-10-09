@@ -167,6 +167,11 @@ class StripeBillingProvider implements BillingProviderInterface
         return $this->map($this->subscription($subscription));
     }
 
+    public function fetchSubscription(string $providerSubscriptionId): ProviderSubscription
+    {
+        return $this->map($this->send('get', 'subscriptions/'.rawurlencode($providerSubscriptionId), ['expand' => ['schedule']]));
+    }
+
     public function createPortalSession(string $customerId, string $returnUrl): string
     {
         return (string) $this->send('post', 'billing_portal/sessions', ['customer' => $customerId, 'return_url' => $returnUrl])['url'];

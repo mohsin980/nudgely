@@ -36,6 +36,11 @@ class EmailSendingNotAllowedException extends RuntimeException
         return new self("The {$field} is not a valid email address.");
     }
 
+    public static function planLimit(string $message): self
+    {
+        return new self($message);
+    }
+
     public static function optedOut(): self
     {
         return new self('This customer has opted out of email.');

@@ -5,6 +5,7 @@ namespace App\Services\Billing;
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
 use App\Enums\Billing\LimitKey;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Organization;
 use App\Models\Subscription;
 use Carbon\CarbonInterface;
@@ -68,6 +69,27 @@ class EntitlementService
         $limit = $this->limit($organization, $key);
 
         return $limit === null || $this->usage->usage($organization, $key) + $amount <= $limit;
+    }
+
+    /**
+     * Stop (with a message safe to show) when the plan doesn't allow $amount more. Nothing existing
+     * is ever removed: only adding is refused. $reserved counts things already promised
+     * (e.g. open invitations for team seats).
+     *
+     * @throws PlanLimitException
+     */
+    public function assertAllows(Organization $organization, LimitKey $key, int $amount = 1, int $reserved = 0): void
+    {
+        if (! config('billing.enforce_limits')) {
+            return;
+        }
+
+        $plan = $this->plan($organization);
+        $limit = $plan->limit($key);
+
+        if ($limit !== null && $this->usage->usage($organization, $key) + $reserved + $amount > $limit) {
+            throw new PlanLimitException($key, $limit, $plan->name);
+        }
     }
 
     /**

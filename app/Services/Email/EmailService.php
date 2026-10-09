@@ -2,10 +2,12 @@
 
 namespace App\Services\Email;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailProviderException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Jobs\SendEmailJob;
@@ -13,6 +15,7 @@ use App\Models\Conversation;
 use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +30,9 @@ use Illuminate\Support\Str;
  */
 class EmailService
 {
+    /** Message types that don't count against (or wait for) the monthly email limit. */
+    private const UNMETERED_TYPES = ['team_invitation', 'team_notification'];
+
     public const TEST_EMAIL_SUBJECT = 'QuoteFlow test email';
 
     public const TEST_EMAIL_BODY = 'This is a test email from QuoteFlow. Your business email connection is working correctly.';
@@ -268,6 +274,15 @@ class EmailService
         ?int $conversationId = null,
     ): Message {
         $this->assertCanSendFrom($connection, $connection->organization_id);
+
+        // Customer-facing email counts against the plan; invitations and team notices never block.
+        if (! in_array($metadata['type'] ?? null, self::UNMETERED_TYPES, true)) {
+            try {
+                app(EntitlementService::class)->assertAllows($connection->organization, LimitKey::OutboundEmails);
+            } catch (PlanLimitException $e) {
+                throw EmailSendingNotAllowedException::planLimit($e->getMessage());
+            }
+        }
 
         $to = strtolower(trim($to));
         $replyTo = $replyTo === null ? null : strtolower(trim($replyTo));

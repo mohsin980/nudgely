@@ -25,6 +25,20 @@ enum LimitKey: string
         };
     }
 
+    /**
+     * How the limit reads in a sentence: "allows up to 100 customers".
+     */
+    public function noun(): string
+    {
+        return match ($this) {
+            self::Customers => 'customers',
+            self::Automations => 'active automations',
+            self::TeamMembers => 'team members',
+            self::OutboundEmails => 'outbound emails a month',
+            self::Estimates => 'new estimates a month',
+        };
+    }
+
     public function isMonthly(): bool
     {
         return in_array($this, [self::OutboundEmails, self::Estimates], true);

@@ -5,6 +5,7 @@ namespace App\Livewire\Automations;
 use App\Enums\Automation\AutomationRunStatus;
 use App\Enums\Automation\AutomationStatus;
 use App\Enums\Team\Permission;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Automation;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationTemplates;
@@ -108,7 +109,13 @@ class AutomationIndex extends Component
         $this->authorize('create', Automation::class);
         abort_unless(array_key_exists($key, AutomationTemplates::all()), 404);
 
-        $automation = $templates->install($this->currentOrganization(), Auth::user(), $key);
+        try {
+            $automation = $templates->install($this->currentOrganization(), Auth::user(), $key);
+        } catch (PlanLimitException $e) {
+            $this->flash($e->getMessage(), 'error');
+
+            return;
+        }
 
         session()->flash('automation-status', "“{$automation->name}” was added as a draft. Review it, then activate it.");
         $this->redirectRoute('automations.show', $automation->id, navigate: true);

@@ -51,6 +51,28 @@ The `manual` provider implements the same interface locally (checkout completes 
 
 A new business starts a 14-day trial of the Starter plan (`billing.trial_days`, `billing.signup_trial_plan`) at sign-up, inside QuoteFollow: no card, no subscription, no Stripe call (`organizations.trial_ends_at`, `trial_used_at`). `EntitlementService::plan()` resolves: a subscription that grants access, else the running sign-up trial, else Free; `trial()` reports days left (the billing page and an owner banner show it). When it ends the business is on Free; nothing is deleted. The trial is once per business, so a later Stripe checkout adds no further trial and is charged from the start; a subscription ends the sign-up trial. Stripe's own trial (`trial_period_days`) only applies to subscriptions created by internal/manual means or businesses that never had a trial (e.g. created before this feature).
 
+## Trial reminder
+
+`billing:send-trial-reminders` (daily 09:00) tells the owner, in the app (and by email if they chose that), `billing.trial_reminder_days` (3) days before a card-free trial ends — once per trial, and not for businesses that already subscribed.
+
+## Stripe webhooks
+
+`POST /webhooks/billing/stripe` (set `STRIPE_WEBHOOK_SECRET`; subscribe the endpoint to `checkout.session.completed`, `customer.subscription.*` and `invoice.paid` / `invoice.payment_failed` / `invoice.payment_action_required`). The `Stripe-Signature` header is verified (HMAC-SHA256 of `timestamp.rawBody`, 5-minute tolerance, constant-time compare): bad signature → 400, no secret → 503. Each event ID is recorded once (`billing_webhook_events`; payloads aren't stored) so redeliveries are acknowledged and ignored. An event only says *which* customer/subscription changed; `BillingService::syncFromProvider()` re-reads the subscription from Stripe, so repeated or out-of-order events can't leave stale data, and a subscription can't be claimed by another organization. A failed payment also alerts the owner (once per event). Events for unknown customers are acknowledged and ignored; a processing failure returns 500 so Stripe retries. The hourly `billing:sync-subscriptions` stays as a safety net.
+
+## Limit enforcement
+
+`EntitlementService::assertAllows()` is called where things are created, and only ever refuses *adding*: nothing existing is deleted when a plan shrinks.
+
+| Limit | Enforced in |
+| --- | --- |
+| Customers | `CustomerService::create` (form shows the message) |
+| New estimates / month | `EstimateService::create` (revisions don't count) |
+| Active automations | `AutomationBuilder::save` (new), `duplicate`, `restore`; templates; archived ones don't count |
+| Team members | `InvitationService::invite` (open invitations hold a seat) and `accept`; reactivating a suspended person needs no new seat |
+| Outbound emails / month | `EmailService` for customer-facing email (follow-ups, automations, estimates, replies) → the send fails with the message; team invitations and team notifications are never blocked |
+
+Inbound customer replies are never blocked. The message reads "Your Free plan allows up to 100 customers. Upgrade your plan to add more." The check is not atomic (two simultaneous creates can exceed a limit by one). `BILLING_ENFORCE_LIMITS=false` turns enforcement off (the test suite does, except in the limit tests).
+
 ## Not yet
 
-Stripe webhooks (status changes between syncs, failed payments), limit enforcement in the features (`EntitlementService::allows()` is ready), annual plans.
+Annual plans; email notices when a limit is nearly reached.

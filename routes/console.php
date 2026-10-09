@@ -33,8 +33,13 @@ Artisan::command('billing:sync-subscriptions', function (BillingService $billing
     $this->info("{$result['synced']} subscription(s) synced, {$result['failed']} failed.");
 })->purpose('Synchronize current subscriptions with the billing provider (until webhooks exist)');
 
+Artisan::command('billing:send-trial-reminders', function (BillingService $billing) {
+    $this->info($billing->sendTrialReminders().' trial reminder(s) sent.');
+})->purpose('Remind owners whose free trial is about to end');
+
 Schedule::command('follow-ups:process-due')->everyMinute()->withoutOverlapping();
 Schedule::command('follow-ups:notify-overdue')->hourly()->withoutOverlapping();
 Schedule::command('estimates:expire')->hourly()->withoutOverlapping();
 Schedule::command('automations:resume-waiting')->everyMinute()->withoutOverlapping();
 Schedule::command('billing:sync-subscriptions')->hourly()->withoutOverlapping();
+Schedule::command('billing:send-trial-reminders')->dailyAt('09:00')->withoutOverlapping();

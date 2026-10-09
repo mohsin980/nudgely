@@ -7,16 +7,20 @@ use App\Billing\Plan;
 use App\Billing\PlanCatalog;
 use App\Billing\ProviderSubscription;
 use App\Contracts\Billing\BillingProviderInterface;
+use App\Enums\Team\NotificationType;
 use App\Enums\Team\Permission;
 use App\Exceptions\Billing\BillingException;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Team\TeamDirectory;
+use App\Services\Team\TeamNotifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * The only place that talks to the billing provider. Every action is for the actor's own
@@ -70,6 +74,41 @@ class BillingService
         $this->plans->get((string) config('billing.signup_trial_plan'));
         $organization->forceFill(['trial_used_at' => now(), 'trial_ends_at' => now()->addDays($days)])->save();
         OrganizationActivity::record($organization, 'trial_started', null, ['plan' => config('billing.signup_trial_plan'), 'days' => $days]);
+    }
+
+    /**
+     * Remind owners whose card-free trial ends soon and who haven't subscribed (once per trial).
+     *
+     * @return int Reminders sent.
+     */
+    public function sendTrialReminders(): int
+    {
+        $sent = 0;
+        $team = app(TeamDirectory::class);
+        $notifier = app(TeamNotifier::class);
+
+        Organization::query()->whereNull('trial_reminder_sent_at')->where('trial_ends_at', '>', now())
+            ->where('trial_ends_at', '<=', now()->addDays(max(1, (int) config('billing.trial_reminder_days'))))
+            ->orderBy('id')->each(function (Organization $organization) use ($team, $notifier, &$sent) {
+                if ($this->currentSubscription($organization) !== null) {
+                    return;
+                }
+
+                $claimed = Organization::query()->whereKey($organization->id)->whereNull('trial_reminder_sent_at')->update(['trial_reminder_sent_at' => now()]);
+                $owner = $team->owner($organization->id);
+
+                if ($claimed === 0 || $owner === null) {
+                    return;
+                }
+
+                $days = max(1, (int) ceil(now()->floatDiffInDays($organization->trial_ends_at)));
+                $notifier->notify($organization, NotificationType::TrialEnding, [$owner],
+                    "Your free trial ends in {$days} ".Str::plural('day', $days).'. Choose a plan to keep your limits; otherwise you move to the Free plan (nothing is deleted).',
+                    route('settings.billing'), "trial:{$organization->id}:{$organization->trial_ends_at->timestamp}");
+                $sent++;
+            });
+
+        return $sent;
     }
 
     /**
@@ -265,6 +304,34 @@ class BillingService
         $subscription = $this->currentSubscription($organization);
 
         return $subscription === null ? null : $this->apply($subscription, $this->providerFor($subscription)->retrieveSubscription($subscription));
+    }
+
+    /**
+     * The organization a provider customer belongs to (null when it isn't one of ours).
+     */
+    public function organizationForCustomer(string $provider, ?string $customerId): ?Organization
+    {
+        return blank($customerId) ? null : Organization::query()->where('billing_provider', $provider)->where('billing_customer_id', $customerId)->first();
+    }
+
+    /**
+     * A webhook said this subscription changed: read its current state from the provider (so
+     * out-of-order or repeated events can't leave stale data) and record it. A subscription that
+     * is new to us is recorded once, in the activity log too.
+     *
+     * @throws BillingException
+     */
+    public function syncFromProvider(Organization $organization, string $providerSubscriptionId): Subscription
+    {
+        $provider = $this->provider();
+        $existed = Subscription::query()->where('provider', $provider->name())->where('provider_subscription_id', $providerSubscriptionId)->exists();
+        $subscription = $this->sync($organization, $provider->name(), $provider->fetchSubscription($providerSubscriptionId));
+
+        if (! $existed) {
+            OrganizationActivity::record($organization, 'subscription_started', null, ['plan' => $subscription->plan, 'status' => $subscription->status->value, 'trial' => $subscription->trial_ends_at !== null, 'via' => 'webhook']);
+        }
+
+        return $subscription;
     }
 
     /**

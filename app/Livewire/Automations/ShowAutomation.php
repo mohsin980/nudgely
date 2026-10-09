@@ -4,6 +4,7 @@ namespace App\Livewire\Automations;
 
 use App\Enums\Automation\AutomationRunStatus;
 use App\Enums\Automation\AutomationStatus;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Automation;
 use App\Services\Automation\AutomationBuilder;
 use App\Services\Automation\AutomationSummary;
@@ -106,7 +107,14 @@ class ShowAutomation extends Component
     public function restore(AutomationBuilder $builder): void
     {
         $this->authorize('update', $this->automation);
-        $builder->restore($this->automation, Auth::user());
+        try {
+            $builder->restore($this->automation, Auth::user());
+        } catch (PlanLimitException $e) {
+            $this->flash($e->getMessage(), 'error');
+
+            return;
+        }
+
         $this->refreshAutomation("“{$this->automation->name}” is back as a draft.");
     }
 
@@ -115,7 +123,13 @@ class ShowAutomation extends Component
         $this->authorize('create', Automation::class);
         $this->authorize('view', $this->automation);
 
-        $copy = $builder->duplicate($this->automation, Auth::user());
+        try {
+            $copy = $builder->duplicate($this->automation, Auth::user());
+        } catch (PlanLimitException $e) {
+            $this->flash($e->getMessage(), 'error');
+
+            return;
+        }
 
         session()->flash('automation-status', "“{$copy->name}” was created as a draft.");
         $this->redirectRoute('automations.edit', $copy->id, navigate: true);

@@ -2,6 +2,7 @@
 
 namespace App\Services\Estimates;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
 use App\Enums\DiscountType;
 use App\Enums\EstimateDeclineReason;
@@ -14,6 +15,7 @@ use App\Events\EstimateExpired;
 use App\Events\EstimateSent;
 use App\Events\EstimateViewed;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
+use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\Estimates\EstimateException;
 use App\Models\Conversation;
@@ -23,6 +25,7 @@ use App\Models\Estimate;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
 use App\Services\Email\EmailService;
 use App\Services\FollowUps\FollowUpService;
 use App\Support\Money;
@@ -66,6 +69,12 @@ class EstimateService
     {
         $organization = $this->organizationOf($actor);
         $data = $this->validated($organization, $input);
+
+        try {
+            app(EntitlementService::class)->assertAllows($organization, LimitKey::Estimates);
+        } catch (PlanLimitException $e) {
+            throw new EstimateException($e->getMessage());
+        }
 
         $estimate = DB::transaction(function () use ($actor, $organization, $data) {
             $estimate = new Estimate;
