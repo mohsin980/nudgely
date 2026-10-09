@@ -321,14 +321,16 @@ class BillingService
      *
      * @throws BillingException
      */
-    public function syncFromProvider(Organization $organization, string $providerSubscriptionId): Subscription
+    public function syncFromProvider(Organization $organization, string $providerSubscriptionId, ?string $event = null): Subscription
     {
         $provider = $this->provider();
-        $existed = Subscription::query()->where('provider', $provider->name())->where('provider_subscription_id', $providerSubscriptionId)->exists();
+        $before = Subscription::query()->where('provider', $provider->name())->where('provider_subscription_id', $providerSubscriptionId)->first();
         $subscription = $this->sync($organization, $provider->name(), $provider->fetchSubscription($providerSubscriptionId));
 
-        if (! $existed) {
+        if ($before === null) {
             OrganizationActivity::record($organization, 'subscription_started', null, ['plan' => $subscription->plan, 'status' => $subscription->status->value, 'trial' => $subscription->trial_ends_at !== null, 'via' => 'webhook']);
+        } elseif ($before->status !== $subscription->status) {
+            OrganizationActivity::record($organization, 'subscription_status_changed', null, ['from' => $before->status->value, 'to' => $subscription->status->value, 'via' => 'webhook', 'event' => $event]);
         }
 
         return $subscription;

@@ -2,6 +2,7 @@
 
 namespace App\Services\Billing;
 
+use App\Billing\WebhookOutcome;
 use App\Enums\Team\NotificationType;
 use App\Exceptions\Billing\BillingException;
 use App\Models\Organization;
@@ -37,17 +38,20 @@ class BillingWebhookHandler
 
     /**
      * @param  array<string, mixed>  $event  A Stripe event
-     * @return bool Whether it changed anything we track.
      *
      * @throws BillingException
      */
-    public function handle(array $event): bool
+    public function handle(array $event): WebhookOutcome
     {
         $type = (string) ($event['type'] ?? '');
         $object = $event['data']['object'] ?? [];
 
-        if (! $this->handles($type) || ! is_array($object)) {
-            return false;
+        if (! $this->handles($type)) {
+            return WebhookOutcome::ignored('Event type is not handled.');
+        }
+
+        if (! is_array($object)) {
+            return WebhookOutcome::ignored('Event has no object.');
         }
 
         $isSubscription = in_array($type, self::SUBSCRIPTION_EVENTS, true);
@@ -58,18 +62,20 @@ class BillingWebhookHandler
         if ($organization === null) {
             Log::info('Billing webhook ignored: unknown customer.', ['type' => $type]);
 
-            return false;
+            return WebhookOutcome::ignored('Customer does not belong to any organization.');
         }
 
-        if (is_string($subscriptionId) && $subscriptionId !== '') {
-            $this->billing->syncFromProvider($organization, $subscriptionId);
+        if (! is_string($subscriptionId) || $subscriptionId === '') {
+            return WebhookOutcome::ignored('Event does not concern a subscription.', $organization->id);
         }
+
+        $this->billing->syncFromProvider($organization, $subscriptionId, $type);
 
         if ($type === 'invoice.payment_failed') {
             $this->alertPaymentFailed($organization, (string) ($event['id'] ?? ''));
         }
 
-        return true;
+        return WebhookOutcome::processed($organization->id);
     }
 
     private function alertPaymentFailed(Organization $organization, string $eventId): void
