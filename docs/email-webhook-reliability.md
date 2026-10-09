@@ -156,8 +156,13 @@ Automatic deletion beyond the existing pruning needs product approval.
 - A timed-out send is not resent. The customer may need a manual resend (visible as failed with the reason).
 - Delivery events depend on Postmark's webhook being configured with the events credential. Check with `webhooks:check`.
 - Soft bounces are ignored; the provider keeps retrying and reports the final outcome.
-- Postmark's payload formats are taken from its documentation and have not been checked against live traffic. Send a
-  test bounce and a test delivery before relying on them.
-- An inbound email that failed before it was routed has no organization, so only an unscoped replay can reach it.
+- Postmark's payload formats were checked against its published bounce documentation, via a web search (the docs site
+  itself was unreachable from the build environment). Confirmed: `RecordType`, `ID`, `Type`, `MessageID`, `Email`, and
+  the bounce types `HardBounce`, `SoftBounce` and `Transient`. Not confirmed: the delivery record's `Recipient` field,
+  the `DNSError` and `Blocked` types (`DNSError` is treated as temporary, `Blocked` as permanent), and the complaint
+  record layout. Send a test bounce, a test delivery and a test complaint before relying on them.
+- An inbound failure before routing is traced to its organization from the reply token in the stored payload, using the
+  same trusted route lookup as normal processing. A token that matches no active route leaves the event untraced, so
+  only an unscoped replay can reach it.
 - Manual sends to a suppressed address are blocked too, not only automated ones.
 - No external alerting is wired in (Task 16D).

@@ -66,6 +66,7 @@ class InboundEmailProcessor
             $outcome = self::OUTCOME_DUPLICATE;
         } catch (Throwable $e) {
             // Retried by the job; the reason is kept generic, the exception class goes to the log only.
+            $this->assignOrganizationFromRoute($event);
             $event->refresh()->markAttemptFailed('Processing attempt failed; it will be retried.');
             Log::error('webhook.failed', ['event' => 'webhook.failed', 'webhook_event_id' => $event->id, 'attempt' => $event->attempt_count, 'exception' => $e::class]);
 
@@ -84,6 +85,32 @@ class InboundEmailProcessor
         ]);
 
         return $outcome;
+    }
+
+    /**
+     * A failed attempt can happen before the event was traced to a tenant. The reply token in the stored
+     * payload still names the route, so the organization can be recorded for an operator. The route lookup is
+     * the same trusted one used for normal processing; nothing else in the payload decides the tenant.
+     */
+    public function assignOrganizationFromRoute(WebhookEvent $event): void
+    {
+        if ($event->organization_id !== null || $event->event_type !== WebhookEvent::TYPE_INBOUND_EMAIL) {
+            return;
+        }
+
+        $payload = is_array($event->payload) ? $event->payload : [];
+        $recipients = array_merge(
+            array_map('trim', explode(',', (string) ($payload['To'] ?? ''))),
+            array_column(is_array($payload['ToFull'] ?? null) ? $payload['ToFull'] : [], 'Email'),
+            [(string) ($payload['OriginalRecipient'] ?? '')],
+        );
+
+        $token = $this->replyRoutes->extractToken(array_values(array_filter($recipients, fn ($r) => is_string($r) && $r !== '')));
+        $route = $token === null ? null : $this->replyRoutes->resolve($token);
+
+        if ($route !== null) {
+            $event->forceFill(['organization_id' => $route->organization_id])->save();
+        }
     }
 
     private function processLocked(int $eventId): string

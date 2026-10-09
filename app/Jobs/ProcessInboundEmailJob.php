@@ -51,6 +51,11 @@ class ProcessInboundEmailJob implements ShouldBeUnique, ShouldQueue
     {
         $event = WebhookEvent::query()->whereKey($this->webhookEventId)->first();
 
+        if ($event !== null) {
+            app(InboundEmailProcessor::class)->assignOrganizationFromRoute($event);
+            $event->refresh();
+        }
+
         // Only an event still waiting is marked failed; one that finished in an earlier attempt is left alone.
         if ($event !== null && ! $event->isFinished()) {
             $event->markFailed('Processing failed after several attempts. An operator can replay it.');

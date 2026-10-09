@@ -1,7 +1,11 @@
 <?php
 
 use App\Exceptions\Webhooks\WebhookReplayException;
+use App\Models\Conversation;
 use App\Models\WebhookEvent;
+use App\Services\Email\Inbound\InboundEmailProviderManager;
+use App\Services\Email\InboundEmailProcessor;
+use App\Services\Email\ReplyRouteService;
 use App\Services\Maintenance\RetentionPruner;
 use App\Services\Webhooks\WebhookReplayService;
 use Illuminate\Support\Facades\DB;
@@ -74,4 +78,72 @@ test('webhooks:check passes when both credentials are set, and prints neither', 
         ->doesntExpectOutputToContain('inbound-secret-value')
         ->doesntExpectOutputToContain('events-secret-value')
         ->assertExitCode(0);
+});
+
+/**
+ * An inbound event stored for a reply address, not yet traced to a tenant.
+ */
+function unroutedInboundEvent(string $to): WebhookEvent
+{
+    $event = new WebhookEvent;
+    $event->forceFill([
+        'provider' => 'postmark', 'event_type' => WebhookEvent::TYPE_INBOUND_EMAIL, 'external_event_id' => 'inbound-'.uniqid(),
+        'payload' => ['To' => $to, 'ToFull' => [['Email' => $to]], 'OriginalRecipient' => $to, 'From' => 'pat@example.com'],
+        'status' => 'failed', 'failed_at' => now(), 'failure_reason' => 'Processing failed after several attempts.', 'attempt_count' => 5,
+    ])->save();
+
+    return $event;
+}
+
+test('a failed inbound email with a valid reply token is traced to its organization', function () {
+    $business = teamBusiness('Trace HVAC');
+    $conversation = Conversation::factory()->for($business['customer'])->create(['organization_id' => $business['organization']->id]);
+    $replyTo = app(ReplyRouteService::class)->createFor($conversation);
+
+    $event = unroutedInboundEvent($replyTo);
+    expect($event->organization_id)->toBeNull();
+
+    app(InboundEmailProcessor::class)->assignOrganizationFromRoute($event);
+
+    expect($event->refresh()->organization_id)->toBe($business['organization']->id);
+});
+
+test('a failed inbound email with an unknown token stays untraced', function () {
+    $event = unroutedInboundEvent('reply+'.str_repeat('a', 40).'@inbound.quoteflow.ai');
+
+    app(InboundEmailProcessor::class)->assignOrganizationFromRoute($event);
+
+    expect($event->refresh()->organization_id)->toBeNull();
+});
+
+test('tracing never overwrites an organization that is already recorded', function () {
+    $owner = teamBusiness('Recorded HVAC');
+    $other = teamBusiness('Token HVAC');
+    $conversation = Conversation::factory()->for($other['customer'])->create(['organization_id' => $other['organization']->id]);
+    $event = unroutedInboundEvent(app(ReplyRouteService::class)->createFor($conversation));
+    $event->forceFill(['organization_id' => $owner['organization']->id])->save();
+
+    app(InboundEmailProcessor::class)->assignOrganizationFromRoute($event);
+
+    expect($event->refresh()->organization_id)->toBe($owner['organization']->id);
+});
+
+test('an attempt that fails before routing still records the organization from the token', function () {
+    $business = teamBusiness('Failing HVAC');
+    $conversation = Conversation::factory()->for($business['customer'])->create(['organization_id' => $business['organization']->id]);
+    $replyTo = app(ReplyRouteService::class)->createFor($conversation);
+    $event = unroutedInboundEvent($replyTo);
+    $event->forceFill(['status' => 'received', 'failed_at' => null, 'failure_reason' => null, 'attempt_count' => 0])->save();
+
+    // The driver fails before the payload is parsed, so the attempt throws.
+    $manager = Mockery::mock(InboundEmailProviderManager::class);
+    $manager->shouldReceive('driver')->andThrow(new RuntimeException('provider adapter unavailable'));
+    app()->instance(InboundEmailProviderManager::class, $manager);
+
+    expect(fn () => app(InboundEmailProcessor::class)->process($event))->toThrow(RuntimeException::class);
+
+    $event->refresh();
+    expect($event->organization_id)->toBe($business['organization']->id)
+        ->and($event->status->value)->toBe('received')
+        ->and($event->attempt_count)->toBe(1);
 });
