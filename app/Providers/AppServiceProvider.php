@@ -14,6 +14,7 @@ use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -40,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Production never shows stack traces, whatever APP_DEBUG says (a leaked .env must not leak internals).
+        if ($this->app->isProduction() && config('app.debug')) {
+            config(['app.debug' => false]);
+            Log::critical('APP_DEBUG was enabled in production; it has been forced off. Fix the environment.');
+        }
+
         // Suspended and removed people can do nothing, whatever their role or the policy says.
         Gate::before(fn (User $user) => $user->isActiveMember() ? null : false);
 
@@ -58,6 +65,8 @@ class AppServiceProvider extends ServiceProvider
         // Customer estimate links: generous for people, slow for anyone guessing tokens.
         RateLimiter::for('public-estimates', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // Anything that makes the payment provider do work for a business.
+        RateLimiter::for('billing', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
     }
 }

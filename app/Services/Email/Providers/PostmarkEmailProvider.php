@@ -115,7 +115,7 @@ class PostmarkEmailProvider implements EmailProviderInterface
         } catch (ConnectionException) {
             $this->logFailure('send email', null, null);
 
-            throw EmailProviderException::sendUnavailable('Postmark send email request timed out or could not connect.');
+            throw EmailProviderException::sendOutcomeUnknown('Postmark send email request timed out or could not connect.');
         }
 
         $status = $response->status();

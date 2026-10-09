@@ -22,6 +22,7 @@ use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
@@ -36,7 +37,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability');
 
 /*
 |--------------------------------------------------------------------------
@@ -286,4 +287,19 @@ function webhook(array $event, ?string $secret = 'whsec_test_secret', ?int $time
 function stripeEvent(string $type, array $object, ?string $id = null): array
 {
     return ['id' => $id ?? 'evt_'.uniqid(), 'object' => 'event', 'type' => $type, 'data' => ['object' => $object]];
+}
+
+/**
+ * Build deliberately inconsistent data (a record pointing at another organization's record) to prove the
+ * application's own checks still hold even when the database's tenant-integrity triggers are bypassed.
+ */
+function withoutTenantTriggers(string $table, Closure $build): mixed
+{
+    DB::unprepared("ALTER TABLE {$table} DISABLE TRIGGER USER");
+
+    try {
+        return $build();
+    } finally {
+        DB::unprepared("ALTER TABLE {$table} ENABLE TRIGGER USER");
+    }
 }

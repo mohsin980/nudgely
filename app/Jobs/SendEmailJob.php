@@ -24,6 +24,9 @@ class SendEmailJob implements ShouldBeUnique, ShouldQueue
      */
     public int $tries = 5;
 
+    /** One provider request; a hung request is cut off well before the queue would redeliver the job. */
+    public int $timeout = 60;
+
     /**
      * Keep the uniqueness lock for longer than all retries can take.
      */

@@ -132,6 +132,54 @@ class AutomationEngine
     }
 
     /**
+     * Put back on the queue the steps of running automations that nothing is working on: a pending
+     * action whose job was lost (e.g. the queue was unreachable when it was dispatched), and runs
+     * left "running" with no unfinished step. Each action is claimed atomically, so a duplicate
+     * dispatch is harmless.
+     *
+     * @return int How many steps were recovered.
+     */
+    public function recoverStalled(int $olderThanMinutes): int
+    {
+        $cutoff = now()->subMinutes($olderThanMinutes);
+
+        $actionRunIds = AutomationActionRun::query()
+            ->where('status', AutomationActionRunStatus::Pending)
+            ->where('updated_at', '<', $cutoff)
+            ->whereHas('run', fn ($query) => $query->where('status', AutomationRunStatus::Running))
+            ->orderBy('id')
+            ->limit(200)
+            ->pluck('id');
+
+        if ($actionRunIds->isNotEmpty()) {
+            // Touch first: the stalled step is leased, so the next sweep doesn't queue it again at once.
+            AutomationActionRun::query()->whereIn('id', $actionRunIds)->update(['updated_at' => now()]);
+
+            foreach ($actionRunIds as $id) {
+                ExecuteAutomationActionJob::dispatch($id)->afterCommit();
+            }
+        }
+
+        $runsWithoutSteps = AutomationRun::query()
+            ->where('status', AutomationRunStatus::Running)
+            ->where('updated_at', '<', $cutoff)
+            ->whereDoesntHave('actionRuns', fn ($query) => $query->whereIn('status', [AutomationActionRunStatus::Pending, AutomationActionRunStatus::Running]))
+            ->orderBy('id')
+            ->limit(200)
+            ->get();
+
+        foreach ($runsWithoutSteps as $run) {
+            DB::transaction(fn () => $this->advance($run));
+        }
+
+        if ($actionRunIds->isNotEmpty() || $runsWithoutSteps->isNotEmpty()) {
+            Log::warning('Stalled automation steps were recovered.', ['actions' => $actionRunIds->count(), 'runs' => $runsWithoutSteps->count()]);
+        }
+
+        return $actionRunIds->count() + $runsWithoutSteps->count();
+    }
+
+    /**
      * Record a failure for an action whose job gave up (retries exhausted, timeout).
      */
     public function markActionRunFailed(int $actionRunId, string $reason): void
@@ -183,18 +231,37 @@ class AutomationEngine
     /**
      * The WAIT is over: re-check the automation and its conditions with today's data, then
      * run the actions — or record why the run was skipped (e.g. "Customer already replied.").
+     *
+     * The claim and everything it leads to share one transaction: a worker that dies part way
+     * leaves the run "waiting" (its lease expires and it is retried), never stuck "running".
      */
     public function resume(int $runId): ?AutomationRun
     {
-        // Atomic claim: only one worker moves a run out of "waiting".
-        $claimed = AutomationRun::query()->whereKey($runId)->where('status', AutomationRunStatus::Waiting)
-            ->update(['status' => AutomationRunStatus::Running, 'resume_at' => null, 'updated_at' => now()]);
+        $run = DB::transaction(function () use ($runId) {
+            $run = AutomationRun::query()->whereKey($runId)->where('status', AutomationRunStatus::Waiting)->lockForUpdate()->first();
 
-        if ($claimed === 0) {
-            return null;
+            if ($run === null) {
+                return null;
+            }
+
+            $run->forceFill(['status' => AutomationRunStatus::Running, 'resume_at' => null])->save();
+
+            return $this->planResumedRun($run);
+        });
+
+        // Notify after commit, and only from the call that actually failed the run.
+        if ($run?->status === AutomationRunStatus::Failed) {
+            app(ActivityNotifications::class)->automationFailed($run->id);
         }
 
-        $run = AutomationRun::findOrFail($runId);
+        return $run;
+    }
+
+    /**
+     * Re-check a claimed run and either finish it (skipped or failed) or create its actions.
+     */
+    private function planResumedRun(AutomationRun $run): AutomationRun
+    {
         $context = AutomationContext::fromArray($run->context ?? []);
         $automation = Automation::query()->forOrganization($run->organization_id)->with(['conditions', 'actions'])->find($run->automation_id);
 
@@ -220,11 +287,9 @@ class AutomationEngine
             return $this->finish($run, AutomationRunStatus::Skipped, $outcome['reason'], $outcome);
         }
 
-        DB::transaction(function () use ($run, $automation, $outcome) {
-            $run->forceFill(['condition_results' => $outcome])->save();
-            $this->createActionRuns($run, $automation->actions);
-            $this->advance($run);
-        });
+        $run->forceFill(['condition_results' => $outcome])->save();
+        $this->createActionRuns($run, $automation->actions);
+        $this->advance($run);
 
         return $run->refresh();
     }
@@ -243,10 +308,6 @@ class AutomationEngine
         ])->save();
 
         Log::info('Automation run finished without actions.', ['automation_run_id' => $run->id, 'status' => $status->value]);
-
-        if ($status === AutomationRunStatus::Failed) {
-            app(ActivityNotifications::class)->automationFailed($run->id);
-        }
 
         return $run;
     }

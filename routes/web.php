@@ -102,7 +102,7 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
         Route::get('/billing/plans', BillingPlans::class)->name('billing.plans');
         Route::get('/billing/usage', BillingUsage::class)->name('billing.usage');
         Route::get('/billing/history', BillingHistory::class)->name('billing.history');
-        Route::get('/billing/payment-method', PaymentMethodController::class)->name('billing.payment-method');
+        Route::get('/billing/payment-method', PaymentMethodController::class)->middleware('throttle:billing')->name('billing.payment-method');
     });
 
     // Automations moved to /automations (Task 12); old links keep working.

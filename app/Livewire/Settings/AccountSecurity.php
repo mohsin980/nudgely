@@ -7,6 +7,7 @@ use App\Enums\Team\Permission;
 use App\Exceptions\Team\TeamActionException;
 use App\Livewire\Settings\Concerns\SettingsPage;
 use App\Models\OrganizationActivity;
+use App\Models\User;
 use App\Services\Team\TeamDirectory;
 use App\Services\Team\TeamService;
 use Carbon\CarbonImmutable;
@@ -70,6 +71,8 @@ class AccountSecurity extends Component
 
         $user = $this->user();
         $user->forceFill(['password' => Hash::make($this->newPassword)])->save();
+        // A changed password is often a response to a stolen one: every other browser is signed out.
+        $this->endOtherSessions($user);
         OrganizationActivity::record($user->organization_id, 'password_changed', $user, [], $user);
         $this->reset(['currentPassword', 'newPassword', 'newPasswordConfirmation']);
         $this->saved('Password changed.');
@@ -84,11 +87,19 @@ class AccountSecurity extends Component
         $this->validate(['sessionsPassword' => ['required', 'current_password']], ['sessionsPassword.current_password' => 'Your password is incorrect.']);
 
         $user = $this->user();
-        DB::table('sessions')->where('user_id', $user->id)->where('id', '!=', session()->getId())->delete();
-        $user->forceFill(['remember_token' => Str::random(60)])->save();
+        $this->endOtherSessions($user);
         OrganizationActivity::record($user->organization_id, 'other_sessions_logged_out', $user, [], $user);
         $this->reset(['sessionsPassword']);
         $this->saved('Other sessions were signed out.');
+    }
+
+    /**
+     * Every session of this person except the one in use, plus any "remember me" cookie.
+     */
+    private function endOtherSessions(User $user): void
+    {
+        DB::table('sessions')->where('user_id', $user->id)->where('id', '!=', session()->getId())->delete();
+        $user->forceFill(['remember_token' => Str::random(60)])->save();
     }
 
     public function transferOwnership(TeamService $team, TeamDirectory $directory): void

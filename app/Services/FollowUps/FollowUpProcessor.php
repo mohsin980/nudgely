@@ -22,6 +22,7 @@ use App\Services\Automation\AutomatedEmailPolicy;
 use App\Services\Automation\EmailTemplateRenderer;
 use App\Services\Email\EmailService;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -90,7 +91,38 @@ class FollowUpProcessor
             }
         }
 
-        return count($rows);
+        return count($rows) + $this->requeueStranded($now);
+    }
+
+    /**
+     * A follow-up marked due whose job was never queued (the queue was unreachable at that moment)
+     * would wait forever. Queue those again. Re-queuing is safe: process() locks the row and skips
+     * anything already handled. Touching updated_at leases them for the stranded window.
+     */
+    private function requeueStranded(CarbonInterface $now): int
+    {
+        $ids = FollowUp::query()
+            ->where('status', FollowUpStatus::Due)
+            ->whereNull('due_notified_at')
+            ->whereNull('processed_at')
+            ->where('updated_at', '<', $now->copy()->subMinutes((int) config('reliability.follow_ups.stranded_after_minutes')))
+            ->orderBy('id')
+            ->limit((int) config('follow_ups.batch_size'))
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        FollowUp::query()->whereIn('id', $ids)->update(['updated_at' => $now]);
+
+        foreach ($ids as $id) {
+            ProcessFollowUpJob::dispatch((int) $id);
+        }
+
+        Log::warning('Stranded due follow-ups were queued again.', ['count' => $ids->count()]);
+
+        return $ids->count();
     }
 
     /**

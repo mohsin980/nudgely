@@ -187,7 +187,7 @@ class AutomationTester
                     : $this->previewFollowUpEmail($config, $context, $organization, $render),
                 A::CreateTask => ['ok' => true, 'detail' => 'Would create the task “'.$render('title').'” ('.ucfirst((string) ($config['priority'] ?? 'medium')).' priority'
                     .(isset($config['due_in_hours']) ? ', due '.$organization->localTime(now()->addHours((int) $config['due_in_hours']))->format('M j, g:i A') : '')
-                    .(($config['assign_to'] ?? null) === 'owner' ? ', assigned to the automation owner' : (is_int($config['assign_to'] ?? null) ? ', assigned to '.User::find($config['assign_to'])?->name : '')).').'],
+                    .(($config['assign_to'] ?? null) === 'owner' ? ', assigned to the automation owner' : (is_int($config['assign_to'] ?? null) ? ', assigned to '.User::query()->where('organization_id', $organization->id)->find($config['assign_to'])?->name : '')).').'],
                 A::NotifyUser => ['ok' => true, 'detail' => 'Would notify '.$this->recipientCount($organization, $config['recipients'] ?? 'admins').': “'.$render('message').'”'],
                 A::AddCustomerTag => ['ok' => $context->customer() !== null, 'detail' => 'Would tag '.($context->customer()?->name ?? 'the customer').' “'.($config['tag'] ?? '').'”.'],
                 A::RemoveCustomerTag => ['ok' => $context->customer() !== null, 'detail' => 'Would remove the tag “'.($config['tag'] ?? '').'” from '.($context->customer()?->name ?? 'the customer').'.'],

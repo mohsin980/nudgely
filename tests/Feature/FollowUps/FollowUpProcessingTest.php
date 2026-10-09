@@ -259,7 +259,7 @@ test('an inactive or deleted automation skips the follow-up', function () {
     Queue::fake([SendEmailJob::class]);
     allowAutomaticFollowUpEmail($this->organization);
     $paused = automatedFollowUp($this->conversation);
-    $paused->automation->update(['status' => 'paused']);
+    $paused->automation->forceFill(['status' => 'paused'])->save();
     $deleted = automatedFollowUp($this->conversation);
     $deleted->automation->delete();
 

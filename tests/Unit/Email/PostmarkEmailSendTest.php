@@ -151,7 +151,10 @@ class PostmarkEmailSendTest extends TestCase
             && ! str_contains(json_encode($context), 'customer@gmail.com'));
     }
 
-    public function test_timeouts_are_transient(): void
+    /**
+     * A timed-out send may already have been accepted, so it is not retried: resending could duplicate the email.
+     */
+    public function test_send_timeouts_are_not_retried(): void
     {
         Http::fake(fn () => throw new ConnectionException('cURL error 28: Operation timed out'));
 
@@ -159,8 +162,9 @@ class PostmarkEmailSendTest extends TestCase
             $this->provider()->send($this->email());
             $this->fail('Expected exception.');
         } catch (EmailProviderException $e) {
-            $this->assertTrue($e->isTransient());
-            $this->assertSame('The email provider did not respond. The message will be retried when appropriate.', $e->userMessage());
+            $this->assertFalse($e->isTransient());
+            $this->assertSame(EmailProviderException::OUTCOME_UNKNOWN, $e->reason);
+            $this->assertSame('The email provider did not confirm delivery. It was not resent, to avoid sending it twice.', $e->userMessage());
         }
     }
 }

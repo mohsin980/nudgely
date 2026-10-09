@@ -19,6 +19,8 @@ class ProcessInboundEmailJob implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 5;
 
+    public int $timeout = 120;
+
     public int $uniqueFor = 3600;
 
     public function __construct(public readonly int $webhookEventId) {}

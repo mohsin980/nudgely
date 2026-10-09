@@ -13,6 +13,8 @@ class EmailProviderException extends RuntimeException
 {
     public const NOT_CONFIGURED = 'not_configured';
 
+    public const OUTCOME_UNKNOWN = 'outcome_unknown';
+
     public const UNAVAILABLE = 'unavailable';
 
     public const REJECTED = 'rejected';
@@ -95,6 +97,16 @@ class EmailProviderException extends RuntimeException
     {
         return new self($detail, self::UNAVAILABLE,
             'The email provider did not respond. The message will be retried when appropriate.');
+    }
+
+    /**
+     * A send request that timed out may still have been accepted by the provider. Resending could
+     * deliver the same email twice, so the outcome is recorded as unknown and the message is not retried.
+     */
+    public static function sendOutcomeUnknown(string $detail): self
+    {
+        return new self($detail, self::OUTCOME_UNKNOWN,
+            'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.');
     }
 
     /**
