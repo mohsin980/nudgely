@@ -155,3 +155,18 @@ Artisan::command('email:trace {message : Message ID}', function () {
         $this->line("  #{$event->id} {$event->status->value} attempts={$event->attempt_count} ".($event->failure_reason ?? ''));
     }
 })->purpose('Show one outbound message: status, timestamps, attempts, correlation ID and its provider events');
+
+Artisan::command('webhooks:check', function () {
+    $postmark = config('email.providers.postmark', []);
+    $configured = fn (?string $value) => filled($value) ? 'configured' : 'NOT CONFIGURED (endpoint rejects every request)';
+
+    // Only presence is reported. Usernames and secrets are never printed.
+    $this->table(['Endpoint', 'Credential', 'URL to set in Postmark'], [
+        ['Inbound replies', $configured($postmark['inbound_webhook_secret'] ?? null), url('/webhooks/email/inbound/postmark')],
+        ['Delivery events', $configured($postmark['events_webhook_secret'] ?? null), url('/webhooks/email/events/postmark')],
+    ]);
+
+    $this->line('Both URLs take Basic auth in the form https://USERNAME:PASSWORD@host/... using the values in your environment.');
+
+    return filled($postmark['events_webhook_secret'] ?? null) && filled($postmark['inbound_webhook_secret'] ?? null) ? 0 : 1;
+})->purpose('Show whether the Postmark webhook credentials are set, without printing them');

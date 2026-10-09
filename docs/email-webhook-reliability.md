@@ -105,7 +105,8 @@ Timeouts: outbound 5 s connect, 15 s total; jobs 60 s (email), 120 s (inbound). 
 
 - `php artisan webhooks:failed [--organization=ID]`: failed events with provider, type, organization, attempts, reason, correlation ID.
 - `php artisan webhooks:replay ID [--organization=ID]`: queues a failed event again. Refuses non-failed events, and events of another organization report "not found".
-- `php artisan email:trace MESSAGE_ID`: status, timestamps, attempts, failure reason, correlation ID and the delivery events for one message. Addresses and bodies are not printed.
+- `php artisan email:trace MESSAGE_ID`: status, timestamps, attempts, failure reason, correlation ID and the delivery events for one message. Addresses and bodies are not printed. Provider events are found through an index on the message ID.
+- `php artisan webhooks:check`: shows whether the inbound and delivery-event credentials are set, and the URLs to configure in Postmark. It prints presence only, never values, and exits non-zero when a credential is missing.
 
 There is no public replay endpoint.
 
@@ -142,8 +143,9 @@ logged, not stored.
 ## 10. Retention (recommendation; not auto-deleted)
 
 - Processed webhook events: 90 days (already pruned by `retention:prune`).
-- Failed webhook events: keep until an operator resolves them, then 90 days. The payload may contain customer
-  email content; a future prune can drop `payload` on failed events after 30 days while keeping the metadata.
+- Failed webhook events: metadata is kept. The payload, which may contain customer email content, is replaced with
+  `{"redacted": true}` after 30 days (`RELIABILITY_FAILED_WEBHOOK_PAYLOAD_DAYS`), by `retention:prune`. A redacted
+  event can no longer be replayed; replay says so.
 - Message bodies: kept with the business record (conversation history). Not pruned here.
 - Provider metadata and correlation IDs: keep with the message.
 
@@ -152,7 +154,10 @@ Automatic deletion beyond the existing pruning needs product approval.
 ## 11. Known limitations
 
 - A timed-out send is not resent. The customer may need a manual resend (visible as failed with the reason).
-- Delivery events depend on Postmark's webhook being configured with the events credential.
+- Delivery events depend on Postmark's webhook being configured with the events credential. Check with `webhooks:check`.
 - Soft bounces are ignored; the provider keeps retrying and reports the final outcome.
-- `email:trace` matches delivery events by a JSON field without an index. It is an operator tool, not a request path.
+- Postmark's payload formats are taken from its documentation and have not been checked against live traffic. Send a
+  test bounce and a test delivery before relying on them.
+- An inbound email that failed before it was routed has no organization, so only an unscoped replay can reach it.
+- Manual sends to a suppressed address are blocked too, not only automated ones.
 - No external alerting is wired in (Task 16D).

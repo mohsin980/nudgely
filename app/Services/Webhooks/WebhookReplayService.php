@@ -38,6 +38,10 @@ class WebhookReplayService
             throw new WebhookReplayException("Only failed events can be replayed; this one is {$event->status->value}.");
         }
 
+        if (($event->payload ?? []) === ['redacted' => true]) {
+            throw new WebhookReplayException('The payload was removed by the retention policy, so this event cannot be replayed.');
+        }
+
         $previousAttempts = $event->attempt_count;
         $event->markReceivedForReplay();
 

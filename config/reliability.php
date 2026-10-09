@@ -33,6 +33,8 @@ return [
         'billing_webhook_events_days' => 180,
         'expired_invitations_days' => 30,
         'expired_reply_routes_days' => 30,
+        // A failed webhook keeps its metadata for troubleshooting; its payload (customer email content) goes after this.
+        'failed_webhook_payload_days' => (int) env('RELIABILITY_FAILED_WEBHOOK_PAYLOAD_DAYS', 30),
         'chunk_size' => 500,
     ],
 
