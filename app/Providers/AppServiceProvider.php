@@ -5,15 +5,25 @@ namespace App\Providers;
 use App\Billing\PlanCatalog;
 use App\Contracts\Email\EmailProviderInterface;
 use App\Enums\Team\Permission;
+use App\Listeners\LogQueueLifecycle;
 use App\Models\User;
 use App\Services\AI\ReplyClassifierManager;
 use App\Services\Automation\AutomationExecutionScope;
 use App\Services\Billing\BillingProviderManager;
 use App\Services\Email\EmailProviderManager;
+use App\Services\Email\Events\PostmarkDeliveryEvents;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Events\JobQueued;
+use Illuminate\Queue\Events\JobTimedOut;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(EmailProviderManager::class);
+        $this->app->bind(PostmarkDeliveryEvents::class, fn () => new PostmarkDeliveryEvents(config('email.providers.postmark', [])));
         $this->app->bind(EmailProviderInterface::class, fn ($app) => $app->make(EmailProviderManager::class)->driver());
         $this->app->singleton(InboundEmailProviderManager::class);
         $this->app->singleton(ReplyClassifierManager::class);
@@ -40,6 +51,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $queueLog = app(LogQueueLifecycle::class);
+        Event::listen(JobQueued::class, [$queueLog, 'queued']);
+        Event::listen(JobProcessing::class, [$queueLog, 'processing']);
+        Event::listen(JobProcessed::class, [$queueLog, 'processed']);
+        Event::listen(JobExceptionOccurred::class, [$queueLog, 'exceptionOccurred']);
+        Event::listen(JobFailed::class, [$queueLog, 'failed']);
+        Event::listen(JobTimedOut::class, [$queueLog, 'timedOut']);
+
+        // Production never shows stack traces, whatever APP_DEBUG says (a leaked .env must not leak internals).
+        if ($this->app->isProduction() && config('app.debug')) {
+            config(['app.debug' => false]);
+            Log::critical('APP_DEBUG was enabled in production; it has been forced off. Fix the environment.');
+        }
+
         // Suspended and removed people can do nothing, whatever their role or the policy says.
         Gate::before(fn (User $user) => $user->isActiveMember() ? null : false);
 
@@ -51,10 +76,15 @@ class AppServiceProvider extends ServiceProvider
             Gate::define($permission->value, fn (User $user) => $user->hasPermission($permission));
         }
 
+        // First-run setup belongs to the business owner only; invited members are never put through it.
+        Gate::define('manage-onboarding', fn (User $user) => $user->isOwner());
+
         RateLimiter::for('email-webhooks', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
         // Customer estimate links: generous for people, slow for anyone guessing tokens.
         RateLimiter::for('public-estimates', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // Anything that makes the payment provider do work for a business.
+        RateLimiter::for('billing', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
     }
 }

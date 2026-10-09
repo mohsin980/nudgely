@@ -18,6 +18,8 @@ class EvaluateAutomationJob implements ShouldQueue
 
     public int $tries = 3;
 
+    public int $timeout = 120;
+
     /**
      * @var list<int>
      */

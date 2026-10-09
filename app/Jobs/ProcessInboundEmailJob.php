@@ -19,6 +19,8 @@ class ProcessInboundEmailJob implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 5;
 
+    public int $timeout = 120;
+
     public int $uniqueFor = 3600;
 
     public function __construct(public readonly int $webhookEventId) {}
@@ -47,14 +49,25 @@ class ProcessInboundEmailJob implements ShouldBeUnique, ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        WebhookEvent::query()
-            ->whereKey($this->webhookEventId)
-            ->whereNull('processed_at')
-            ->whereNull('failed_at')
-            ->update(['failed_at' => now(), 'failure_reason' => 'Processing failed after several attempts.', 'updated_at' => now()]);
+        $event = WebhookEvent::query()->whereKey($this->webhookEventId)->first();
 
-        Log::error('Inbound email processing failed.', [
+        if ($event !== null) {
+            app(InboundEmailProcessor::class)->assignOrganizationFromRoute($event);
+            $event->refresh();
+        }
+
+        // Only an event still waiting is marked failed; one that finished in an earlier attempt is left alone.
+        if ($event !== null && ! $event->isFinished()) {
+            $event->markFailed('Processing failed after several attempts. An operator can replay it.');
+        }
+
+        Log::error('webhook.failed', [
+            'event' => 'webhook.failed',
             'webhook_event_id' => $this->webhookEventId,
+            'provider' => $event?->provider,
+            'organization_id' => $event?->organization_id,
+            'attempt' => $event?->attempt_count,
+            'correlation_id' => $event?->correlation_id,
             'exception' => $exception === null ? null : $exception::class,
         ]);
     }

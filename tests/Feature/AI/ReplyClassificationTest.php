@@ -294,7 +294,7 @@ class ReplyClassificationTest extends TestCase
         $outbound = $this->outbound('Hi John');
         $review = $this->reply('hijack', ['conversation_id' => null, 'status' => MessageStatus::NeedsReview]);
         $foreignConversation = Conversation::factory()->create();
-        $crossTenant = $this->reply('cross tenant', ['conversation_id' => $foreignConversation->id]);
+        $crossTenant = withoutTenantTriggers('messages', fn () => $this->reply('cross tenant', ['conversation_id' => $foreignConversation->id]));
 
         foreach ([$outbound, $review, $crossTenant] as $message) {
             $this->assertNull($this->service()->classify($message, 'auto-'.$message->id));

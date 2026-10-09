@@ -71,29 +71,28 @@ class EstimateService
         $data = $this->validated($organization, $input);
 
         try {
-            app(EntitlementService::class)->assertAllows($organization, LimitKey::Estimates);
+            // Limit check and insert run together under the organization's lock (see EntitlementService::guard).
+            $estimate = app(EntitlementService::class)->guard($organization, LimitKey::Estimates, function () use ($actor, $organization, $data) {
+                $estimate = new Estimate;
+                $estimate->forceFill([
+                    'organization_id' => $organization->id,
+                    'estimate_number' => $this->nextNumber($organization),
+                    'revision' => 1,
+                    'status' => EstimateStatus::Draft,
+                    'currency' => $organization->currencyCode(),
+                    'created_by' => $actor->id,
+                ]);
+                $this->fill($estimate, $data);
+                $estimate->save();
+                $this->saveItems($estimate, $data['lines'], $data['totals']);
+
+                ConversationEvent::recordForEstimate($estimate, 'estimate_created', $actor, ['total' => $estimate->money('total')]);
+
+                return $estimate;
+            });
         } catch (PlanLimitException $e) {
             throw new EstimateException($e->getMessage());
         }
-
-        $estimate = DB::transaction(function () use ($actor, $organization, $data) {
-            $estimate = new Estimate;
-            $estimate->forceFill([
-                'organization_id' => $organization->id,
-                'estimate_number' => $this->nextNumber($organization),
-                'revision' => 1,
-                'status' => EstimateStatus::Draft,
-                'currency' => $organization->currencyCode(),
-                'created_by' => $actor->id,
-            ]);
-            $this->fill($estimate, $data);
-            $estimate->save();
-            $this->saveItems($estimate, $data['lines'], $data['totals']);
-
-            ConversationEvent::recordForEstimate($estimate, 'estimate_created', $actor, ['total' => $estimate->money('total')]);
-
-            return $estimate;
-        });
 
         EstimateCreated::dispatch($organization->id, $estimate->id, $estimate->customer_id, $estimate->conversation_id);
         Log::info('Estimate created.', ['organization_id' => $organization->id, 'estimate_id' => $estimate->id, 'user_id' => $actor->id]);
@@ -480,24 +479,55 @@ class EstimateService
      *
      * @return int How many expired.
      */
+    /** At most this many expiry batches run per call; the next scheduled run picks up the rest. */
+    private const EXPIRY_MAX_BATCHES = 200;
+
     public function expireDue(): int
     {
         // The application's clock, not the database's, so every "today" in the app agrees.
         $now = now()->utc()->toIso8601String();
+        $limit = (int) config('reliability.estimates.expiry_batch_size');
+        $ids = collect();
 
-        $rows = DB::select(<<<'SQL'
-            update estimates e
-            set status = 'expired', expired_at = ?::timestamptz, updated_at = ?::timestamptz
-            from organizations o
-            where o.id = e.organization_id
-              and e.status in ('sent', 'viewed')
-              and e.valid_until < (?::timestamptz at time zone coalesce(o.timezone, ?))::date
-            returning e.id
-        SQL, [$now, $now, $now, config('follow_ups.default_timezone')]);
+        // Bounded batches: each one locks at most $limit rows, skips rows another worker holds, and
+        // stops early when the batch is short. The predicate is unchanged from the single-statement version.
+        for ($batch = 0; $batch < self::EXPIRY_MAX_BATCHES; $batch++) {
+            // Lock a bounded set of due estimates, then expire exactly those by primary key. Both steps share a
+            // transaction, so the locked rows cannot change status in between; skip locked leaves rows another
+            // worker holds to that worker.
+            $expired = DB::transaction(function () use ($now, $limit) {
+                $due = collect(DB::select(<<<'SQL'
+                    select due.id
+                    from estimates due
+                    join organizations dorg on dorg.id = due.organization_id
+                    where due.status in ('sent', 'viewed')
+                      and due.valid_until < (?::timestamptz at time zone coalesce(dorg.timezone, ?))::date
+                    limit ?
+                    for update of due skip locked
+                SQL, [$now, config('follow_ups.default_timezone'), $limit]))->pluck('id')->map(fn ($id) => (int) $id);
 
-        $this->afterExpiry(collect($rows)->pluck('id'));
+                if ($due->isEmpty()) {
+                    return collect();
+                }
 
-        return count($rows);
+                return collect(DB::select(<<<'SQL'
+                    update estimates
+                    set status = 'expired', expired_at = ?::timestamptz, updated_at = ?::timestamptz
+                    where id = any(?::bigint[])
+                    returning id
+                SQL, [$now, $now, '{'.$due->implode(',').'}']))->pluck('id');
+            });
+
+            $ids = $ids->merge($expired);
+
+            if ($expired->count() < $limit) {
+                break;
+            }
+        }
+
+        $this->afterExpiry($ids);
+
+        return $ids->count();
     }
 
     public function expireIfPastValidUntil(Estimate $estimate): bool

@@ -43,14 +43,16 @@ return [
     |
     | Only temporary failures (lost database connection, deadlock, a transient
     | provider error) are retried. Configuration or permission problems fail at once.
-    | stale_after_seconds lets a retry reclaim an action whose worker died mid-run.
+    | stale_after_seconds lets a retry reclaim an action whose worker died mid-run. It must be longer
+    | than an action's job timeout (120s) and shorter than the queue's retry_after (300s), so a crashed
+    | job is reclaimed on its first redelivery and a live job is never reclaimed.
     |
     */
 
     'retries' => [
         'tries' => (int) env('AUTOMATION_ACTION_TRIES', 3),
         'backoff' => [10, 60],
-        'stale_after_seconds' => 600,
+        'stale_after_seconds' => 240,
     ],
 
 ];

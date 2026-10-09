@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\User;
 use App\Services\Billing\BillingService;
+use App\Services\Onboarding\OnboardingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,6 +56,7 @@ class RegistrationController extends Controller
 
             OrganizationActivity::record($organization, 'business_created', $user);
             app(BillingService::class)->startSignupTrial($organization);
+            app(OnboardingService::class)->begin($organization);
 
             return $user;
         });
@@ -62,6 +64,6 @@ class RegistrationController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('settings.business')->with('settings-status', 'Welcome! Start by checking your business details.');
+        return redirect()->route('onboarding.show');
     }
 }

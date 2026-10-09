@@ -29,8 +29,8 @@ class AutomationModelTest extends TestCase
         $organization ??= Organization::factory()->create();
         $creator = User::factory()->manager()->for($organization)->create();
 
-        $automation = new Automation(['name' => 'Customer Ready to Book', 'status' => AutomationStatus::Active, 'trigger_type' => AutomationTriggerType::CustomerReplyClassified]);
-        $automation->forceFill(['organization_id' => $organization->id, 'created_by' => $creator->id])->save();
+        $automation = new Automation(['name' => 'Customer Ready to Book', 'trigger_type' => AutomationTriggerType::CustomerReplyClassified]);
+        $automation->forceFill(['organization_id' => $organization->id, 'created_by' => $creator->id, 'status' => AutomationStatus::Active])->save();
 
         return $automation;
     }

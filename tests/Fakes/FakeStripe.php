@@ -31,6 +31,12 @@ class FakeStripe
     /** @var array<string, array<string, mixed>> */
     public array $schedules = [];
 
+    /** @var array<string, array{brand: string, last4: string, exp_month: int, exp_year: int}> customer id => card */
+    public array $cards = [];
+
+    /** @var array<string, list<array<string, mixed>>> customer id => invoices */
+    public array $invoices = [];
+
     private int $next = 1;
 
     /** @var array{status: int, type: string}|'connection'|null */
@@ -148,6 +154,9 @@ class FakeStripe
         return match (true) {
             $method === 'POST' && $path === 'customers' => $this->ok($this->customers[$id = 'cus_'.$this->next++] = ['id' => $id] + $data),
             $method === 'POST' && $path === 'checkout/sessions' => $this->ok($this->sessions[$id = 'cs_test_'.$this->next++] = ['id' => $id, 'url' => "https://checkout.stripe.test/c/{$id}", 'status' => 'open', 'subscription' => null] + $data),
+            $method === 'GET' && $segments[0] === 'customers' => $this->ok(($this->customers[$segments[1]] ?? ['id' => $segments[1]]) + ['invoice_settings' => ['default_payment_method' => isset($this->cards[$segments[1]]) ? ['id' => 'pm_1', 'card' => $this->cards[$segments[1]]] : null]]),
+            $method === 'GET' && $path === 'payment_methods' => $this->ok(['data' => isset($this->cards[$data['customer']]) ? [['id' => 'pm_1', 'card' => $this->cards[$data['customer']]]] : []]),
+            $method === 'GET' && $path === 'invoices' => $this->ok(['data' => $this->invoices[$data['customer']] ?? []]),
             $method === 'GET' && $segments[0] === 'checkout' => $this->sessionResponse($segments[2]),
             $method === 'GET' && $segments[0] === 'subscriptions' => $this->ok($this->expanded($segments[1])),
             $method === 'POST' && $segments[0] === 'subscriptions' => $this->updateSubscription($segments[1], $data),

@@ -16,11 +16,35 @@
         </p>
     </div>
 
+    @if ($checklist)
+        {{-- Getting started: disappears by itself once everything is done. --}}
+        <section aria-labelledby="checklist-heading" class="{{ $card }}" data-section="getting-started">
+            <h2 id="checklist-heading" class="{{ $heading }}">Getting started</h2>
+            <ul role="list" class="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                @foreach ($checklist as $item)
+                    <li class="flex items-center gap-2">
+                        <span aria-hidden="true" @class(['inline-flex h-5 w-5 items-center justify-center rounded-full text-xs', 'bg-green-100 text-green-800' => $item['done'], 'ring-1 ring-gray-300 text-gray-400' => ! $item['done']])>{{ $item['done'] ? '✓' : '○' }}</span>
+                        @if ($item['done'])
+                            <span class="text-gray-600"><span class="sr-only">Done: </span>{{ $item['label'] }}</span>
+                        @else
+                            <a href="{{ $item['url'] }}" wire:navigate class="font-medium text-indigo-700 hover:underline">{{ $item['label'] }}</a>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     @if (! $d->hasCustomers)
         {{-- New business: one clear next step instead of a wall of zeros. --}}
         <section aria-labelledby="welcome-heading" class="{{ $card }} max-w-xl">
             <h2 id="welcome-heading" class="text-lg font-semibold text-gray-900">No customers yet.</h2>
-            <p class="mt-1 text-sm text-gray-600">Add your first customer to get started.</p>
+            <p class="mt-1 text-sm text-gray-600">Add your first customer to get started. Let's get your first customer workflow running.</p>
+            <div class="mt-3 flex flex-wrap gap-2" data-empty-actions>
+                <a href="{{ route('customers.create') }}" wire:navigate class="{{ $button }}">Add Customer</a>
+                <a href="{{ route('estimates.create') }}" wire:navigate class="{{ $button }}">Create Estimate</a>
+                <a href="{{ route('automations.index') }}" wire:navigate class="{{ $button }}">Create Automation</a>
+            </div>
             <div class="mt-4">
                 <livewire:customers.create-customer-form />
             </div>
@@ -214,6 +238,9 @@
                                             <a href="{{ $notification->data['url'] }}" wire:navigate class="text-gray-900 hover:underline">{{ $notification->data['message'] ?? 'Notification' }}</a>
                                         @else
                                             <p class="text-gray-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
+                                        @endif
+                                        @if (! empty($notification->data['action']) && ! empty($notification->data['url']))
+                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-indigo-700 hover:underline">{{ $notification->data['action'] }}</a>
                                         @endif
                                         <time class="text-xs text-gray-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
                                     </div>

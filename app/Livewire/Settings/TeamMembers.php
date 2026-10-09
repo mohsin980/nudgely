@@ -27,6 +27,8 @@ use Livewire\Component;
 #[Title('Team Members')]
 class TeamMembers extends Component
 {
+    private const LINK_KEY = 'team.invite_link';
+
     use SettingsPage;
 
     public bool $showInviteForm = false;
@@ -38,9 +40,6 @@ class TeamMembers extends Component
     public string $inviteRole = 'staff';
 
     public bool $showRemoved = false;
-
-    /** Shown once after inviting when the business can't email yet. */
-    public ?string $inviteLink = null;
 
     #[Locked]
     public ?int $removingId = null;
@@ -74,12 +73,23 @@ class TeamMembers extends Component
             ->with('inviter:id,name')->latest()->get();
     }
 
+    /**
+     * Shown after inviting when the business can't email yet, so the owner can share it themselves.
+     */
+    #[Computed]
+    public function inviteLink(): ?string
+    {
+        $link = session(self::LINK_KEY);
+
+        return is_string($link) ? $link : null;
+    }
+
     public function openInviteForm(): void
     {
         $this->authorize(Permission::ManageTeam->value);
         $this->resetErrorBag();
         $this->showInviteForm = true;
-        $this->inviteLink = null;
+        session()->forget(self::LINK_KEY);
     }
 
     public function invite(InvitationService $invitations): void
@@ -132,7 +142,7 @@ class TeamMembers extends Component
             return;
         }
 
-        $this->inviteLink = null;
+        session()->forget(self::LINK_KEY);
         unset($this->invitations);
         $this->saved('Invitation revoked. Its link no longer works.');
     }
@@ -211,7 +221,8 @@ class TeamMembers extends Component
     private function afterInvitation(array $result, string $message): void
     {
         unset($this->invitations);
-        $this->inviteLink = $result['emailed'] ? null : $result['link'];
+        // The raw link is a credential: it stays in the server-side session, never in component state sent to the browser.
+        $result['emailed'] ? session()->forget(self::LINK_KEY) : session()->put(self::LINK_KEY, $result['link']);
         $this->saved($result['emailed'] ? $message : 'Invitation created. Your business email isn\'t verified yet, so share this link with them yourself.');
     }
 

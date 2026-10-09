@@ -3,6 +3,8 @@
 namespace App\Services\Billing;
 
 use App\Billing\CheckoutSession;
+use App\Billing\InvoiceSummary;
+use App\Billing\PaymentMethodSummary;
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
 use App\Billing\ProviderSubscription;
@@ -18,6 +20,7 @@ use App\Services\Team\TeamDirectory;
 use App\Services\Team\TeamNotifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -36,6 +39,7 @@ class BillingService
     public function __construct(
         private readonly BillingProviderManager $providers,
         private readonly PlanCatalog $plans,
+        private readonly BillingLifecycle $lifecycle,
     ) {}
 
     public function provider(): BillingProviderInterface
@@ -128,7 +132,7 @@ class BillingService
         $provider = $this->provider();
         $session = $provider->createCheckout($organization, $this->customerId($organization, $provider), $plan, $this->trialDaysFor($organization), $successUrl, $cancelUrl);
 
-        Log::info('Checkout started.', ['organization_id' => $organization->id, 'plan' => $plan->key, 'provider' => $provider->name()]);
+        Log::info('Checkout started.', ['event' => 'billing.checkout.started', 'organization_id' => $organization->id, 'plan' => $plan->key, 'provider' => $provider->name()]);
 
         return $session;
     }
@@ -146,7 +150,7 @@ class BillingService
         $completed = $provider->completedCheckout($sessionId) ?? throw new BillingException('The checkout isn\'t complete yet. If you paid, refresh this page in a moment.');
 
         if ($completed->organizationId !== $organization->id || $completed->customerId === null || $completed->customerId !== $organization->billing_customer_id) {
-            Log::warning('Checkout completion rejected: it belongs to another organization.', ['organization_id' => $organization->id]);
+            Log::warning('Checkout completion rejected: it belongs to another organization.', ['event' => 'billing.checkout.rejected', 'organization_id' => $organization->id]);
 
             throw new BillingException('This checkout belongs to another business.');
         }
@@ -184,7 +188,7 @@ class BillingService
         $subscription = $this->sync($organization, $provider->name(), $remote);
 
         OrganizationActivity::record($organization, 'subscription_started', $actor, ['plan' => $plan->key, 'status' => $subscription->status->value]);
-        Log::info('Subscription started.', ['organization_id' => $organization->id, 'subscription_id' => $subscription->id, 'plan' => $plan->key]);
+        Log::info('Subscription started.', ['event' => 'billing.subscription.started', 'organization_id' => $organization->id, 'subscription_id' => $subscription->id, 'plan' => $plan->key]);
 
         return $subscription;
     }
@@ -219,14 +223,14 @@ class BillingService
                 return $subscription;
             }
 
-            $subscription = $this->apply($subscription, $provider->cancelScheduledChange($subscription));
+            $subscription = $this->apply($subscription, $provider->cancelScheduledChange($subscription), $actor);
             OrganizationActivity::record($organization, 'subscription_change_cancelled', $actor, ['plan' => $plan->key]);
 
             return $subscription;
         }
 
         if ($current === null || $plan->priceCents > $current->priceCents) {
-            $subscription = $this->apply($subscription, $provider->changePlan($subscription, $plan));
+            $subscription = $this->apply($subscription, $provider->changePlan($subscription, $plan), $actor);
             OrganizationActivity::record($organization, 'subscription_plan_changed', $actor, ['changes' => ['Plan' => ['from' => $from, 'to' => $plan->key]]]);
 
             return $subscription;
@@ -234,7 +238,7 @@ class BillingService
 
         $at = $subscription->current_period_end ?? $subscription->trial_ends_at
             ?? throw new BillingException('The current billing period end is unknown. Please try again later.');
-        $subscription = $this->apply($subscription, $provider->scheduleChange($subscription, $plan, CarbonImmutable::instance($at)));
+        $subscription = $this->apply($subscription, $provider->scheduleChange($subscription, $plan, CarbonImmutable::instance($at)), $actor);
         OrganizationActivity::record($organization, 'subscription_downgrade_scheduled', $actor, ['from' => $from, 'to' => $plan->key, 'at' => $subscription->scheduled_change_at?->toIso8601String()]);
 
         return $subscription;
@@ -250,7 +254,7 @@ class BillingService
         $organization = $this->authorize($actor);
         $subscription = $this->currentSubscription($organization) ?? throw new BillingException('This business has no subscription.');
 
-        $subscription = $this->apply($subscription, $this->providerFor($subscription)->cancel($subscription, $atPeriodEnd));
+        $subscription = $this->apply($subscription, $this->providerFor($subscription)->cancel($subscription, $atPeriodEnd), $actor);
         OrganizationActivity::record($organization, 'subscription_cancelled', $actor, ['plan' => $subscription->plan, 'at_period_end' => $atPeriodEnd]);
 
         return $subscription;
@@ -270,7 +274,7 @@ class BillingService
             throw new BillingException('This subscription is not scheduled to cancel.');
         }
 
-        $subscription = $this->apply($subscription, $this->providerFor($subscription)->resume($subscription));
+        $subscription = $this->apply($subscription, $this->providerFor($subscription)->resume($subscription), $actor);
         OrganizationActivity::record($organization, 'subscription_resumed', $actor, ['plan' => $subscription->plan]);
 
         return $subscription;
@@ -291,6 +295,63 @@ class BillingService
         }
 
         return $provider->createPortalSession($organization->billing_customer_id, $returnUrl);
+    }
+
+    /**
+     * The saved card in safe terms (brand, last four, expiry), or null when there is none.
+     * Briefly cached so page refreshes don't call the provider each time.
+     *
+     * @throws AuthorizationException|BillingException
+     */
+    public function paymentMethod(User $actor): ?PaymentMethodSummary
+    {
+        $customerId = $this->billingCustomerFor($actor);
+
+        if ($customerId === null) {
+            return null;
+        }
+
+        // false stands for "no card", so that answer is cached too.
+        $card = Cache::remember($this->cacheKey('payment-method', $customerId), 300, fn () => $this->provider()->paymentMethod($customerId) ?? false);
+
+        return $card ?: null;
+    }
+
+    /**
+     * Past invoices of the actor's own organization, newest first.
+     *
+     * @return list<InvoiceSummary>
+     *
+     * @throws AuthorizationException|BillingException
+     */
+    public function invoices(User $actor): array
+    {
+        $customerId = $this->billingCustomerFor($actor);
+
+        return $customerId === null ? [] : Cache::remember($this->cacheKey('invoices', $customerId), 300, fn () => $this->provider()->invoices($customerId));
+    }
+
+    /**
+     * Forget what was cached from the provider (after the customer used its billing pages).
+     */
+    public function forgetProviderCache(Organization $organization): void
+    {
+        if ($organization->billing_customer_id !== null) {
+            Cache::forget($this->cacheKey('payment-method', $organization->billing_customer_id));
+            Cache::forget($this->cacheKey('invoices', $organization->billing_customer_id));
+        }
+    }
+
+    private function billingCustomerFor(User $actor): ?string
+    {
+        $organization = $this->authorize($actor);
+
+        return $organization->billing_customer_id !== null && $organization->billing_provider === $this->provider()->name() ? $organization->billing_customer_id : null;
+    }
+
+    private function cacheKey(string $what, string $customerId): string
+    {
+        return "billing:{$this->provider()->name()}:{$what}:{$customerId}";
     }
 
     /**
@@ -352,7 +413,7 @@ class BillingService
                     $result['synced']++;
                 } catch (BillingException $e) {
                     $result['failed']++;
-                    Log::warning('Subscription sync failed.', ['subscription_id' => $subscription->id, 'organization_id' => $subscription->organization_id]);
+                    Log::warning('Subscription sync failed.', ['event' => 'billing.sync.failed', 'subscription_id' => $subscription->id, 'organization_id' => $subscription->organization_id]);
                 }
             }
         });
@@ -374,7 +435,7 @@ class BillingService
             $existing = Subscription::query()->where('provider', $provider)->where('provider_subscription_id', $remote->id)->lockForUpdate()->first();
 
             if ($existing !== null && $existing->organization_id !== $organization->id) {
-                Log::warning('Billing sync rejected: subscription belongs to another organization.', ['subscription_id' => $existing->id, 'organization_id' => $organization->id]);
+                Log::warning('Billing sync rejected: subscription belongs to another organization.', ['event' => 'billing.sync.rejected', 'subscription_id' => $existing->id, 'organization_id' => $organization->id]);
 
                 throw new BillingException('This subscription belongs to another organization.');
             }
@@ -461,16 +522,31 @@ class BillingService
     private function store(Organization $organization, string $provider, ProviderSubscription $remote): Subscription
     {
         $subscription = new Subscription;
-        $subscription->forceFill(['organization_id' => $organization->id, 'provider' => $provider] + $remote->toAttributes())->save();
+        $subscription->forceFill(['organization_id' => $organization->id, 'provider' => $provider] + $remote->toAttributes() + $this->lifecycle->graceAttributes(null, $remote->status))->save();
 
         return $subscription;
     }
 
-    private function apply(Subscription $subscription, ProviderSubscription $remote): Subscription
+    /**
+     * Save the provider's state and let the lifecycle react to what changed (audit, notifications, grace period).
+     */
+    private function apply(Subscription $subscription, ProviderSubscription $remote, ?User $actor = null): Subscription
     {
         $this->plans->get($remote->planKey);
-        $subscription->forceFill($remote->toAttributes())->save();
+        $before = $this->lifecycle->snapshot($subscription);
+        $subscription->forceFill($remote->toAttributes() + $this->lifecycle->graceAttributes($subscription, $remote->status))->save();
+        $this->lifecycle->transition($subscription->organization, $before, $subscription, $actor);
 
         return $subscription;
+    }
+
+    /**
+     * Re-read one subscription from its provider (used by the scheduled grace-period check).
+     *
+     * @throws BillingException
+     */
+    public function refreshSubscription(Subscription $subscription): Subscription
+    {
+        return $this->apply($subscription, $this->providerFor($subscription)->retrieveSubscription($subscription));
     }
 }

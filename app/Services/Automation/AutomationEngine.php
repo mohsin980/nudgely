@@ -46,19 +46,26 @@ class AutomationEngine
         $organization = Organization::find($context->organizationId);
 
         if ($organization === null) {
-            Log::warning('Automation event ignored: organization not found.', $log);
+            Log::warning('Automation event ignored: organization not found.', $log + ['event' => 'automation.event.rejected']);
 
             return [];
         }
 
         if (! config('automation.enabled') || ! $organization->automations_enabled) {
-            Log::info('Automation event ignored: automations are disabled.', $log);
+            Log::info('Automation event ignored: automations are disabled.', $log + ['event' => 'automation.event.ignored']);
 
             return [];
         }
 
         if (! $this->eventBelongsToOrganization($context)) {
-            Log::warning('Automation event rejected: its customer or conversation is not in the organization.', $log);
+            Log::warning('Automation event rejected: its customer or conversation is not in the organization.', $log + ['event' => 'automation.event.rejected']);
+
+            return [];
+        }
+
+        // Sample customers (onboarding demo data) never trigger automations.
+        if ($context->customer()?->is_demo) {
+            Log::info('Automation event ignored: sample customer.', $log + ['event' => 'automation.event.ignored']);
 
             return [];
         }
@@ -73,7 +80,7 @@ class AutomationEngine
             ->get();
 
         if ($automations->count() > $limit) {
-            Log::warning('Automation limit per event reached; extra automations were not evaluated.', $log + ['limit' => $limit]);
+            Log::warning('Automation limit per event reached; extra automations were not evaluated.', $log + ['limit' => $limit, 'event' => 'automation.limit_reached']);
             $automations = $automations->take($limit);
         }
 
@@ -125,6 +132,54 @@ class AutomationEngine
     }
 
     /**
+     * Put back on the queue the steps of running automations that nothing is working on: a pending
+     * action whose job was lost (e.g. the queue was unreachable when it was dispatched), and runs
+     * left "running" with no unfinished step. Each action is claimed atomically, so a duplicate
+     * dispatch is harmless.
+     *
+     * @return int How many steps were recovered.
+     */
+    public function recoverStalled(int $olderThanMinutes): int
+    {
+        $cutoff = now()->subMinutes($olderThanMinutes);
+
+        $actionRunIds = AutomationActionRun::query()
+            ->where('status', AutomationActionRunStatus::Pending)
+            ->where('updated_at', '<', $cutoff)
+            ->whereHas('run', fn ($query) => $query->where('status', AutomationRunStatus::Running))
+            ->orderBy('id')
+            ->limit(200)
+            ->pluck('id');
+
+        if ($actionRunIds->isNotEmpty()) {
+            // Touch first: the stalled step is leased, so the next sweep doesn't queue it again at once.
+            AutomationActionRun::query()->whereIn('id', $actionRunIds)->update(['updated_at' => now()]);
+
+            foreach ($actionRunIds as $id) {
+                ExecuteAutomationActionJob::dispatch($id)->afterCommit();
+            }
+        }
+
+        $runsWithoutSteps = AutomationRun::query()
+            ->where('status', AutomationRunStatus::Running)
+            ->where('updated_at', '<', $cutoff)
+            ->whereDoesntHave('actionRuns', fn ($query) => $query->whereIn('status', [AutomationActionRunStatus::Pending, AutomationActionRunStatus::Running]))
+            ->orderBy('id')
+            ->limit(200)
+            ->get();
+
+        foreach ($runsWithoutSteps as $run) {
+            DB::transaction(fn () => $this->advance($run));
+        }
+
+        if ($actionRunIds->isNotEmpty() || $runsWithoutSteps->isNotEmpty()) {
+            Log::warning('Stalled automation steps were recovered.', ['event' => 'automation.steps_recovered', 'actions' => $actionRunIds->count(), 'runs' => $runsWithoutSteps->count()]);
+        }
+
+        return $actionRunIds->count() + $runsWithoutSteps->count();
+    }
+
+    /**
      * Record a failure for an action whose job gave up (retries exhausted, timeout).
      */
     public function markActionRunFailed(int $actionRunId, string $reason): void
@@ -142,7 +197,7 @@ class AutomationEngine
 
         if ($updated > 0) {
             $actionRun = AutomationActionRun::find($actionRunId);
-            Log::warning('Automation action failed after retries.', ['automation_action_run_id' => $actionRunId, 'automation_run_id' => $actionRun->automation_run_id]);
+            Log::warning('Automation action failed after retries.', ['event' => 'automation.action.failed', 'automation_action_run_id' => $actionRunId, 'automation_run_id' => $actionRun->automation_run_id]);
             $this->advance($actionRun->run);
         }
     }
@@ -157,14 +212,24 @@ class AutomationEngine
     {
         $now = now();
 
-        $rows = DB::select(
-            'update automation_runs set resume_at = ?, updated_at = ?
-             where status = ? and id in (
-                 select id from automation_runs where status = ? and resume_at <= ? order by resume_at limit ? for update skip locked
-             )
-             returning id',
-            [$now->copy()->addMinutes(10), $now, AutomationRunStatus::Waiting->value, AutomationRunStatus::Waiting->value, $now, 200],
-        );
+        // Same shape as markDue: pick a bounded set under locks, then lease exactly those runs (see FollowUpProcessor).
+        $rows = DB::transaction(function () use ($now) {
+            $ids = collect(DB::select(
+                'select id from automation_runs where status = ? and resume_at <= ? order by resume_at limit ? for update skip locked',
+                [AutomationRunStatus::Waiting->value, $now, 200],
+            ))->pluck('id')->map(fn ($id) => (int) $id);
+
+            if ($ids->isEmpty()) {
+                return [];
+            }
+
+            return DB::select(
+                'update automation_runs set resume_at = ?, updated_at = ?
+                 where status = ? and id = any(?::bigint[])
+                 returning id',
+                [$now->copy()->addMinutes(10), $now, AutomationRunStatus::Waiting->value, '{'.$ids->implode(',').'}'],
+            );
+        });
 
         foreach ($rows as $row) {
             ResumeAutomationRunJob::dispatch((int) $row->id);
@@ -176,18 +241,37 @@ class AutomationEngine
     /**
      * The WAIT is over: re-check the automation and its conditions with today's data, then
      * run the actions — or record why the run was skipped (e.g. "Customer already replied.").
+     *
+     * The claim and everything it leads to share one transaction: a worker that dies part way
+     * leaves the run "waiting" (its lease expires and it is retried), never stuck "running".
      */
     public function resume(int $runId): ?AutomationRun
     {
-        // Atomic claim: only one worker moves a run out of "waiting".
-        $claimed = AutomationRun::query()->whereKey($runId)->where('status', AutomationRunStatus::Waiting)
-            ->update(['status' => AutomationRunStatus::Running, 'resume_at' => null, 'updated_at' => now()]);
+        $run = DB::transaction(function () use ($runId) {
+            $run = AutomationRun::query()->whereKey($runId)->where('status', AutomationRunStatus::Waiting)->lockForUpdate()->first();
 
-        if ($claimed === 0) {
-            return null;
+            if ($run === null) {
+                return null;
+            }
+
+            $run->forceFill(['status' => AutomationRunStatus::Running, 'resume_at' => null])->save();
+
+            return $this->planResumedRun($run);
+        });
+
+        // Notify after commit, and only from the call that actually failed the run.
+        if ($run?->status === AutomationRunStatus::Failed) {
+            app(ActivityNotifications::class)->automationFailed($run->id);
         }
 
-        $run = AutomationRun::findOrFail($runId);
+        return $run;
+    }
+
+    /**
+     * Re-check a claimed run and either finish it (skipped or failed) or create its actions.
+     */
+    private function planResumedRun(AutomationRun $run): AutomationRun
+    {
         $context = AutomationContext::fromArray($run->context ?? []);
         $automation = Automation::query()->forOrganization($run->organization_id)->with(['conditions', 'actions'])->find($run->automation_id);
 
@@ -213,11 +297,9 @@ class AutomationEngine
             return $this->finish($run, AutomationRunStatus::Skipped, $outcome['reason'], $outcome);
         }
 
-        DB::transaction(function () use ($run, $automation, $outcome) {
-            $run->forceFill(['condition_results' => $outcome])->save();
-            $this->createActionRuns($run, $automation->actions);
-            $this->advance($run);
-        });
+        $run->forceFill(['condition_results' => $outcome])->save();
+        $this->createActionRuns($run, $automation->actions);
+        $this->advance($run);
 
         return $run->refresh();
     }
@@ -235,11 +317,7 @@ class AutomationEngine
             'condition_results' => $conditions ?? $run->condition_results,
         ])->save();
 
-        Log::info('Automation run finished without actions.', ['automation_run_id' => $run->id, 'status' => $status->value]);
-
-        if ($status === AutomationRunStatus::Failed) {
-            app(ActivityNotifications::class)->automationFailed($run->id);
-        }
+        Log::info('Automation run finished without actions.', ['event' => 'automation.run.finished', 'automation_run_id' => $run->id, 'status' => $status->value]);
 
         return $run;
     }
@@ -249,7 +327,7 @@ class AutomationEngine
         $maxDepth = (int) config('automation.limits.max_chain_depth');
 
         if ($context->depth >= $maxDepth) {
-            Log::warning('Automation chain limit reached; run skipped.', ['automation_id' => $automation->id, 'event_id' => $context->eventId, 'depth' => $context->depth]);
+            Log::warning('Automation chain limit reached; run skipped.', ['event' => 'automation.chain_limit_reached', 'automation_id' => $automation->id, 'event_id' => $context->eventId, 'depth' => $context->depth]);
 
             return $this->createRun($automation, $context, AutomationRunStatus::Skipped, "Automation chain limit reached (depth {$maxDepth}).");
         }
@@ -311,7 +389,7 @@ class AutomationEngine
                 return $run;
             });
         } catch (UniqueConstraintViolationException) {
-            Log::info('Automation run skipped: this event was already handled.', ['automation_id' => $automation->id, 'event_id' => $context->eventId]);
+            Log::info('Automation run skipped: this event was already handled.', ['event' => 'automation.run.duplicate', 'automation_id' => $automation->id, 'event_id' => $context->eventId]);
 
             return null;
         }
@@ -320,7 +398,7 @@ class AutomationEngine
             app(ActivityNotifications::class)->automationFailed($run->id);
         }
 
-        Log::info('Automation run created.', [
+        Log::info('Automation run created.', ['event' => 'automation.run.created',
             'organization_id' => $run->organization_id,
             'automation_id' => $automation->id,
             'automation_run_id' => $run->id,
@@ -355,7 +433,7 @@ class AutomationEngine
         }
 
         if ($position > $limit) {
-            Log::warning('Automation action limit reached; extra actions were skipped.', ['automation_run_id' => $run->id, 'limit' => $limit]);
+            Log::warning('Automation action limit reached; extra actions were skipped.', ['event' => 'automation.action.limit_reached', 'automation_run_id' => $run->id, 'limit' => $limit]);
         }
     }
 
@@ -385,7 +463,7 @@ class AutomationEngine
         $automation = Automation::find($run->automation_id);
 
         if ($automation === null || $automation->organization_id !== $run->organization_id || $context->organizationId !== $run->organization_id) {
-            Log::warning('Automation action rejected: organization mismatch.', ['automation_action_run_id' => $actionRun->id]);
+            Log::warning('Automation action rejected: organization mismatch.', ['event' => 'automation.action.rejected', 'automation_action_run_id' => $actionRun->id]);
 
             return AutomationActionResult::failed('This action does not belong to the organization that triggered it.');
         }
@@ -441,7 +519,7 @@ class AutomationEngine
             ->where('status', AutomationActionRunStatus::Running)
             ->update(['status' => AutomationActionRunStatus::Pending, 'updated_at' => now()]);
 
-        Log::warning('Automation action failed temporarily; it will be retried.', ['automation_action_run_id' => $actionRun->id]);
+        Log::warning('Automation action failed temporarily; it will be retried.', ['event' => 'automation.action.retry_scheduled', 'automation_action_run_id' => $actionRun->id]);
     }
 
     private function record(AutomationActionRun $actionRun, AutomationActionResult $result): void
@@ -453,7 +531,7 @@ class AutomationEngine
             'executed_at' => now(),
         ])->save();
 
-        Log::info('Automation action executed.', [
+        Log::info('Automation action executed.', ['event' => 'automation.action.executed',
             'organization_id' => $actionRun->run->organization_id,
             'automation_run_id' => $actionRun->automation_run_id,
             'automation_action_run_id' => $actionRun->id,

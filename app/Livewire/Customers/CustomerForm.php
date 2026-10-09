@@ -5,6 +5,7 @@ namespace App\Livewire\Customers;
 use App\Enums\CustomerStatus;
 use App\Exceptions\Conversations\DuplicateCustomerException;
 use App\Models\Customer;
+use App\Services\Billing\EntitlementService;
 use App\Services\Customers\CustomerService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -38,6 +39,9 @@ class CustomerForm extends Component
 
     #[Locked]
     public ?int $duplicateCustomerId = null;
+
+    /** The save was refused because the plan's customer limit is reached. */
+    public bool $limitReached = false;
 
     public function mount(?int $customerId = null): void
     {
@@ -83,6 +87,8 @@ class CustomerForm extends Component
 
             return;
         } catch (ValidationException $e) {
+            $this->limitReached = $this->customerId === null && ! app(EntitlementService::class)->canCreateCustomer(Auth::user()->organization);
+
             foreach ($e->errors() as $field => $messages) {
                 $this->addError($field, $messages[0]);
             }

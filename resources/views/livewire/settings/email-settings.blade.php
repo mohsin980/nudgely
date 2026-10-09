@@ -1,4 +1,7 @@
 <x-settings.shell title="Email Settings" description="Configure the email address QuoteFlow will use when communicating with your customers.">
+    @if (request()->query('from') === 'onboarding')
+        <p><a href="{{ route('onboarding.show') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline" data-back-to-setup>← Back to setup</a></p>
+    @endif
 <div class="space-y-8">
 
     @if ($statusMessage)

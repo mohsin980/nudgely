@@ -35,13 +35,11 @@ class CustomerService
         $this->assertUniqueEmail($organization->id, $data['email']);
 
         try {
-            app(EntitlementService::class)->assertAllows($organization, LimitKey::Customers);
+            // The limit check and the insert happen under the organization's lock, so concurrent requests can't overshoot.
+            $customer = app(EntitlementService::class)->guard($organization, LimitKey::Customers,
+                fn () => $organization->customers()->create($data + ['status' => CustomerStatus::Active]));
         } catch (PlanLimitException $e) {
             throw ValidationException::withMessages(['email' => $e->getMessage()]);
-        }
-
-        try {
-            $customer = DB::transaction(fn () => $organization->customers()->create($data + ['status' => CustomerStatus::Active]));
         } catch (UniqueConstraintViolationException) {
             // Two people adding the same customer at once: the database unique index decides.
             throw new DuplicateCustomerException($organization->customers()->where('email', $data['email'])->firstOrFail());

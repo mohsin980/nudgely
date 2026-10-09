@@ -246,6 +246,11 @@ class AutomationForm extends Component
             $this->addMappedErrors(array_map(fn (array $m) => $m[0], $e->errors()));
 
             return;
+        } catch (PlanLimitException $e) {
+            $this->step = 5;
+            $this->addMappedErrors(['actions' => $e->getMessage()]);
+
+            return;
         }
 
         session()->flash('automation-status', "“{$automation->name}” is active.");

@@ -80,11 +80,6 @@ class AutomationBuilder
 
         $data = $this->validated($input, requireActions: $automation?->isActive() ?? false, organization: $organization);
 
-        // A new automation takes one of the plan's slots (archived ones don't count).
-        if ($automation === null) {
-            $this->entitlements->assertAllows($organization, LimitKey::Automations);
-        }
-
         if ($automation?->isActive() && ($sender = $this->senderError($organization, $data['actions'])) !== null) {
             throw ValidationException::withMessages(['actions' => $sender]);
         }
@@ -169,7 +164,10 @@ class AutomationBuilder
     }
 
     /**
+     * Only automations that run use a plan slot, so this (and resuming a paused one) is where the limit applies.
+     *
      * @throws ValidationException when the automation is incomplete or invalid
+     * @throws PlanLimitException when the plan has no free slot
      */
     public function activate(Automation $automation, User $user): void
     {
@@ -179,7 +177,8 @@ class AutomationBuilder
             throw ValidationException::withMessages($errors);
         }
 
-        $this->changeStatus($automation, $user, AutomationStatus::Active, 'activated');
+        $this->entitlements->guard($automation->organization, LimitKey::Automations,
+            fn () => $this->changeStatus($automation, $user, AutomationStatus::Active, 'activated'));
     }
 
     /**
@@ -208,7 +207,6 @@ class AutomationBuilder
     public function restore(Automation $automation, User $user): void
     {
         if ($automation->status === AutomationStatus::Archived) {
-            $this->entitlements->assertAllows($automation->organization, LimitKey::Automations);
             $this->changeStatus($automation, $user, AutomationStatus::Draft, 'restored', ['archived_at' => null]);
         }
     }
@@ -218,8 +216,6 @@ class AutomationBuilder
      */
     public function duplicate(Automation $automation, User $user): Automation
     {
-        $this->entitlements->assertAllows($automation->organization, LimitKey::Automations);
-
         return DB::transaction(function () use ($automation, $user) {
             $copy = new Automation;
             $copy->fill([

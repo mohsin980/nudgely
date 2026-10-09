@@ -9,7 +9,7 @@
             @foreach ($menu as $group)
                 <optgroup label="{{ $group['label'] }}">
                     @foreach ($group['items'] as $item)
-                        <option value="{{ route($item['route']) }}" @selected(request()->routeIs($item['route']))>{{ $item['label'] }}</option>
+                        <option value="{{ route($item['route']) }}" @selected(request()->routeIs($item['route'], $item['route'].'.*'))>{{ $item['label'] }}</option>
                     @endforeach
                 </optgroup>
             @endforeach
@@ -20,7 +20,7 @@
                     <p class="px-3 text-xs font-semibold tracking-wide text-gray-500 uppercase">{{ $group['label'] }}</p>
                     <ul class="mt-1 space-y-0.5">
                         @foreach ($group['items'] as $item)
-                            @php($active = request()->routeIs($item['route']))
+                            @php($active = request()->routeIs($item['route'], $item['route'].'.*'))
                             <li>
                                 <a href="{{ route($item['route']) }}" wire:navigate @if ($active) aria-current="page" @endif
                                    @class(['block rounded-md px-3 py-1.5 text-sm', 'bg-indigo-50 font-medium text-indigo-700' => $active, 'text-gray-700 hover:bg-gray-100' => ! $active])>{{ $item['label'] }}</a>

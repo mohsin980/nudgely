@@ -4,6 +4,7 @@ namespace App\Services\Billing\Providers;
 
 use App\Billing\CheckoutSession;
 use App\Billing\CompletedCheckout;
+use App\Billing\PaymentMethodSummary;
 use App\Billing\Plan;
 use App\Billing\ProviderSubscription;
 use App\Contracts\Billing\BillingProviderInterface;
@@ -145,6 +146,19 @@ class ManualBillingProvider implements BillingProviderInterface
     public function createPortalSession(string $customerId, string $returnUrl): string
     {
         return $returnUrl;
+    }
+
+    /**
+     * No payments locally, so no card and no invoices.
+     */
+    public function paymentMethod(string $customerId): ?PaymentMethodSummary
+    {
+        return null;
+    }
+
+    public function invoices(string $customerId, int $limit = 24): array
+    {
+        return [];
     }
 
     private function newSubscription(string $id, Plan $plan, int $trialDays): ProviderSubscription

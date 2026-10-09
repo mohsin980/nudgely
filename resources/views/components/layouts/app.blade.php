@@ -34,14 +34,9 @@
 
         @auth
             @can('manage-billing')
-                @php($trial = app(\App\Services\Billing\EntitlementService::class)->trial(auth()->user()->organization))
-                @if ($trial && ! request()->routeIs('settings.billing'))
-                    <div class="border-b border-indigo-100 bg-indigo-50" data-trial-banner>
-                        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm text-indigo-900 sm:px-6">
-                            <p>Your free {{ $trial['plan']->name }} trial: {{ $trial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $trial['days_left']) }} left.</p>
-                            <a href="{{ route('settings.billing') }}" wire:navigate class="font-semibold underline">Choose a plan</a>
-                        </div>
-                    </div>
+                @php($billingBanner = request()->routeIs('settings.billing*') ? null : app(\App\Services\Billing\BillingBanner::class)->for(auth()->user()->organization))
+                @if ($billingBanner)
+                    <x-billing.banner :banner="$billingBanner" />
                 @endif
             @endcan
         @endauth

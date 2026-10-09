@@ -12,15 +12,19 @@ use App\Exceptions\Email\EmailProviderException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Jobs\SendEmailJob;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Services\Billing\EntitlementService;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
+use App\Support\CorrelationId;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * The single entry point for sending email on behalf of an organization.
@@ -87,6 +91,10 @@ class EmailService
             throw EmailSendingNotAllowedException::optedOut();
         }
 
+        if ($customer->isEmailSuppressed()) {
+            throw EmailSendingNotAllowedException::suppressed();
+        }
+
         $connection = $this->defaultConnection($organization);
 
         $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text, $metadata) {
@@ -106,11 +114,7 @@ class EmailService
 
         SendEmailJob::dispatch($message->id)->afterCommit();
 
-        Log::info('Email queued.', [
-            'organization_id' => $message->organization_id,
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
-        ]);
+        $this->logQueued($message);
 
         return $message;
     }
@@ -151,7 +155,7 @@ class EmailService
         $claimed = Message::query()
             ->whereKey($message->getKey())
             ->where('status', MessageStatus::Queued)
-            ->update(['status' => MessageStatus::Sending, 'updated_at' => now()]);
+            ->update(['status' => MessageStatus::Sending, 'send_attempts' => DB::raw('send_attempts + 1'), 'updated_at' => now()]);
 
         if ($claimed === 0) {
             $message->refresh();
@@ -161,6 +165,7 @@ class EmailService
 
         $message->refresh();
 
+        // Everything before the provider request is safe to retry: nothing has left the server yet.
         try {
             $connection = $message->emailConnection ?? throw EmailSendingNotAllowedException::connectionRemoved();
             $this->assertCanSendFrom($connection, $message->organization_id);
@@ -169,7 +174,20 @@ class EmailService
                 throw EmailSendingNotAllowedException::senderMismatch();
             }
 
-            $result = $this->providers->for($connection->provider)->send(new OutboundEmail(
+            $provider = $this->providers->for($connection->provider);
+        } catch (EmailSendingNotAllowedException $e) {
+            return $this->markFailed($message, EmailSendResult::failed('not_allowed', $e->getMessage()));
+        } catch (Throwable $e) {
+            $this->requeue($message);
+
+            throw $e;
+        }
+
+        $started = hrtime(true);
+        $this->log('email.sending', $message, ['attempt' => $message->send_attempts]);
+
+        try {
+            $result = $provider->send(new OutboundEmail(
                 organizationId: $message->organization_id,
                 fromEmail: $connection->sender_email,
                 fromName: $connection->sender_name,
@@ -181,21 +199,22 @@ class EmailService
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
             ));
-        } catch (EmailSendingNotAllowedException $e) {
-            return $this->markFailed($message, EmailSendResult::failed('not_allowed', $e->getMessage()));
         } catch (EmailProviderException $e) {
+            // A provider that answered with a known temporary error did not accept the email.
             if ($e->isTransient() && $retryTransientFailures) {
-                $message->forceFill(['status' => MessageStatus::Queued])->save();
-                Log::warning('Email send deferred after a transient provider failure.', [
-                    'organization_id' => $message->organization_id,
-                    'message_id' => $message->id,
-                    'reason' => $e->reason,
-                ]);
+                $this->requeue($message);
+                $this->log('email.retry_scheduled', $message, ['reason' => $e->reason, 'retryable' => true], 'warning');
 
                 throw $e;
             }
 
             return $this->markFailed($message, EmailSendResult::failed($e->reason, $e->userMessage()));
+        } catch (Throwable $e) {
+            // Timeouts and crashes can happen after the provider accepted the email. Resending could
+            // duplicate it, so the outcome is recorded as unknown and the message is not retried.
+            $this->log('email.failed', $message, ['reason' => EmailProviderException::OUTCOME_UNKNOWN, 'exception' => $e::class], 'warning');
+
+            return $this->markFailed($message, EmailSendResult::failed(EmailProviderException::OUTCOME_UNKNOWN, 'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.'));
         }
 
         $message->forceFill([
@@ -206,14 +225,50 @@ class EmailService
         ])->save();
         $this->redactIfSensitive($message);
 
-        Log::info('Email sent.', [
-            'organization_id' => $message->organization_id,
-            'message_id' => $message->id,
-            'provider' => $connection->provider->value,
+        $this->log('email.sent', $message, [
             'provider_message_id' => $result->providerMessageId,
+            'duration_ms' => round((hrtime(true) - $started) / 1e6, 1),
         ]);
 
         return $result;
+    }
+
+    /**
+     * Put a claimed message back in the queue so a job can retry it.
+     */
+    private function requeue(Message $message): void
+    {
+        Message::query()->whereKey($message->getKey())->where('status', MessageStatus::Sending)
+            ->update(['status' => MessageStatus::Queued, 'updated_at' => now()]);
+        $message->refresh();
+    }
+
+    /**
+     * A worker that died while a message was "sending" leaves it there forever. Such messages may or
+     * may not have reached the customer, so they are marked failed with that reason and never resent.
+     *
+     * @return int How many were recovered.
+     */
+    public function recoverStuckSends(int $olderThanMinutes): int
+    {
+        $cutoff = now()->subMinutes($olderThanMinutes);
+        $recovered = 0;
+
+        $ids = Message::query()->where('status', MessageStatus::Sending)->where('updated_at', '<', $cutoff)
+            ->orderBy('id')->limit(200)->pluck('id');
+
+        foreach ($ids as $id) {
+            $updated = Message::query()->whereKey($id)->where('status', MessageStatus::Sending)->where('updated_at', '<', $cutoff)
+                ->update(['status' => MessageStatus::Failed, 'failed_at' => now(), 'failure_reason' => 'Delivery could not be confirmed. It was not resent, to avoid a duplicate.', 'updated_at' => now()]);
+
+            if ($updated === 1) {
+                $recovered++;
+                $this->redactIfSensitive(Message::query()->findOrFail($id));
+                Log::warning('Stuck email recovered without resending.', ['message_id' => $id]);
+            }
+        }
+
+        return $recovered;
     }
 
     /**
@@ -226,7 +281,7 @@ class EmailService
             ->whereIn('status', [MessageStatus::Queued, MessageStatus::Sending])
             ->update(['status' => MessageStatus::Failed, 'failed_at' => now(), 'failure_reason' => $reason, 'updated_at' => now()]);
 
-        Log::warning('Email failed.', ['organization_id' => $message->organization_id, 'message_id' => $message->id, 'reason' => 'retries_exhausted']);
+        $this->log('email.failed', $message, ['reason' => 'retries_exhausted'], 'warning');
     }
 
     /**
@@ -275,17 +330,13 @@ class EmailService
     ): Message {
         $this->assertCanSendFrom($connection, $connection->organization_id);
 
-        // Customer-facing email counts against the plan; invitations and team notices never block.
-        if (! in_array($metadata['type'] ?? null, self::UNMETERED_TYPES, true)) {
-            try {
-                app(EntitlementService::class)->assertAllows($connection->organization, LimitKey::OutboundEmails);
-            } catch (PlanLimitException $e) {
-                throw EmailSendingNotAllowedException::planLimit($e->getMessage());
-            }
-        }
-
         $to = strtolower(trim($to));
         $replyTo = $replyTo === null ? null : strtolower(trim($replyTo));
+
+        // Sample customers (onboarding demo data) never receive real email, whatever asked for it.
+        if (Customer::query()->where('organization_id', $connection->organization_id)->where('is_demo', true)->whereRaw('lower(email) = ?', [$to])->exists()) {
+            throw EmailSendingNotAllowedException::sampleCustomer();
+        }
 
         if (! filter_var($to, FILTER_VALIDATE_EMAIL)) {
             throw EmailSendingNotAllowedException::invalidAddress('recipient');
@@ -295,28 +346,68 @@ class EmailService
             throw EmailSendingNotAllowedException::invalidAddress('reply-to address');
         }
 
-        $message = new Message;
-        $message->forceFill([
-            'organization_id' => $connection->organization_id,
-            'conversation_id' => $conversationId,
-            'email_connection_id' => $connection->id,
-            'direction' => MessageDirection::Outbound,
-            'channel' => MessageChannel::Email,
-            'provider' => $connection->provider,
-            'from_address' => $connection->sender_email,
-            'from_name' => $connection->sender_name,
-            'to_address' => $to,
-            'to_name' => $toName === null ? null : trim(str_replace(["\r", "\n"], ' ', $toName)),
-            'reply_to' => $replyTo,
-            // Subjects are single-line headers.
-            'subject' => trim(str_replace(["\r", "\n"], ' ', $subject)),
-            'body_text' => $text,
-            'body_html' => $html,
-            'metadata' => $metadata ?: null,
-            'status' => MessageStatus::Queued,
-        ])->save();
+        $save = function () use ($connection, $to, $toName, $replyTo, $subject, $text, $html, $metadata, $conversationId): Message {
+            $message = new Message;
+            $message->forceFill([
+                'organization_id' => $connection->organization_id,
+                'conversation_id' => $conversationId,
+                'email_connection_id' => $connection->id,
+                'direction' => MessageDirection::Outbound,
+                'channel' => MessageChannel::Email,
+                'provider' => $connection->provider,
+                'from_address' => $connection->sender_email,
+                'from_name' => $connection->sender_name,
+                'to_address' => $to,
+                'to_name' => $toName === null ? null : trim(str_replace(["\r", "\n"], ' ', $toName)),
+                'reply_to' => $replyTo,
+                // Subjects are single-line headers.
+                'subject' => trim(str_replace(["\r", "\n"], ' ', $subject)),
+                'body_text' => $text,
+                'body_html' => $html,
+                'metadata' => $metadata ?: null,
+                'status' => MessageStatus::Queued,
+                // The request's or job's ID, so the message traces back to what caused it.
+                'correlation_id' => Context::get(CorrelationId::ATTRIBUTE) ?? CorrelationId::new(),
+            ])->save();
 
-        return $message;
+            return $message;
+        };
+
+        // Customer-facing email counts against the plan (queued and sent ones; failures don't);
+        // invitations and team notices never block. The check and the insert share the organization's lock.
+        if (in_array($metadata['type'] ?? null, self::UNMETERED_TYPES, true)) {
+            return $save();
+        }
+
+        try {
+            return app(EntitlementService::class)->guard($connection->organization, LimitKey::OutboundEmails, $save);
+        } catch (PlanLimitException $e) {
+            throw EmailSendingNotAllowedException::planLimit($e->getMessage());
+        }
+    }
+
+    private function logQueued(Message $message): void
+    {
+        $this->log('email.queued', $message);
+    }
+
+    /**
+     * One log shape for every email event, so an operator can follow a message across the request,
+     * the job and the provider response. Bodies, addresses and credentials are never included.
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    private function log(string $event, Message $message, array $extra = [], string $level = 'info'): void
+    {
+        Log::log($level, $event, [
+            'event' => $event,
+            'organization_id' => $message->organization_id,
+            'conversation_id' => $message->conversation_id,
+            'message_id' => $message->id,
+            'provider' => $message->provider?->value,
+            'status' => $message->status?->value,
+            'correlation_id' => $message->correlation_id,
+        ] + $extra);
     }
 
     /**
@@ -339,11 +430,7 @@ class EmailService
         ])->save();
         $this->redactIfSensitive($message);
 
-        Log::warning('Email failed.', [
-            'organization_id' => $message->organization_id,
-            'message_id' => $message->id,
-            'reason' => $result->errorCode,
-        ]);
+        $this->log('email.failed', $message, ['reason' => $result->errorCode], 'warning');
 
         return $result;
     }

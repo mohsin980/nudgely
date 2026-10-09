@@ -4,6 +4,8 @@ namespace App\Services\Billing\Providers;
 
 use App\Billing\CheckoutSession;
 use App\Billing\CompletedCheckout;
+use App\Billing\InvoiceSummary;
+use App\Billing\PaymentMethodSummary;
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
 use App\Billing\ProviderSubscription;
@@ -175,6 +177,37 @@ class StripeBillingProvider implements BillingProviderInterface
     public function createPortalSession(string $customerId, string $returnUrl): string
     {
         return (string) $this->send('post', 'billing_portal/sessions', ['customer' => $customerId, 'return_url' => $returnUrl])['url'];
+    }
+
+    public function paymentMethod(string $customerId): ?PaymentMethodSummary
+    {
+        $customer = $this->send('get', 'customers/'.rawurlencode($customerId), ['expand' => ['invoice_settings.default_payment_method']]);
+        $card = $customer['invoice_settings']['default_payment_method']['card'] ?? null;
+
+        if (! is_array($card)) {
+            $card = $this->send('get', 'payment_methods', ['customer' => $customerId, 'type' => 'card', 'limit' => 1])['data'][0]['card'] ?? null;
+        }
+
+        // Only brand, last four and expiry are ever read from the card object.
+        return is_array($card) && isset($card['last4'])
+            ? new PaymentMethodSummary((string) ($card['brand'] ?? 'card'), (string) $card['last4'], isset($card['exp_month']) ? (int) $card['exp_month'] : null, isset($card['exp_year']) ? (int) $card['exp_year'] : null)
+            : null;
+    }
+
+    public function invoices(string $customerId, int $limit = 24): array
+    {
+        $rows = $this->send('get', 'invoices', ['customer' => $customerId, 'limit' => $limit])['data'] ?? [];
+
+        return array_values(array_map(fn (array $i) => new InvoiceSummary(
+            id: (string) $i['id'],
+            number: $i['number'] ?? null,
+            date: CarbonImmutable::createFromTimestampUTC((int) ($i['created'] ?? 0)),
+            amountCents: (int) ($i['total'] ?? $i['amount_due'] ?? 0),
+            currency: strtoupper((string) ($i['currency'] ?? 'usd')),
+            status: (string) ($i['status'] ?? 'open'),
+            viewUrl: $i['hosted_invoice_url'] ?? null,
+            pdfUrl: $i['invoice_pdf'] ?? null,
+        ), array_filter((array) $rows, 'is_array')));
     }
 
     /**

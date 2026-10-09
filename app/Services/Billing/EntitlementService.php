@@ -9,6 +9,8 @@ use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Organization;
 use App\Models\Subscription;
 use Carbon\CarbonInterface;
+use Closure;
+use Illuminate\Support\Facades\DB;
 
 /**
  * What an organization may use right now. The rest of the app asks this service (never the
@@ -88,8 +90,84 @@ class EntitlementService
         $limit = $plan->limit($key);
 
         if ($limit !== null && $this->usage->usage($organization, $key) + $reserved + $amount > $limit) {
-            throw new PlanLimitException($key, $limit, $plan->name);
+            throw new PlanLimitException($key, $limit, $plan->name, $this->upgradeFor($plan, $key, $limit));
         }
+    }
+
+    /**
+     * Check the limit and create the thing in one step that concurrent requests take turns in:
+     * the organization row is locked until the transaction ends, so two requests at 99/100 can't
+     * both pass the check and create number 101. $callback runs inside the transaction and must
+     * do the creating there.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @param  int|Closure(): int  $reserved  things already promised, counted inside the lock
+     * @return T
+     *
+     * @throws PlanLimitException
+     */
+    public function guard(Organization $organization, LimitKey $key, Closure $callback, int|Closure $reserved = 0): mixed
+    {
+        return DB::transaction(function () use ($organization, $key, $callback, $reserved) {
+            Organization::query()->whereKey($organization->id)->lockForUpdate()->value('id');
+            $this->assertAllows($organization, $key, 1, $reserved instanceof Closure ? $reserved() : $reserved);
+
+            return $callback();
+        });
+    }
+
+    // Centralized "may I?" questions: the only place callers (services, pages) ask, never Blade.
+
+    public function canCreateCustomer(Organization $organization): bool
+    {
+        return $this->within($organization, LimitKey::Customers);
+    }
+
+    /**
+     * @param  int  $reserved  seats already promised, e.g. open invitations
+     */
+    public function canAddTeamMember(Organization $organization, int $reserved = 0): bool
+    {
+        return $this->within($organization, LimitKey::TeamMembers, $reserved);
+    }
+
+    public function canCreateAutomation(Organization $organization): bool
+    {
+        return $this->within($organization, LimitKey::Automations);
+    }
+
+    public function canSendEmail(Organization $organization): bool
+    {
+        return $this->within($organization, LimitKey::OutboundEmails);
+    }
+
+    public function canCreateEstimate(Organization $organization): bool
+    {
+        return $this->within($organization, LimitKey::Estimates);
+    }
+
+    private function within(Organization $organization, LimitKey $key, int $reserved = 0): bool
+    {
+        try {
+            $this->assertAllows($organization, $key, 1, $reserved);
+
+            return true;
+        } catch (PlanLimitException) {
+            return false;
+        }
+    }
+
+    /**
+     * The cheapest plan that lifts this limit (null if none does).
+     */
+    private function upgradeFor(Plan $current, LimitKey $key, int $limit): ?Plan
+    {
+        $better = array_filter($this->plans->all(), fn (Plan $plan) => $plan->priceCents > $current->priceCents && ($plan->limit($key) === null || $plan->limit($key) > $limit));
+        usort($better, fn (Plan $a, Plan $b) => $a->priceCents <=> $b->priceCents);
+
+        return $better[0] ?? null;
     }
 
     /**

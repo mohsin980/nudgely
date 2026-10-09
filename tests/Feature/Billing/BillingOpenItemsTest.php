@@ -1,8 +1,6 @@
 <?php
 
 use App\Billing\PlanCatalog;
-use App\Billing\ProviderSubscription;
-use App\Enums\Automation\AutomationStatus;
 use App\Enums\Billing\LimitKey;
 use App\Enums\Billing\SubscriptionStatus;
 use App\Enums\OrganizationRole;
@@ -10,12 +8,10 @@ use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\Estimates\EstimateException;
 use App\Exceptions\Team\TeamActionException;
-use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Customers\CustomerForm;
 use App\Models\Automation;
 use App\Models\Customer;
 use App\Models\Estimate;
-use App\Models\Organization;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Automation\AutomationBuilder;
@@ -25,7 +21,6 @@ use App\Services\Customers\CustomerService;
 use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
 use App\Services\Team\InvitationService;
-use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -34,27 +29,6 @@ beforeEach(function () {
     ['owner' => $this->owner, 'manager' => $this->manager, 'organization' => $this->organization, 'customer' => $this->customer] = teamBusiness();
     $this->billing = app(BillingService::class);
 });
-
-/**
- * Small Free-plan limits so limit tests stay fast, with enforcement switched on.
- *
- * @param  array<string, int>  $limits
- */
-function tightFreePlan(array $limits): void
-{
-    foreach ($limits as $key => $value) {
-        config(["billing.plans.free.limits.{$key}" => $value]);
-    }
-
-    config(['billing.enforce_limits' => true]);
-    app()->forgetInstance(PlanCatalog::class);
-}
-
-function moveToPlan(Organization $organization, string $plan): Subscription
-{
-    return app(BillingService::class)->sync($organization, 'manual', new ProviderSubscription('manual_sub_'.uniqid(), $plan, SubscriptionStatus::Active,
-        currentPeriodStart: CarbonImmutable::now(), currentPeriodEnd: CarbonImmutable::now()->addMonth()));
-}
 
 // ─── Trial-ending reminder ───────────────────────────────────────────────────────────────
 
@@ -97,7 +71,7 @@ describe('limits', function () {
 
         $add = fn (string $email) => app(CustomerService::class)->create($this->owner->fresh(), ['first_name' => 'New', 'last_name' => 'Person', 'email' => $email]);
 
-        expect(fn () => $add('new@example.com'))->toThrow(ValidationException::class, 'Your Free plan allows up to 3 customers. Upgrade your plan to add more.')
+        expect(fn () => $add('new@example.com'))->toThrow(ValidationException::class, 'Your Free plan allows up to 3 customers. Upgrade to Starter to add more.')
             ->and(Customer::where('organization_id', $this->organization->id)->count())->toBe(3);
 
         moveToPlan($this->organization, 'starter');
@@ -133,24 +107,26 @@ describe('limits', function () {
         expect($create()->revision)->toBe(1);
     });
 
-    test('automations: a new, restored or duplicated automation needs a free slot; archived ones do not count', function () {
+    test('automations: activating needs a free slot; drafts, paused and archived ones do not count', function () {
         tightFreePlan(['automations' => 2]);
         $builder = app(AutomationBuilder::class);
         $input = fn (string $name) => ['name' => $name, 'trigger_type' => 'estimate_sent', 'conditions' => [], 'actions' => [['type' => 'create_task', 'configuration' => ['title' => 'Call']]]];
+        $make = fn (string $name) => $builder->save($this->organization, $this->owner, $input($name));
 
-        $first = $builder->save($this->organization, $this->owner, $input('One'));
-        $second = $builder->save($this->organization, $this->owner, $input('Two'));
-        expect(fn () => $builder->save($this->organization, $this->owner, $input('Three')))->toThrow(PlanLimitException::class, 'allows up to 2 active automations')
-            ->and(fn () => $builder->duplicate($first, $this->owner))->toThrow(PlanLimitException::class);
+        [$one, $two, $three] = [$make('One'), $make('Two'), $make('Three')]; // drafts are free
+        $builder->activate($one, $this->owner);
+        $builder->activate($two, $this->owner);
+        expect(fn () => $builder->activate($three->fresh(), $this->owner))->toThrow(PlanLimitException::class, 'allows up to 2 active automations');
 
-        // Editing an existing one is always fine; archiving frees a slot; restoring needs one again.
-        expect($builder->save($this->organization, $this->owner, $input('One renamed'), $first)->name)->toBe('One renamed');
-        $builder->archive($second, $this->owner);
-        $third = $builder->save($this->organization, $this->owner, $input('Three'));
-        expect($third->status)->toBe(AutomationStatus::Draft)->and(fn () => $builder->restore($second->fresh(), $this->owner))->toThrow(PlanLimitException::class);
+        // Pausing frees a slot; resuming needs one again; editing is always fine.
+        $builder->pause($two->fresh(), $this->owner);
+        $builder->activate($three->fresh(), $this->owner);
+        expect(fn () => $builder->activate($two->fresh(), $this->owner))->toThrow(PlanLimitException::class)
+            ->and($builder->save($this->organization, $this->owner, $input('One renamed'), $one->fresh())->name)->toBe('One renamed');
 
-        // The pages show the message instead of failing.
-        Livewire::actingAs($this->owner)->test(AutomationIndex::class)->call('installTemplate', 'ready_to_book')->assertSee('allows up to 2 active automations');
+        // Archiving frees a slot too.
+        $builder->archive($one->fresh(), $this->owner);
+        $builder->restore($one->fresh(), $this->owner);
         expect(Automation::where('organization_id', $this->organization->id)->count())->toBe(3);
     });
 

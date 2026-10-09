@@ -11,6 +11,7 @@ use App\Enums\MessageDirection;
 use App\Enums\Team\MemberStatus;
 use App\Exceptions\Billing\BillingException;
 use App\Livewire\Settings\BillingOverview;
+use App\Livewire\Settings\BillingUsage;
 use App\Models\Automation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
@@ -172,7 +173,7 @@ test('plan changes, cancellation and resuming go through the billing service', f
     // A new subscription can start after the old one ended; history keeps both.
     $this->billing->subscribe($this->owner, 'starter');
     expect(Subscription::where('organization_id', $this->organization->id)->count())->toBe(2)
-        ->and(OrganizationActivity::where('action', 'like', 'subscription_%')->count())->toBe(6);
+        ->and(OrganizationActivity::where('action', 'like', 'subscription_%')->count())->toBe(7); // incl. subscription_ended
 });
 
 test('the application can use another provider without changing the services', function () {
@@ -254,8 +255,9 @@ test('limits are checked against real usage', function () {
     $summary = $this->entitlements->summary($this->organization);
     expect($summary['team_members'])->toMatchArray(['used' => 3, 'limit' => 1, 'remaining' => 0, 'over' => true]);
 
-    // Archived automations don't use a slot.
-    Automation::factory()->count(2)->create(['organization_id' => $this->organization->id]);
+    // Only running automations use a slot: drafts, paused and archived ones don't.
+    Automation::factory()->count(2)->create(['organization_id' => $this->organization->id, 'status' => AutomationStatus::Active]);
+    Automation::factory()->create(['organization_id' => $this->organization->id, 'status' => AutomationStatus::Draft]);
     Automation::factory()->create(['organization_id' => $this->organization->id, 'status' => AutomationStatus::Archived]);
     expect($this->entitlements->allows($this->organization, LimitKey::Automations))->toBeTrue()
         ->and($this->entitlements->allows($this->organization, LimitKey::Automations, 2))->toBeFalse();
@@ -341,9 +343,11 @@ test('the billing page shows the plan, status and usage', function () {
     $this->billing->subscribe($this->owner, 'starter', trialDays: 14);
 
     Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)
-        ->assertSeeInOrder(['Current plan', 'Starter', '$29.00 / month', 'Status', 'Trialing', 'Trial ends'])
-        ->assertSeeInOrder(['Usage', 'Customers', '1 / 500', 'Team members', '3 / 3'])
-        ->assertSee('Manage payment & invoices', false)->assertSee('Cancel subscription');
+        ->assertSeeInOrder(['Current plan', 'Starter', '$29.00 / month', 'Trialing', 'Billing period', 'Trial ends', 'Next billing date'])
+        ->assertSee('Manage billing')->assertSee('Change plan')->assertSee('Cancel subscription');
+
+    Livewire::actingAs($this->owner->fresh())->test(BillingUsage::class)
+        ->assertSeeInOrder(['Customers', '1 / 500', 'Team members', '3 / 3']);
 });
 
 test('with the manual provider the same checkout flow completes locally without payment', function () {

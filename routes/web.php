@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Billing\PaymentMethodController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Settings\LogoController;
+use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
 use App\Livewire\Automations\AutomationForm;
@@ -20,9 +23,13 @@ use App\Livewire\Estimates\ShowEstimate;
 use App\Livewire\FollowUps\FollowUpIndex;
 use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
+use App\Livewire\Onboarding\Wizard;
 use App\Livewire\Settings\AccountSecurity;
 use App\Livewire\Settings\AutomationDefaults;
+use App\Livewire\Settings\BillingHistory;
 use App\Livewire\Settings\BillingOverview;
+use App\Livewire\Settings\BillingPlans;
+use App\Livewire\Settings\BillingUsage;
 use App\Livewire\Settings\BusinessPreferences;
 use App\Livewire\Settings\BusinessProfile;
 use App\Livewire\Settings\EmailSettings;
@@ -45,7 +52,8 @@ Route::get('/', function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', Dashboard::class)->middleware('can:access-organization')->name('dashboard');
+    Route::get('/dashboard', Dashboard::class)->middleware(['can:access-organization', 'onboarding'])->name('dashboard');
+    Route::get('/onboarding', Wizard::class)->middleware(['can:access-organization', 'can:manage-onboarding'])->name('onboarding.show');
     Route::get('/follow-ups', FollowUpIndex::class)->middleware('can:viewAny,'.FollowUp::class)->name('follow-ups.index');
     // Customer IDs are looked up inside the user's organization by each component.
     Route::middleware('can:access-organization')->group(function () {
@@ -91,7 +99,13 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
     Route::get('/automation', AutomationDefaults::class)->middleware('can:manage-business-defaults')->name('automation');
 
     Route::get('/security', AccountSecurity::class)->name('security');
-    Route::get('/billing', BillingOverview::class)->middleware('can:manage-billing')->name('billing');
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('/billing', BillingOverview::class)->name('billing');
+        Route::get('/billing/plans', BillingPlans::class)->name('billing.plans');
+        Route::get('/billing/usage', BillingUsage::class)->name('billing.usage');
+        Route::get('/billing/history', BillingHistory::class)->name('billing.history');
+        Route::get('/billing/payment-method', PaymentMethodController::class)->middleware('throttle:billing')->name('billing.payment-method');
+    });
 
     // Automations moved to /automations (Task 12); old links keep working.
     Route::get('/automations/{path?}', fn (?string $path = null) => redirect('/automations'.($path ? '/'.str_replace('/runs', '/logs', $path) : ''), 301))->where('path', '.*')->name('automations.legacy');
@@ -136,7 +150,17 @@ Route::get('/inbox/{conversationId}', fn (int $conversationId) => redirect()->ro
 Route::post('/webhooks/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.stripe');
 
 // Called by email providers: authenticated by the provider handler, not by user sessions.
+// Readiness probe for load balancers and deploy checks. Public and minimal; see HealthController.
+Route::get('/health/ready', [HealthController::class, 'ready'])
+    ->middleware('throttle:60,1')
+    ->name('health.ready');
+
 Route::post('/webhooks/email/inbound/{provider}', InboundEmailWebhookController::class)
     ->whereAlpha('provider')
     ->middleware('throttle:email-webhooks')
     ->name('webhooks.email.inbound');
+
+Route::post('/webhooks/email/events/{provider}', DeliveryEventWebhookController::class)
+    ->whereAlpha('provider')
+    ->middleware('throttle:email-webhooks')
+    ->name('webhooks.email.events');

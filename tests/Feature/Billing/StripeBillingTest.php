@@ -5,6 +5,7 @@ use App\Enums\Billing\LimitKey;
 use App\Enums\Billing\SubscriptionStatus;
 use App\Exceptions\Billing\BillingException;
 use App\Livewire\Settings\BillingOverview;
+use App\Livewire\Settings\BillingPlans;
 use App\Models\Customer;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
@@ -64,7 +65,7 @@ test('checkout uses a Stripe hosted page for the plan price with organization me
 });
 
 test('the billing page sends the owner to Stripe checkout and records the subscription on return', function () {
-    Livewire::actingAs($this->owner)->test(BillingOverview::class)
+    Livewire::actingAs($this->owner)->test(BillingPlans::class)
         ->assertSee('Start 14-day free trial')
         ->call('choosePlan', 'pro')
         ->assertRedirect('https://checkout.stripe.test/c/'.array_key_first($this->stripe->sessions));
@@ -159,7 +160,7 @@ test('Pro to Starter is scheduled for the end of the paid period and keeps all d
     $subscription = $this->billing->refresh($this->organization->fresh());
     Customer::factory()->count(600)->for($this->organization)->create(); // more than Starter allows
 
-    $page = Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)->assertSee("You're over this plan's limits", false);
+    $page = Livewire::actingAs($this->owner->fresh())->test(BillingPlans::class)->assertSee("You're over this plan's limits", false);
     $page->call('choosePlan', 'starter')->assertSee("You're on Pro until");
 
     $subscription->refresh();
