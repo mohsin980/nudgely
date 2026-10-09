@@ -22,7 +22,7 @@
     @foreach (array_filter(['overdue' => 'Overdue', 'due_today' => 'Due today', 'upcoming' => 'Upcoming'], fn ($heading, $key) => $filter === '' || ['overdue' => 'overdue', 'today' => 'due_today'][$filter] === $key, ARRAY_FILTER_USE_BOTH) as $key => $heading)
         <section aria-labelledby="{{ $key }}-heading" class="space-y-2" data-section="{{ $key }}">
             <h2 id="{{ $key }}-heading" @class(['text-sm font-semibold tracking-wide uppercase', 'text-red-700' => $key === 'overdue', 'text-gray-500' => $key !== 'overdue'])>
-                {{ $heading }} <span class="font-normal">({{ $this->sections[$key]->count() }})</span>
+                {{ $heading }} <span class="font-normal">({{ $this->sectionCounts[$key] }})</span>
             </h2>
             @if ($this->sections[$key]->isEmpty())
                 <p class="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-4 text-sm text-gray-500">{{ $key === 'overdue' ? 'Nothing overdue.' : 'Nothing here.' }}</p>
@@ -32,6 +32,9 @@
                         @include('follow-ups.item')
                     @endforeach
                 </ul>
+                @if ($this->sectionCounts[$key] > $this->sections[$key]->count())
+                    <p class="text-xs text-gray-500">Showing the {{ $this->sections[$key]->count() }} soonest of {{ $this->sectionCounts[$key] }}.</p>
+                @endif
             @endif
         </section>
     @endforeach

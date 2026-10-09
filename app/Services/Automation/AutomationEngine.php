@@ -212,14 +212,24 @@ class AutomationEngine
     {
         $now = now();
 
-        $rows = DB::select(
-            'update automation_runs set resume_at = ?, updated_at = ?
-             where status = ? and id in (
-                 select id from automation_runs where status = ? and resume_at <= ? order by resume_at limit ? for update skip locked
-             )
-             returning id',
-            [$now->copy()->addMinutes(10), $now, AutomationRunStatus::Waiting->value, AutomationRunStatus::Waiting->value, $now, 200],
-        );
+        // Same shape as markDue: pick a bounded set under locks, then lease exactly those runs (see FollowUpProcessor).
+        $rows = DB::transaction(function () use ($now) {
+            $ids = collect(DB::select(
+                'select id from automation_runs where status = ? and resume_at <= ? order by resume_at limit ? for update skip locked',
+                [AutomationRunStatus::Waiting->value, $now, 200],
+            ))->pluck('id')->map(fn ($id) => (int) $id);
+
+            if ($ids->isEmpty()) {
+                return [];
+            }
+
+            return DB::select(
+                'update automation_runs set resume_at = ?, updated_at = ?
+                 where status = ? and id = any(?::bigint[])
+                 returning id',
+                [$now->copy()->addMinutes(10), $now, AutomationRunStatus::Waiting->value, '{'.$ids->implode(',').'}'],
+            );
+        });
 
         foreach ($rows as $row) {
             ResumeAutomationRunJob::dispatch((int) $row->id);

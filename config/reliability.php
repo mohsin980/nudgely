@@ -28,6 +28,11 @@ return [
         'stalled_after_minutes' => (int) env('RELIABILITY_STALLED_RUN_MINUTES', 15),
     ],
 
+    'estimates' => [
+        // Estimates expired per locked batch by estimates:expire. Smaller batches hold locks for less time.
+        'expiry_batch_size' => (int) env('RELIABILITY_ESTIMATE_EXPIRY_BATCH', 500),
+    ],
+
     'retention' => [
         'webhook_events_days' => 90,
         'billing_webhook_events_days' => 180,
