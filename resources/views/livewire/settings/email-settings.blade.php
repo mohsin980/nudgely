@@ -1,4 +1,4 @@
-<x-settings.shell title="Email Settings" description="Configure the email address QuoteFlow will use when communicating with your customers.">
+<x-settings.shell title="Email Settings" description="Configure the email address QuoteFollow will use when communicating with your customers.">
     @if (request()->query('from') === 'onboarding')
         <p><a href="{{ route('onboarding.show') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline" data-back-to-setup>← Back to setup</a></p>
     @endif
@@ -39,7 +39,7 @@
             <div class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
                 <h3 class="text-base font-semibold text-gray-900">Connect your business email</h3>
                 <p class="mx-auto mt-2 max-w-md text-sm text-gray-600">
-                    Add your business domain and sender address so QuoteFlow can eventually send automated follow-ups from your own email.
+                    Add your business domain and sender address so QuoteFollow can eventually send automated follow-ups from your own email.
                 </p>
 
                 @unless ($showForm)
@@ -362,7 +362,7 @@
                     <p class="font-medium text-gray-900">{{ $pendingDeletion->sender_email }}</p>
                     @if ($pendingDeletion->is_default)
                         <p class="rounded-md bg-amber-50 p-3 text-amber-800">
-                            This is your default sender. Until you set another verified connection as default, QuoteFlow will have no default sending email.
+                            This is your default sender. Until you set another verified connection as default, QuoteFollow will have no default sending email.
                         </p>
                     @endif
                 </div>

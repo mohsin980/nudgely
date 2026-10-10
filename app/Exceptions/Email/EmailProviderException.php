@@ -62,7 +62,7 @@ class EmailProviderException extends RuntimeException
     public static function domainInUse(string $domain): self
     {
         return new self("Domain [{$domain}] is registered by another organization.", self::DOMAIN_IN_USE,
-            'This domain is already connected to another QuoteFlow account. Please contact support if you own this domain.');
+            'This domain is already connected to another QuoteFollow account. Please contact support if you own this domain.');
     }
 
     public static function inProgress(string $domain): self

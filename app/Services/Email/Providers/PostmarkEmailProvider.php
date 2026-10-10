@@ -43,7 +43,7 @@ class PostmarkEmailProvider implements EmailProviderInterface
             $details = $this->request('register domain', 'POST', '/domains', $payload);
         } catch (EmailProviderException $e) {
             // The domain already exists in our Postmark account but is not referenced by any
-            // QuoteFlow connection (the caller checks that). Re-create it so fresh DKIM keys
+            // QuoteFollow connection (the caller checks that). Re-create it so fresh DKIM keys
             // are issued and nobody inherits a verification they did not perform.
             $existingId = $e->reason === EmailProviderException::REJECTED ? $this->findDomainId($domain) : null;
 

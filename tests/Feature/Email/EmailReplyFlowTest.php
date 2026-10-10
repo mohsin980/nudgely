@@ -17,7 +17,7 @@ use Tests\TestCase;
  * The whole Tasks 1–5 flow in one scenario:
  *
  * business sends estimate → sales@example.com with secure Reply-To → customer replies →
- * provider webhook → QuoteFlow identifies business, customer and conversation → saves reply → Inbox.
+ * provider webhook → QuoteFollow identifies business, customer and conversation → saves reply → Inbox.
  */
 class EmailReplyFlowTest extends TestCase
 {
@@ -83,7 +83,7 @@ class EmailReplyFlowTest extends TestCase
             ->assertOk()
             ->assertJson(['message' => 'Accepted.']);
 
-        // QuoteFlow identified the business, customer and conversation, and saved the reply.
+        // QuoteFollow identified the business, customer and conversation, and saved the reply.
         $reply = Message::where('direction', 'inbound')->sole();
         $this->assertSame($organization->id, $reply->organization_id);
         $this->assertSame($conversation->id, $reply->conversation_id);

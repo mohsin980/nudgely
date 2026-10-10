@@ -13,7 +13,7 @@
                 {{ $this->conversation->customer->name }}
                 <span class="font-normal text-gray-500">&lt;{{ $message->from_address }}&gt;</span>
             @else
-                {{ $message->from_name ?? 'QuoteFlow' }}
+                {{ $message->from_name ?? 'QuoteFollow' }}
                 <span class="font-normal text-gray-500">&lt;{{ $message->from_address }}&gt;</span>
             @endif
         </p>
