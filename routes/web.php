@@ -47,9 +47,9 @@ use App\Models\FollowUp;
 use App\Support\Settings\SettingsNavigation;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', fn () => auth()->check()
+    ? redirect()->route('dashboard')
+    : redirect()->route('login'));
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->middleware(['can:access-organization', 'onboarding'])->name('dashboard');
