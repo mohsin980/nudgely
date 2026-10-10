@@ -7,7 +7,6 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Jobs\SendEmailJob;
 use App\Models\Automation;
-use App\Support\Database\TenantIntegrity;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
@@ -23,11 +22,13 @@ use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
+use App\Support\Database\TenantIntegrity;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
@@ -42,7 +43,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability', 'Feature/Performance', 'Feature/Observability');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/Admin', 'Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability', 'Feature/Performance', 'Feature/Observability');
 
 /*
 |--------------------------------------------------------------------------
@@ -298,9 +299,9 @@ function stripeEvent(string $type, array $object, ?string $id = null): array
  * Index names on the given tables. Works on PostgreSQL and MySQL, unlike querying a system catalog.
  *
  * @param  array<int, string>  $tables
- * @return Illuminate\Support\Collection<int, string>
+ * @return Collection<int, string>
  */
-function indexNamesOf(array $tables): Illuminate\Support\Collection
+function indexNamesOf(array $tables): Collection
 {
     return collect($tables)->flatMap(fn (string $table) => collect(Schema::getIndexes($table))->pluck('name'));
 }
