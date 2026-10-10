@@ -241,7 +241,9 @@ class InboundEmailProcessingTest extends TestCase
     public function test_database_rejects_a_second_copy_of_an_inbound_email(): void
     {
         $this->receive();
-        $copy = Message::sole()->replicate();
+        // Generated columns (the partial-index keys and the JSON key copies) cannot be written, so they are left out.
+        $message = Message::sole();
+        $copy = $message->replicate(array_values(array_filter(array_keys($message->getAttributes()), fn (string $key) => str_ends_with($key, '_key'))));
 
         $this->expectException(UniqueConstraintViolationException::class);
         DB::transaction(fn () => $copy->save());

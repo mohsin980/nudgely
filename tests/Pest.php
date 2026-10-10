@@ -7,6 +7,7 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Jobs\SendEmailJob;
 use App\Models\Automation;
+use App\Support\Database\TenantIntegrity;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\EmailConnection;
@@ -25,6 +26,7 @@ use App\Services\FollowUps\FollowUpService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeEmailProvider;
@@ -293,11 +295,33 @@ function stripeEvent(string $type, array $object, ?string $id = null): array
 }
 
 /**
+ * Index names on the given tables. Works on PostgreSQL and MySQL, unlike querying a system catalog.
+ *
+ * @param  array<int, string>  $tables
+ * @return Illuminate\Support\Collection<int, string>
+ */
+function indexNamesOf(array $tables): Illuminate\Support\Collection
+{
+    return collect($tables)->flatMap(fn (string $table) => collect(Schema::getIndexes($table))->pluck('name'));
+}
+
+/**
  * Build deliberately inconsistent data (a record pointing at another organization's record) to prove the
  * application's own checks still hold even when the database's tenant-integrity triggers are bypassed.
  */
 function withoutTenantTriggers(string $table, Closure $build): mixed
 {
+    // PostgreSQL can disable a table's triggers; MySQL cannot, so its checks are dropped and recreated.
+    if (DB::getDriverName() !== 'pgsql') {
+        TenantIntegrity::removeFor($table);
+
+        try {
+            return $build();
+        } finally {
+            TenantIntegrity::installFor($table);
+        }
+    }
+
     DB::unprepared("ALTER TABLE {$table} DISABLE TRIGGER USER");
 
     try {

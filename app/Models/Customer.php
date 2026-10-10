@@ -35,6 +35,7 @@ class Customer extends Model
     {
         return [
             'email_opted_out_at' => 'datetime',
+            'is_demo' => 'boolean',
             'last_activity_at' => 'datetime',
             'status' => CustomerStatus::class,
         ];

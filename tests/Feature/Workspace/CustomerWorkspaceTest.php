@@ -170,7 +170,8 @@ test('customers are sorted (recently active by default) and paginated in the dat
     DB::enableQueryLog();
     customerList($this->admin);
     // Every query listing customers is paged by the database (counts and the "any customers?" check aside).
-    $selects = collect(DB::getQueryLog())->pluck('query')->filter(fn ($q) => str_contains($q, 'from "customers"') && ! str_contains($q, 'count(*)') && ! str_contains($q, 'select exists'));
+    $selects = collect(DB::getQueryLog())->pluck('query')->map(fn ($q) => str_replace('`', '"', $q))
+        ->filter(fn ($q) => str_contains($q, 'from "customers"') && ! str_contains($q, 'count(*)') && ! str_contains($q, 'select exists'));
     expect($selects)->not->toBeEmpty()->and($selects->every(fn ($q) => str_contains($q, 'limit 25')))->toBeTrue();
 });
 

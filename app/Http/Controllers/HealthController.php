@@ -19,6 +19,8 @@ class HealthController extends Controller
 {
     private const TIMEOUT = '2s';
 
+    private const TIMEOUT_MS = 2000;
+
     public function ready(): JsonResponse
     {
         $ready = $this->databaseReachable();
@@ -32,9 +34,14 @@ class HealthController extends Controller
         try {
             return DB::transaction(function () {
                 // Bounded: a database that hangs must fail the check, not hold the health probe open.
-                DB::statement("set local statement_timeout = '".self::TIMEOUT."'");
+                if (DB::getDriverName() === 'pgsql') {
+                    DB::statement("set local statement_timeout = '".self::TIMEOUT."'");
 
-                return (int) DB::selectOne('select 1 as ok')->ok === 1;
+                    return (int) DB::selectOne('select 1 as ok')->ok === 1;
+                }
+
+                // MySQL: a hint limits this one statement. A session setting would outlive the check on a pooled connection.
+                return (int) DB::selectOne('select /*+ MAX_EXECUTION_TIME('.self::TIMEOUT_MS.') */ 1 as ok')->ok === 1;
             });
         } catch (Throwable $exception) {
             Log::warning('Readiness check failed: database.', [

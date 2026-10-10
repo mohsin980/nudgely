@@ -485,43 +485,54 @@ class EstimateService
     public function expireDue(): int
     {
         // The application's clock, not the database's, so every "today" in the app agrees.
-        $now = now()->utc()->toIso8601String();
+        $now = now()->utc();
         $limit = (int) config('reliability.estimates.expiry_batch_size');
         $ids = collect();
 
-        // Bounded batches: each one locks at most $limit rows, skips rows another worker holds, and
-        // stops early when the batch is short. The predicate is unchanged from the single-statement version.
-        for ($batch = 0; $batch < self::EXPIRY_MAX_BATCHES; $batch++) {
-            // Lock a bounded set of due estimates, then expire exactly those by primary key. Both steps share a
-            // transaction, so the locked rows cannot change status in between; skip locked leaves rows another
-            // worker holds to that worker.
-            $expired = DB::transaction(function () use ($now, $limit) {
-                $due = collect(DB::select(<<<'SQL'
-                    select due.id
-                    from estimates due
-                    join organizations dorg on dorg.id = due.organization_id
-                    where due.status in ('sent', 'viewed')
-                      and due.valid_until < (?::timestamptz at time zone coalesce(dorg.timezone, ?))::date
-                    limit ?
-                    for update of due skip locked
-                SQL, [$now, config('follow_ups.default_timezone'), $limit]))->pluck('id')->map(fn ($id) => (int) $id);
+        // "Today" is per organization timezone. Each zone's local date is computed here, so the database
+        // needs no timezone tables (MySQL does not ship with them).
+        $zones = DB::table('organizations')
+            ->selectRaw('distinct coalesce(timezone, ?) as tz', [config('follow_ups.default_timezone')])
+            ->pluck('tz');
 
-                if ($due->isEmpty()) {
-                    return collect();
+        foreach ($zones as $zone) {
+            $today = CarbonImmutable::now($zone)->toDateString();
+
+            // Bounded batches: each one locks at most $limit rows, skips rows another worker holds, and
+            // stops early when the batch is short.
+            for ($batch = 0; $batch < self::EXPIRY_MAX_BATCHES; $batch++) {
+                // Lock a bounded set of due estimates, then expire exactly those by primary key. Both steps share a
+                // transaction, so the locked rows cannot change status in between; skip locked leaves rows another
+                // worker holds to that worker.
+                $expired = DB::transaction(function () use ($now, $limit, $zone, $today) {
+                    $due = collect(DB::select(<<<'SQL'
+                        select due.id
+                        from estimates due
+                        join organizations dorg on dorg.id = due.organization_id
+                        where due.status in ('sent', 'viewed')
+                          and coalesce(dorg.timezone, ?) = ?
+                          and due.valid_until < ?
+                        limit ?
+                        for update of due skip locked
+                    SQL, [config('follow_ups.default_timezone'), $zone, $today, $limit]))->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+                    if ($due === []) {
+                        return [];
+                    }
+
+                    DB::table('estimates')
+                        ->whereIn('id', $due)
+                        ->whereIn('status', ['sent', 'viewed'])
+                        ->update(['status' => EstimateStatus::Expired->value, 'expired_at' => $now, 'updated_at' => $now]);
+
+                    return $due;
+                });
+
+                $ids = $ids->merge($expired);
+
+                if (count($expired) < $limit) {
+                    break;
                 }
-
-                return collect(DB::select(<<<'SQL'
-                    update estimates
-                    set status = 'expired', expired_at = ?::timestamptz, updated_at = ?::timestamptz
-                    where id = any(?::bigint[])
-                    returning id
-                SQL, [$now, $now, '{'.$due->implode(',').'}']))->pluck('id');
-            });
-
-            $ids = $ids->merge($expired);
-
-            if ($expired->count() < $limit) {
-                break;
             }
         }
 
@@ -682,10 +693,16 @@ class EstimateService
      */
     private function nextNumber(Organization $organization): string
     {
-        $next = DB::selectOne(
-            'update organizations set estimate_sequence = greatest(estimate_sequence + 1, ?) where id = ? returning estimate_sequence',
-            [(int) config('estimates.first_number'), $organization->id],
-        )->estimate_sequence;
+        // The update locks the counter row until the transaction ends, so the read below is this request's number.
+        $next = DB::transaction(function () use ($organization) {
+            $first = (int) config('estimates.first_number');
+
+            DB::table('organizations')
+                ->where('id', $organization->id)
+                ->update(['estimate_sequence' => DB::raw("greatest(estimate_sequence + 1, {$first})")]);
+
+            return (int) DB::table('organizations')->where('id', $organization->id)->value('estimate_sequence');
+        });
 
         return config('estimates.number_prefix').$next;
     }

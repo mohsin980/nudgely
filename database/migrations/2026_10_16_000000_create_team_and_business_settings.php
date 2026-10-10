@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -24,11 +25,12 @@ return new class extends Migration
         // admin/member → owner/manager/staff: the first admin of each organization becomes its owner.
         DB::statement("update users set role = 'manager' where role = 'admin'");
         DB::statement("update users set role = 'staff' where role = 'member'");
-        DB::statement("update users u set role = 'owner' where u.id in (select min(id) from users where role = 'manager' and organization_id is not null group by organization_id)");
+        // A derived table: MySQL does not let an UPDATE read the table it changes directly.
+        DB::statement("update users set role = 'owner' where id in (select id from (select min(id) as id from users where role = 'manager' and organization_id is not null group by organization_id) as firsts)");
         DB::statement("alter table users alter column role set default 'staff'");
 
         // Exactly one owner per organization (also the last-owner guard at the database level).
-        DB::statement("create unique index users_one_owner_per_organization on users (organization_id) where role = 'owner'");
+        PartialIndex::unique('users', 'users_one_owner_per_organization', ['organization_id'], "role = 'owner'");
 
         Schema::table('organizations', function (Blueprint $table) {
             $table->string('legal_name', 150)->nullable();
@@ -68,7 +70,7 @@ return new class extends Migration
         });
 
         // One open invitation per email and organization.
-        DB::statement('create unique index team_invitations_one_open_per_email on team_invitations (organization_id, email) where accepted_at is null and revoked_at is null');
+        PartialIndex::unique('team_invitations', 'team_invitations_one_open_per_email', ['organization_id', 'email'], 'accepted_at is null and revoked_at is null');
 
         Schema::create('user_notification_preferences', function (Blueprint $table) {
             $table->id();
@@ -79,7 +81,7 @@ return new class extends Migration
             $table->boolean('enabled');
             $table->timestamps();
 
-            $table->unique(['user_id', 'organization_id', 'type', 'channel']);
+            $table->unique(['user_id', 'organization_id', 'type', 'channel'], 'user_notif_prefs_unique');
         });
 
         Schema::create('organization_activity', function (Blueprint $table) {
@@ -107,7 +109,7 @@ return new class extends Migration
                 'country', 'logo_path', 'currency', 'date_format', 'time_format', 'settings']);
         });
 
-        DB::statement('drop index if exists users_one_owner_per_organization');
+        PartialIndex::drop('users', 'users_one_owner_per_organization');
         DB::statement("update users set role = 'admin' where role in ('owner', 'manager')");
         DB::statement("update users set role = 'member' where role = 'staff'");
         DB::statement("alter table users alter column role set default 'member'");

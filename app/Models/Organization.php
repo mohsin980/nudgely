@@ -45,6 +45,15 @@ class Organization extends Model
      *
      * @return array<string, string>
      */
+    protected static function booted(): void
+    {
+        // MySQL checks a restricted foreign key (estimate → customer) as each row is removed, while PostgreSQL checks
+        // at the end of the statement. Removing the estimates first lets the organization's cascade complete on both.
+        static::deleting(function (Organization $organization) {
+            Estimate::query()->where('organization_id', $organization->id)->delete();
+        });
+    }
+
     protected function casts(): array
     {
         return [

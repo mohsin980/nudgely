@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -35,10 +36,10 @@ return new class extends Migration
         });
 
         // Existing runs: their customer is the conversation's.
-        DB::statement('update automation_runs r set customer_id = c.customer_id from conversations c where c.id = r.conversation_id and r.customer_id is null');
+        DB::statement('update automation_runs set customer_id = (select c.customer_id from conversations c where c.id = automation_runs.conversation_id) where customer_id is null');
 
         // The scheduler's lookup of waiting runs that are due.
-        DB::statement("create index automation_runs_waiting_index on automation_runs (resume_at) where status = 'waiting'");
+        PartialIndex::index('automation_runs', 'automation_runs_waiting_index', ['resume_at'], "status = 'waiting'");
 
         Schema::table('automation_action_runs', function (Blueprint $table) {
             // How many times a worker started this action (retries included).
@@ -66,7 +67,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('automation_history');
         Schema::table('automation_action_runs', fn (Blueprint $table) => $table->dropColumn('attempts'));
-        DB::statement('drop index if exists automation_runs_waiting_index');
+        PartialIndex::drop('automation_runs', 'automation_runs_waiting_index');
         Schema::table('automation_runs', function (Blueprint $table) {
             $table->dropIndex(['customer_id', 'created_at']);
             $table->dropConstrainedForeignId('customer_id');

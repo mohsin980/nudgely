@@ -60,9 +60,9 @@ class ShowAutomation extends Component
     {
         $row = $this->automation->runs()
             ->selectRaw('count(*) as executions')
-            ->selectRaw("count(*) filter (where status = 'failed') as failed")
+            ->selectRaw("count(case when status = 'failed' then 1 end) as failed")
             ->selectRaw('max(created_at) as last')
-            ->selectRaw("min(resume_at) filter (where status = 'waiting') as next")
+            ->selectRaw("min(case when status = 'waiting' then resume_at end) as next")
             ->toBase()->first();
 
         return ['executions' => (int) $row->executions, 'failed' => (int) $row->failed, 'last' => $row->last, 'next' => $row->next];

@@ -486,7 +486,8 @@ function dashboardQueries(User $user): array
     DB::flushQueryLog();
     DB::enableQueryLog();
     dashboard($user);
-    $queries = collect(DB::getQueryLog())->pluck('query')->all();
+    // MySQL quotes identifiers with backticks, PostgreSQL with double quotes; the assertions use double quotes.
+    $queries = collect(DB::getQueryLog())->pluck('query')->map(fn ($sql) => str_replace('`', '"', $sql))->all();
     DB::disableQueryLog();
 
     return $queries;

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ return new class extends Migration
         });
 
         // At most one current (not cancelled or expired) subscription per organization.
-        DB::statement("create unique index subscriptions_one_current_per_organization on subscriptions (organization_id) where status not in ('cancelled', 'expired')");
+        PartialIndex::unique('subscriptions', 'subscriptions_one_current_per_organization', ['organization_id'], "status not in ('cancelled', 'expired')");
     }
 
     public function down(): void

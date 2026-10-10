@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ return new class extends Migration
         });
 
         // One outbound message per provider message ID: a duplicate delivery event can never match two rows.
-        DB::statement("CREATE UNIQUE INDEX messages_outbound_provider_message_unique ON messages (provider, provider_message_id) WHERE direction = 'outbound' AND provider_message_id IS NOT NULL");
+        PartialIndex::unique('messages', 'messages_outbound_provider_message_unique', ['provider', 'provider_message_id'], "direction = 'outbound' AND provider_message_id IS NOT NULL");
 
         Schema::table('webhook_events', function (Blueprint $table) {
             // Set once the event is traced to a tenant (from a reply route or a message), never from the payload.
@@ -56,14 +57,15 @@ return new class extends Migration
             $table->dropColumn(['email_suppressed_address', 'email_suppression_reason', 'email_suppressed_at']);
         });
 
+        // The foreign key goes first: MySQL will not drop an index that a foreign key still needs.
         Schema::table('webhook_events', function (Blueprint $table) {
+            $table->dropForeign(['organization_id']);
             $table->dropIndex(['status', 'created_at']);
             $table->dropIndex(['organization_id', 'created_at']);
-            $table->dropConstrainedForeignId('organization_id');
-            $table->dropColumn(['status', 'attempt_count', 'received_at', 'correlation_id', 'payload_hash']);
+            $table->dropColumn(['organization_id', 'status', 'attempt_count', 'received_at', 'correlation_id', 'payload_hash']);
         });
 
-        DB::statement('DROP INDEX IF EXISTS messages_outbound_provider_message_unique');
+        PartialIndex::drop('messages', 'messages_outbound_provider_message_unique');
 
         Schema::table('messages', function (Blueprint $table) {
             $table->dropIndex(['status', 'created_at']);

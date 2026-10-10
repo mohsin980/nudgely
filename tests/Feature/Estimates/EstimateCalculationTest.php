@@ -162,10 +162,19 @@ test('the database refuses impossible states such as accepted without accepted_a
 });
 
 test('money is stored as numeric, not floating point', function () {
-    $types = collect(DB::select("select column_name, data_type, numeric_precision, numeric_scale from information_schema.columns where table_name in ('estimates', 'estimate_items') and column_name in ('subtotal', 'discount_amount', 'tax_amount', 'total', 'unit_price', 'amount')"))
-        ->map(fn ($c) => "{$c->data_type}({$c->numeric_precision},{$c->numeric_scale})")->unique()->values()->all();
+    $types = collect(DB::select(<<<'SQL'
+        select data_type as type_name, numeric_precision as precision_value, numeric_scale as scale_value
+        from information_schema.columns
+        where table_schema = database()
+          and table_name in ('estimates', 'estimate_items')
+          and column_name in ('subtotal', 'discount_amount', 'tax_amount', 'total', 'unit_price', 'amount')
+    SQL))
+        ->map(fn ($c) => "{$c->type_name}({$c->precision_value},{$c->scale_value})")->unique()->values()->all();
 
-    expect($types)->toBe(['numeric(12,2)']);
+    // PostgreSQL names the type numeric; MySQL names it decimal. Both are exact (not floating point).
+    $exact = DB::getDriverName() === 'pgsql' ? 'numeric(12,2)' : 'decimal(12,2)';
+
+    expect($types)->toBe([$exact]);
 });
 
 test('money parsing accepts common formats and rejects bad ones', function () {

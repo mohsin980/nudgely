@@ -72,7 +72,8 @@ test('estimate expiry works in bounded batches and expires everything due', func
 
 test('estimate expiry leaves estimates that are not yet past their valid-until date', function () {
     ['owner' => $owner, 'customer' => $customer] = teamBusiness('Valid HVAC');
-    $due = sentEstimateUntil($owner, $customer, now()->subDay());
+    // Two days back is past in every timezone; one day back depends on the hour the suite runs.
+    $due = sentEstimateUntil($owner, $customer, now()->subDays(2));
     $later = sentEstimateUntil($owner, $customer, now()->addDays(10));
 
     expect(app(EstimateService::class)->expireDue())->toBe(1)
@@ -117,19 +118,25 @@ test('the directories cap a requested page size to the allowed sizes', function 
 });
 
 test('the hourly scans and the inbox use the indexes they were given', function () {
-    $indexes = collect(DB::select("select indexname, indexdef from pg_indexes where schemaname = 'public'"))->keyBy('indexname');
+    $names = indexNamesOf(['estimates', 'organizations', 'subscriptions', 'conversations', 'customers', 'messages', 'users', 'follow_ups', 'webhook_events']);
 
-    expect($indexes)->toHaveKeys([
+    expect($names)->toContain(
         'estimates_expiry_due_index', 'organizations_trial_expiry_index', 'subscriptions_past_due_grace_index',
         'conversations_organization_id_last_message_at_index', 'customers_organization_id_status_index',
         'messages_organization_id_direction_sent_at_index', 'messages_status_created_at_index', 'users_organization_id_status_index',
         'follow_ups_organization_id_status_due_at_index', 'webhook_events_provider_event_type_external_event_id_unique',
-    ]);
-    expect($indexes['estimates_expiry_due_index']->indexdef)->toContain("WHERE ((status)::text = ANY ((ARRAY['sent'::character varying, 'viewed'::character varying])::text[]))");
+    );
+
+    // PostgreSQL keeps the partial condition on the index; MySQL indexes the column (see PartialIndex).
+    if (DB::getDriverName() === 'pgsql') {
+        $definition = collect(DB::select("select indexdef from pg_indexes where indexname = 'estimates_expiry_due_index'"))->value('indexdef');
+
+        expect($definition)->toContain("WHERE ((status)::text = ANY ((ARRAY['sent'::character varying, 'viewed'::character varying])::text[]))");
+    }
 });
 
 test('single-column indexes covered by a composite are removed, and no other index was lost', function () {
-    $names = collect(DB::select("select indexname from pg_indexes where schemaname = 'public'"))->pluck('indexname');
+    $names = indexNamesOf(['conversations', 'customers', 'messages', 'users', 'email_connections']);
 
     expect($names)->not->toContain('conversations_organization_id_index')
         ->and($names)->not->toContain('conversations_customer_id_index')

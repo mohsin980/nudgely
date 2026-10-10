@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -31,7 +32,9 @@ return new class extends Migration
         });
 
         // An automated email is sent at most once per action and event, even under concurrent retries.
-        DB::statement("CREATE UNIQUE INDEX messages_automation_key_unique ON messages ((metadata->>'automation_key')) WHERE metadata->>'automation_key' IS NOT NULL");
+        // NULLs never collide in a unique index, so rows without a key are unaffected.
+        PartialIndex::jsonKey('messages', 'automation_key', 'metadata', 'automation_key');
+        DB::statement('CREATE UNIQUE INDEX messages_automation_key_unique ON messages (automation_key)');
     }
 
     /**
@@ -39,7 +42,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS messages_automation_key_unique');
+        PartialIndex::drop('messages', 'messages_automation_key_unique');
+        Schema::table('messages', fn (Blueprint $table) => $table->dropColumn('automation_key'));
         Schema::table('automation_runs', fn (Blueprint $table) => $table->dropColumn(['depth', 'context']));
         Schema::table('customers', fn (Blueprint $table) => $table->dropColumn('email_opted_out_at'));
         Schema::table('organizations', fn (Blueprint $table) => $table->dropColumn(['automations_enabled', 'automatic_email_enabled', 'require_approval_for_email']));

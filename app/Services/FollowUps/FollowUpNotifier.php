@@ -79,7 +79,7 @@ class FollowUpNotifier
         return DB::table('notifications')
             ->where('type', FollowUpNotification::class)
             ->whereNull('read_at')
-            ->whereRaw("(data::jsonb ->> 'follow_up_id') = ?", [(string) $followUp->id])
+            ->where('data->follow_up_id', (string) $followUp->id)
             ->update(['read_at' => now(), 'updated_at' => now()]);
     }
 

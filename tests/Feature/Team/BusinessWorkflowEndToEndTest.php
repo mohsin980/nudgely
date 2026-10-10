@@ -158,7 +158,7 @@ test('a new business runs from sign-up to staff completing an automation task', 
     $task = Task::where('customer_id', $customer->id)->sole();
     expect($task->title)->toBe('Call Pat Garcia to schedule the install')
         ->and($task->assigned_to)->toBe($staff->id)
-        ->and($staff->notifications()->whereRaw("(data::jsonb ->> 'kind') = ?", ['task_assigned'])->count())->toBe(1);
+        ->and($staff->notifications()->where('data->kind', 'task_assigned')->count())->toBe(1);
 
     // 12. Mike signs in, sees the task on his dashboard and completes it.
     Auth::logout();

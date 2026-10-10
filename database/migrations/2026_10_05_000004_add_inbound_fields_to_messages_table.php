@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -22,10 +23,7 @@ return new class extends Migration
         });
 
         // The same inbound email can never be stored twice, even under concurrent webhook deliveries.
-        DB::statement(
-            'CREATE UNIQUE INDEX messages_inbound_provider_message_unique '
-            ."ON messages (provider, provider_message_id) WHERE direction = 'inbound'"
-        );
+        PartialIndex::unique('messages', 'messages_inbound_provider_message_unique', ['provider', 'provider_message_id'], "direction = 'inbound'");
     }
 
     /**
@@ -33,7 +31,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS messages_inbound_provider_message_unique');
+        PartialIndex::drop('messages', 'messages_inbound_provider_message_unique');
 
         Schema::table('messages', function (Blueprint $table) {
             $table->dropConstrainedForeignId('conversation_id');

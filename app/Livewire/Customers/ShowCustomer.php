@@ -69,7 +69,7 @@ class ShowCustomer extends Component
             ->where('organization_id', $this->organization()->id)
             ->withCount(['messages as unread_count' => fn ($q) => $q->where('direction', 'inbound')->whereNull('read_at')])
             ->with(['latestMessage' => fn ($q) => $q->select('messages.id', 'messages.conversation_id', 'messages.direction', 'messages.status', 'messages.created_at')->selectRaw('left(messages.body_text, 200) as excerpt')])
-            ->orderByRaw('last_message_at desc nulls last')
+            ->orderByRaw('last_message_at is null, last_message_at desc')
             ->limit(20)
             ->get();
     }
