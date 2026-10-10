@@ -11,3 +11,18 @@
 [x-cloak] {
     display: none !important;
 }
+
+@layer base {
+    /* Text-like form controls: one consistent look everywhere, including the views that set no border or padding. */
+    input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='submit'], [type='button'], [type='reset'], [type='hidden'], [type='color'])),
+    select,
+    textarea {
+        @apply max-w-full min-w-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400;
+        @apply focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-none;
+        @apply disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500;
+    }
+
+    input:where([type='checkbox'], [type='radio']) {
+        @apply size-4 accent-violet-600;
+    }
+}
