@@ -101,7 +101,7 @@ class InboxTest extends TestCase
             ->assertSeeInOrder(['Dallas Cooling', 'Sent', 'Hi John, just following up on your estimate...', 'John Smith', 'Received', 'Can you lower the price?'])
             ->assertSeeHtml('data-direction="outbound"')
             ->assertSeeHtml('data-direction="inbound"')
-            ->assertSeeHtml('bg-indigo-50 sm:ml-12')
+            ->assertSeeHtml('bg-violet-50 sm:ml-12')
             ->assertSeeHtml('bg-white sm:mr-12');
     }
 

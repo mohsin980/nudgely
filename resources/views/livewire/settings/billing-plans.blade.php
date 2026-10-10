@@ -1,5 +1,5 @@
 @php($secondary = 'w-full rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 disabled:opacity-50')
-@php($primary = 'w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50')
+@php($primary = 'w-full rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50')
 <x-settings.shell title="Plans" description="Compare plans and change yours. Prices are per month in USD; limits are what each plan includes.">
     @include('livewire.settings.partials.billing-tabs')
     @include('livewire.settings.partials.status')
@@ -12,11 +12,11 @@
         @foreach ($plans as $option)
             @php($isCurrent = $option->key === ($subscription?->plan ?? $plan->key))
             @php($over = $option->priceCents < $plan->priceCents ? $overLimits($option) : [])
-            <div @class(['flex flex-col justify-between gap-4 rounded-lg border bg-white p-4 shadow-sm sm:p-5', 'border-indigo-400 ring-1 ring-indigo-400' => $isCurrent, 'border-gray-200' => ! $isCurrent]) data-plan="{{ $option->key }}">
+            <div @class(['flex flex-col justify-between gap-4 rounded-lg border bg-white p-4 shadow-sm sm:p-5', 'border-violet-400 ring-1 ring-violet-400' => $isCurrent, 'border-gray-200' => ! $isCurrent]) data-plan="{{ $option->key }}">
                 <div>
                     <div class="flex items-center justify-between gap-2">
                         <h2 class="text-lg font-semibold text-gray-900">{{ $option->name }}</h2>
-                        @if ($isCurrent)<span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">Current plan</span>@endif
+                        @if ($isCurrent)<span class="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">Current plan</span>@endif
                     </div>
                     <p class="mt-1 text-2xl font-semibold text-gray-900">{{ $option->isFree() ? 'Free' : \App\Support\Money::format($option->priceCents) }}@unless ($option->isFree()) <span class="text-sm font-normal text-gray-600">/ {{ $option->interval->value }}</span>@endunless</p>
 

@@ -1,7 +1,7 @@
 <div class="space-y-6" wire:poll.{{ (int) config('dashboard.refresh_seconds') }}s.visible>
-    @php($card = 'rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5')
+    @php($card = 'rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm ring-1 ring-black/[0.02] sm:p-5')
     @php($heading = 'text-sm font-semibold tracking-wide text-gray-500 uppercase')
-    @php($button = 'inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500')
+    @php($button = 'inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
 
     {{-- Header --}}
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -27,7 +27,7 @@
                         @if ($item['done'])
                             <span class="text-gray-600"><span class="sr-only">Done: </span>{{ $item['label'] }}</span>
                         @else
-                            <a href="{{ $item['url'] }}" wire:navigate class="font-medium text-indigo-700 hover:underline">{{ $item['label'] }}</a>
+                            <a href="{{ $item['url'] }}" wire:navigate class="font-medium text-violet-700 hover:underline">{{ $item['label'] }}</a>
                         @endif
                     </li>
                 @endforeach
@@ -61,7 +61,7 @@
                 ] as [$key, $label, $url, $tone, $icon])
                     <li>
                         <a href="{{ $url }}" wire:navigate data-card="{{ $key }}"
-                           class="block h-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 {{ $tone }}">
+                           class="block h-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-violet-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 {{ $tone }}">
                             <p class="flex items-center gap-1.5 text-sm font-medium text-gray-700"><span aria-hidden="true">{{ $icon }}</span>{{ $label }}</p>
                             <p class="mt-1 text-3xl font-semibold text-gray-900" data-count="{{ $key }}">{{ $d->summary[$key] }}</p>
                             @if ($key === 'new_replies')
@@ -147,7 +147,7 @@
                 <section aria-labelledby="today-heading" class="{{ $card }}">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 id="today-heading" class="{{ $heading }}">{{ "Today's follow-ups" }}</h2>
-                        <a href="{{ route('follow-ups.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">View All Follow-Ups</a>
+                        <a href="{{ route('follow-ups.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">View All Follow-Ups</a>
                     </div>
 
                     @if ($d->overdueFollowUps->isNotEmpty())
@@ -183,7 +183,7 @@
                         <ul role="list" class="mt-2 divide-y divide-gray-100" data-section="replies">
                             @foreach ($d->recentReplies as $reply)
                                 <li wire:key="reply-{{ $reply->id }}">
-                                    <a href="{{ route('inbox.show', $reply->conversation_id) }}" wire:navigate class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                                    <a href="{{ route('inbox.show', $reply->conversation_id) }}" wire:navigate class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                         <div class="flex flex-wrap items-baseline justify-between gap-x-3">
                                             <p class="font-medium text-gray-900">{{ $reply->conversation?->customer?->name }}</p>
                                             <time class="text-xs text-gray-500" datetime="{{ $reply->received_at->toIso8601String() }}">{{ $reply->received_at->diffForHumans() }}</time>
@@ -224,7 +224,7 @@
                     <div class="flex items-center justify-between gap-2">
                         <h2 id="notifications-heading" class="{{ $heading }}">Notifications @if ($d->unreadNotifications)<span class="font-normal">({{ $d->unreadNotifications }} unread)</span>@endif</h2>
                         @if ($d->unreadNotifications > 1)
-                            <button type="button" wire:click="markAllNotificationsRead" class="text-sm font-medium text-indigo-700 hover:underline">Mark all read</button>
+                            <button type="button" wire:click="markAllNotificationsRead" class="text-sm font-medium text-violet-700 hover:underline">Mark all read</button>
                         @endif
                     </div>
                     @if ($d->notifications->isEmpty())
@@ -240,11 +240,11 @@
                                             <p class="text-gray-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
                                         @endif
                                         @if (! empty($notification->data['action']) && ! empty($notification->data['url']))
-                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-indigo-700 hover:underline">{{ $notification->data['action'] }}</a>
+                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-violet-700 hover:underline">{{ $notification->data['action'] }}</a>
                                         @endif
                                         <time class="text-xs text-gray-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
                                     </div>
-                                    <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                                    <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                         Dismiss<span class="sr-only"> notification</span>
                                     </button>
                                 </li>
@@ -274,7 +274,7 @@
                 <section aria-labelledby="estimates-heading" class="{{ $card }}">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 id="estimates-heading" class="{{ $heading }}">Estimates</h2>
-                        <a href="{{ route('estimates.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">View Estimates</a>
+                        <a href="{{ route('estimates.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">View Estimates</a>
                     </div>
                     <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="estimates">
                         <dt class="text-gray-600">Sent today</dt>
@@ -302,7 +302,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 id="automation-heading" class="{{ $heading }}">Automation activity</h2>
                         @can('viewAny', \App\Models\Automation::class)
-                            <a href="{{ route('automations.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">View Automation Activity</a>
+                            <a href="{{ route('automations.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">View Automation Activity</a>
                         @endcan
                     </div>
                     @if ($d->automationFailures > 0)

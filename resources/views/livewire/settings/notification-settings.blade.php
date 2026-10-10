@@ -17,11 +17,11 @@
                 @endif
             </div>
             @unless ($usingDefaults)
-                <button type="button" wire:click="useDefaults" class="text-sm font-medium text-indigo-700 hover:underline">Use business defaults</button>
+                <button type="button" wire:click="useDefaults" class="text-sm font-medium text-violet-700 hover:underline">Use business defaults</button>
             @endunless
         </div>
         @include('livewire.settings.partials.notification-matrix', ['model' => 'mine'])
-        <div class="flex justify-end"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Save</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500">Save</button></div>
     </form>
 
     @can('manage-business-defaults')
@@ -31,7 +31,7 @@
                 <p class="mt-1 text-sm text-gray-600">For everyone on the team who hasn't chosen otherwise.</p>
             </div>
             @include('livewire.settings.partials.notification-matrix', ['model' => 'defaults'])
-            <div class="flex justify-end"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Save defaults</button></div>
+            <div class="flex justify-end"><button type="submit" class="rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500">Save defaults</button></div>
         </form>
 
         @include('livewire.settings.partials.history')

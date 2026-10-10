@@ -4,11 +4,11 @@
     @class([
         'rounded-lg p-4 shadow-sm sm:p-5',
         'mr-0 border border-gray-200 bg-white sm:mr-12' => $inbound,
-        'ml-0 border border-indigo-100 bg-indigo-50 sm:ml-12' => ! $inbound,
+        'ml-0 border border-violet-100 bg-violet-50 sm:ml-12' => ! $inbound,
     ])>
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p class="text-sm font-semibold text-gray-900">
-            <span class="mr-1 rounded px-1.5 py-0.5 align-middle text-[11px] font-semibold tracking-wide uppercase ring-1 ring-inset {{ $inbound ? 'bg-white text-gray-700 ring-gray-300' : 'bg-indigo-100 text-indigo-800 ring-indigo-200' }}">{{ $inbound ? 'Customer' : 'Business' }}</span>
+            <span class="mr-1 rounded px-1.5 py-0.5 align-middle text-[11px] font-semibold tracking-wide uppercase ring-1 ring-inset {{ $inbound ? 'bg-white text-gray-700 ring-gray-300' : 'bg-violet-100 text-violet-800 ring-violet-200' }}">{{ $inbound ? 'Customer' : 'Business' }}</span>
             @if ($inbound)
                 {{ $this->conversation->customer->name }}
                 <span class="font-normal text-gray-500">&lt;{{ $message->from_address }}&gt;</span>
@@ -18,7 +18,7 @@
             @endif
         </p>
         <p class="text-xs text-gray-500">
-            <span @class(['font-medium', 'text-gray-700' => $inbound, 'text-indigo-700' => ! $inbound])>{{ $inbound ? 'Received' : 'Sent' }}</span>
+            <span @class(['font-medium', 'text-gray-700' => $inbound, 'text-violet-700' => ! $inbound])>{{ $inbound ? 'Received' : 'Sent' }}</span>
             ·
             <time datetime="{{ $organization->localTime($message->occurredAt())->toIso8601String() }}">{{ $organization->localTime($message->occurredAt())->format('M j, Y g:i A') }}</time>
             @if (! $inbound && $message->status === \App\Enums\MessageStatus::Failed)
@@ -39,7 +39,7 @@
             <div class="whitespace-pre-line">{{ $message->body_text }}</div>
         @elseif (filled($message->body_html))
             {{-- Sanitized on arrival and again by safeHtml(); never raw email HTML. --}}
-            <div class="email-html space-y-2 [&_a]:text-indigo-700 [&_a]:underline">{!! $this->safeHtml($message->body_html) !!}</div>
+            <div class="email-html space-y-2 [&_a]:text-violet-700 [&_a]:underline">{!! $this->safeHtml($message->body_html) !!}</div>
         @else
             <p class="text-gray-500 italic">(empty message)</p>
         @endif
@@ -120,7 +120,7 @@
             <p class="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                 {{ $lastAttempt ? 'AI insight is unavailable for this reply.' : 'AI insight pending…' }}
                 @if ($lastAttempt && $this->canReclassify())
-                    <button type="button" wire:click="reclassify({{ $message->id }})" class="font-medium text-indigo-700 hover:underline">Try again</button>
+                    <button type="button" wire:click="reclassify({{ $message->id }})" class="font-medium text-violet-700 hover:underline">Try again</button>
                 @endif
             </p>
         @endif

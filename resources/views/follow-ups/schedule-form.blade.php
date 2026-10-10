@@ -1,5 +1,5 @@
 {{-- New manual follow-up. Expects $organization, optionally $customers (pick one) — otherwise the page's customer. --}}
-@php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+@php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 <form wire:submit="scheduleFollowUp" class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm" aria-label="Schedule follow-up">
     @error('schedule') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
     <div class="grid gap-3 sm:grid-cols-2">
@@ -26,7 +26,7 @@
         </div>
     </div>
     <div class="flex gap-2">
-        <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">Schedule</button>
+        <button type="submit" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-500">Schedule</button>
         <button type="button" wire:click="$set('showScheduleForm', false)" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
     </div>
 </form>

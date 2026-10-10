@@ -1,4 +1,4 @@
-@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 @php($card = 'rounded-lg border border-gray-200 bg-white p-5 shadow-sm')
 @php($label = 'block text-sm font-medium text-gray-700')
 <x-settings.shell title="Business Preferences" description="Timezone, currency and formats used across QuoteFollow, and your opening hours.">
@@ -34,7 +34,7 @@
                 <select id="time-format" wire:model="timeFormat" class="{{ $field }}">@foreach ($timeFormats as $format => $name)<option value="{{ $format }}">{{ $name }}</option>@endforeach</select>
                 @error('timeFormat') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
         </div>
-        <div class="flex justify-end"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Save</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500">Save</button></div>
     </form>
 
     <form wire:submit="saveHours" x-data="unsavedChanges" class="{{ $card }} space-y-4" aria-labelledby="hours-heading">
@@ -61,7 +61,7 @@
                 </li>
             @endforeach
         </ul>
-        <div class="flex justify-end"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Save hours</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500">Save hours</button></div>
     </form>
 
     @include('livewire.settings.partials.history')

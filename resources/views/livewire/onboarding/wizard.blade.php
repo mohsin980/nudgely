@@ -1,5 +1,5 @@
-@php($input = 'mt-1 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600')
-@php($primary = 'inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 sm:w-auto')
+@php($input = 'mt-1 block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600')
+@php($primary = 'inline-flex w-full items-center justify-center rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 sm:w-auto')
 @php($secondary = 'inline-flex w-full items-center justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 disabled:opacity-50 sm:w-auto')
 @php($groups = $state->groups())
 <div class="space-y-6 lg:grid lg:grid-cols-[14rem_1fr] lg:gap-10 lg:space-y-0" data-onboarding data-step="{{ $step->value }}">
@@ -8,7 +8,7 @@
         <div>
             <p class="text-sm font-semibold text-gray-900">Getting started</p>
             <div class="mt-2 h-2 rounded-full bg-gray-200" role="progressbar" aria-label="Setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $state->percent() }}">
-                <div class="h-2 rounded-full bg-indigo-600" style="width: {{ $state->percent() }}%"></div>
+                <div class="h-2 rounded-full bg-violet-600" style="width: {{ $state->percent() }}%"></div>
             </div>
             <p class="mt-1 text-xs text-gray-600" data-percent>{{ $state->percent() }}% complete</p>
         </div>
@@ -22,7 +22,7 @@
             @endforeach
         </ol>
         @if ($trial)
-            <p class="rounded-md bg-indigo-50 p-2 text-xs text-indigo-900" data-trial>Your trial ends in {{ $trial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $trial['days_left']) }}.</p>
+            <p class="rounded-md bg-violet-50 p-2 text-xs text-violet-900" data-trial>Your trial ends in {{ $trial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $trial['days_left']) }}.</p>
         @endif
     </aside>
 
@@ -206,7 +206,7 @@
                 <ul role="list" class="mt-5 space-y-3" data-templates>
                     @foreach ($templates as $key => $template)
                         <li class="rounded-md border border-gray-200 p-4" data-template="{{ $key }}">
-                            <p class="text-sm font-semibold text-gray-900">{{ $template['name'] }} @if ($loop->first)<span class="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">Recommended</span>@endif</p>
+                            <p class="text-sm font-semibold text-gray-900">{{ $template['name'] }} @if ($loop->first)<span class="ml-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">Recommended</span>@endif</p>
                             <p class="mt-1 text-sm text-gray-600">{{ $template['description'] }}</p>
                             <button type="button" wire:click="chooseTemplate('{{ $key }}')" wire:loading.attr="disabled" class="{{ $secondary }} mt-3">Use This Automation</button>
                         </li>
@@ -238,7 +238,7 @@
                 @endif
                 <form wire:submit="activateAutomation" class="mt-5 space-y-4" novalidate>
                     <label class="flex items-start gap-2 text-sm text-gray-800">
-                        <input type="checkbox" wire:model="confirmed" class="mt-0.5 rounded border-gray-300 text-indigo-600"> <span>I've reviewed this and want to turn it on.</span>
+                        <input type="checkbox" wire:model="confirmed" class="mt-0.5 rounded border-gray-300 text-violet-600"> <span>I've reviewed this and want to turn it on.</span>
                     </label>
                     @error('confirmed') <p class="text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -259,14 +259,14 @@
                 @endforeach
             </dl>
             @if ($sample)
-                <p class="mt-4 text-sm text-gray-600" data-sample-note>You have a sample customer. <button type="button" wire:click="removeSampleData" class="font-medium text-indigo-700 underline">Delete sample data</button></p>
+                <p class="mt-4 text-sm text-gray-600" data-sample-note>You have a sample customer. <button type="button" wire:click="removeSampleData" class="font-medium text-violet-700 underline">Delete sample data</button></p>
             @endif
-            <p class="mt-4 text-sm text-gray-700">Working with a team? <a href="{{ route('settings.team') }}" class="font-medium text-indigo-700 underline">Invite your team</a> any time.</p>
+            <p class="mt-4 text-sm text-gray-700">Working with a team? <a href="{{ route('settings.team') }}" class="font-medium text-violet-700 underline">Invite your team</a> any time.</p>
             <div class="mt-6"><button type="button" wire:click="finish" wire:loading.attr="disabled" class="{{ $primary }}">Go to Dashboard</button></div>
         @endif
 
         @if ($sample && $step !== \App\Enums\Onboarding\OnboardingStep::Completed && $welcomed)
-            <p class="mt-6 border-t border-gray-100 pt-3 text-xs text-gray-500">A sample customer exists (never emailed). <button type="button" wire:click="removeSampleData" class="font-medium text-indigo-700 underline">Delete sample data</button></p>
+            <p class="mt-6 border-t border-gray-100 pt-3 text-xs text-gray-500">A sample customer exists (never emailed). <button type="button" wire:click="removeSampleData" class="font-medium text-violet-700 underline">Delete sample data</button></p>
         @endif
     </section>
 </div>

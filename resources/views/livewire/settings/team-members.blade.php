@@ -1,4 +1,4 @@
-@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 @php($card = 'rounded-lg border border-gray-200 bg-white p-5 shadow-sm')
 @php($button = 'inline-flex items-center rounded-md bg-white px-2.5 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50')
 @php($statusClass = fn ($status) => match ($status) { \App\Enums\Team\MemberStatus::Active => 'bg-green-50 text-green-700 ring-green-600/20', \App\Enums\Team\MemberStatus::Suspended => 'bg-amber-50 text-amber-800 ring-amber-600/20', \App\Enums\Team\MemberStatus::Invited => 'bg-blue-50 text-blue-700 ring-blue-600/20', default => 'bg-gray-100 text-gray-600 ring-gray-500/20' })
@@ -16,7 +16,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" wire:model.live="showRemoved" class="rounded border-gray-300"> Show removed members</label>
         @unless ($showInviteForm)
-            <button type="button" wire:click="openInviteForm" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Invite Team Member</button>
+            <button type="button" wire:click="openInviteForm" class="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500">Invite Team Member</button>
         @endunless
     </div>
 
@@ -31,7 +31,7 @@
             </div>
             @foreach (['inviteName', 'inviteEmail', 'inviteRole'] as $key) @error($key) <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror @endforeach
             <div class="flex gap-2">
-                <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">Send Invitation</button>
+                <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50">Send Invitation</button>
                 <button type="button" wire:click="$set('showInviteForm', false)" class="px-3 py-2 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
             </div>
         </form>
@@ -99,7 +99,7 @@
         @if ($this->members->count() <= 1 && $this->invitations->isEmpty())
             <div class="mt-3 rounded-md border border-dashed border-gray-300 p-6 text-center">
                 <p class="text-sm font-medium text-gray-900">You haven't invited anyone yet.</p>
-                <button type="button" wire:click="openInviteForm" class="mt-3 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Invite Team Member</button>
+                <button type="button" wire:click="openInviteForm" class="mt-3 rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500">Invite Team Member</button>
             </div>
         @endif
     </section>

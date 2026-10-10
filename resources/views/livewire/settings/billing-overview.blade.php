@@ -1,6 +1,6 @@
 @php($card = 'rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5')
 @php($secondary = 'inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 disabled:opacity-50')
-@php($primary = 'inline-flex justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50')
+@php($primary = 'inline-flex justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50')
 <x-settings.shell title="Billing" description="Your plan, what happens next, and your payment details. Cards are handled securely by our payment provider.">
     @include('livewire.settings.partials.billing-tabs')
     @include('livewire.settings.partials.status')

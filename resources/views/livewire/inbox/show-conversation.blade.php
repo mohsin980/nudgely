@@ -1,14 +1,14 @@
 <div class="space-y-6">
     @php($card = 'rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5')
     @php($heading = 'text-xs font-semibold tracking-wide text-gray-500 uppercase')
-    @php($button = 'inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500')
-    @php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+    @php($button = 'inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+    @php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
     @php($conversation = $this->conversation)
     @php($closed = $conversation->status === \App\Enums\ConversationStatus::Closed)
 
     {{-- Customer header --}}
     <div class="space-y-3">
-        <a href="{{ route('inbox.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">&larr; Conversations</a>
+        <a href="{{ route('inbox.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; Conversations</a>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="text-2xl font-semibold tracking-tight text-gray-900"><a href="{{ route('customers.show', $conversation->customer_id) }}" wire:navigate class="hover:underline">{{ $conversation->customer->name }}</a></h1>
@@ -26,7 +26,7 @@
                     <button type="button" wire:click="reopenConversation" class="{{ $button }}">Reopen Conversation</button>
                 @else
                     <label for="conversation-status" class="sr-only">Conversation status</label>
-                    <select id="conversation-status" wire:change="setStatus($event.target.value)" class="rounded-md border-0 py-2 pr-8 pl-3 text-sm text-gray-700 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600">
+                    <select id="conversation-status" wire:change="setStatus($event.target.value)" class="rounded-md border-0 py-2 pr-8 pl-3 text-sm text-gray-700 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600">
                         @foreach ($statuses as $status)
                             <option value="{{ $status->value }}" @selected($status === $conversation->status)>{{ $status === \App\Enums\ConversationStatus::Closed ? 'Close…' : $status->label() }}</option>
                         @endforeach
@@ -53,7 +53,7 @@
                 <div><label for="close-note" class="block text-sm font-medium text-gray-700">Note <span class="font-normal text-gray-500">(optional)</span></label><input id="close-note" type="text" wire:model="closeNote" maxlength="255" class="{{ $field }}"></div>
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Close conversation</button>
+                <button type="submit" class="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500">Close conversation</button>
                 <button type="button" wire:click="$set('showCloseForm', false)" class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
             </div>
         </form>
@@ -64,7 +64,7 @@
         <div class="min-w-0 space-y-4 lg:col-span-2">
             <h2 class="sr-only">Messages and activity</h2>
             @if ($this->hasEarlierMessages)
-                <button type="button" wire:click="loadEarlierMessages" class="text-sm font-medium text-indigo-700 hover:underline">Load earlier messages</button>
+                <button type="button" wire:click="loadEarlierMessages" class="text-sm font-medium text-violet-700 hover:underline">Load earlier messages</button>
             @endif
 
             @if ($this->feed->isEmpty())
@@ -100,7 +100,7 @@
             {{-- Composer: sticky at the bottom of the screen on small devices. --}}
             <div class="sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-gray-50/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0" id="composer">
                 @if (! $composerOpen)
-                    <button type="button" wire:click="$set('composerOpen', true)" class="w-full rounded-md bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 sm:w-auto">Reply</button>
+                    <button type="button" wire:click="$set('composerOpen', true)" class="w-full rounded-md bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:w-auto">Reply</button>
                 @else
                     <form wire:submit="sendReply" class="{{ $card }} space-y-3" aria-label="Reply by email">
                         <p class="text-sm text-gray-600">To: <span class="font-medium text-gray-900">{{ $conversation->customer->email }}</span></p>
@@ -108,7 +108,7 @@
                         <div><label for="reply-subject" class="block text-sm font-medium text-gray-700">Subject</label><input id="reply-subject" type="text" wire:model="replySubject" maxlength="200" class="{{ $field }}">@error('replySubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                         <div><label for="reply-body" class="block text-sm font-medium text-gray-700">Message</label><textarea id="reply-body" wire:model="replyBody" rows="4" class="{{ $field }}" autofocus></textarea>@error('replyBody') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                         <div class="flex gap-2">
-                            <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"><span wire:loading.remove wire:target="sendReply">Send</span><span wire:loading wire:target="sendReply">Sending…</span></button>
+                            <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"><span wire:loading.remove wire:target="sendReply">Send</span><span wire:loading wire:target="sendReply">Sending…</span></button>
                             <button type="button" wire:click="$set('composerOpen', false)" class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
                         </div>
                     </form>
@@ -142,12 +142,12 @@
                                 @error('overrideIntent') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                             <div><label for="override-reason" class="block text-sm font-medium text-gray-700">Reason <span class="font-normal text-gray-500">(optional)</span></label><input id="override-reason" type="text" wire:model="overrideReason" maxlength="255" class="{{ $field }}"></div>
                             <div class="flex gap-2">
-                                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">Save</button>
+                                <button type="submit" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-500">Save</button>
                                 <button type="button" wire:click="$set('showOverrideForm', false)" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
                             </div>
                         </form>
                     @else
-                        <button type="button" wire:click="$set('showOverrideForm', true)" class="mt-3 text-sm font-medium text-indigo-700 hover:underline">Change classification</button>
+                        <button type="button" wire:click="$set('showOverrideForm', true)" class="mt-3 text-sm font-medium text-violet-700 hover:underline">Change classification</button>
                     @endif
                 @else
                     <p class="mt-2 text-sm text-gray-600">No customer reply has been classified yet.</p>
@@ -158,7 +158,7 @@
             <section aria-labelledby="estimates-heading" class="{{ $card }}" data-section="estimates">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <h2 id="estimates-heading" class="{{ $heading }}">Estimate</h2>
-                    <a href="{{ route('estimates.create', ['conversation' => $conversation->id]) }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">Create Estimate</a>
+                    <a href="{{ route('estimates.create', ['conversation' => $conversation->id]) }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">Create Estimate</a>
                 </div>
                 @if ($this->estimates->isEmpty())
                     <p class="mt-2 text-sm text-gray-500">No estimate for this conversation.</p>
@@ -186,7 +186,7 @@
                         {{ $latest && $latest->status === \App\Enums\FollowUpStatus::Skipped && $this->conversationFollowUps->count() === 1 ? 'Follow-up skipped' : 'Follow-up' }}
                     </h2>
                     @unless ($showScheduleForm)
-                        <button type="button" wire:click="openScheduleForm" class="text-sm font-medium text-indigo-700 hover:underline">Schedule Follow-Up</button>
+                        <button type="button" wire:click="openScheduleForm" class="text-sm font-medium text-violet-700 hover:underline">Schedule Follow-Up</button>
                     @endunless
                 </div>
                 @include('follow-ups.flash')
@@ -209,7 +209,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <h2 id="tasks-heading" class="{{ $heading }}">Tasks</h2>
                     @unless ($showTaskForm)
-                        <button type="button" wire:click="$set('showTaskForm', true)" class="text-sm font-medium text-indigo-700 hover:underline">Create Task</button>
+                        <button type="button" wire:click="$set('showTaskForm', true)" class="text-sm font-medium text-violet-700 hover:underline">Create Task</button>
                     @endunless
                 </div>
                 @if ($showTaskForm)
@@ -221,7 +221,7 @@
                             <select id="task-assignee" wire:model="taskAssignee" class="{{ $field }}">@foreach ($this->assignableUsers() as $userId => $userName)<option value="{{ $userId }}">{{ $userName }}{{ $userId === auth()->id() ? ' (me)' : '' }}</option>@endforeach</select>
                             @error('taskAssignee') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                         <div class="flex gap-2">
-                            <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">Add task</button>
+                            <button type="submit" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-500">Add task</button>
                             <button type="button" wire:click="$set('showTaskForm', false)" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
                         </div>
                     </form>

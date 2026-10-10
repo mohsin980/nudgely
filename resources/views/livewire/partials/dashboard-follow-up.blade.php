@@ -15,7 +15,7 @@
         <p class="truncate text-gray-600">{{ $followUp->reason() }}</p>
     </div>
     <a href="{{ route('follow-ups.index', ['filter' => $overdue ? 'overdue' : 'today']) }}#follow-up-{{ $followUp->id }}" wire:navigate
-       class="shrink-0 rounded-md bg-white px-2.5 py-1 font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+       class="shrink-0 rounded-md bg-white px-2.5 py-1 font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
         Open<span class="sr-only"> follow-up with {{ $followUp->customer?->name }}</span>
     </a>
 </li>

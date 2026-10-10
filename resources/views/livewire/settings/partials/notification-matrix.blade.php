@@ -15,7 +15,7 @@
                         <td class="px-4 py-2 text-center">
                             <label class="inline-flex items-center">
                                 <span class="sr-only">{{ $type->label() }} — {{ $channel->label() }}</span>
-                                <input type="checkbox" wire:model="{{ $model }}.{{ $type->value }}.{{ $channel->value }}" class="h-4 w-4 rounded border-gray-300 text-indigo-600" data-pref="{{ $model }}.{{ $type->value }}.{{ $channel->value }}">
+                                <input type="checkbox" wire:model="{{ $model }}.{{ $type->value }}.{{ $channel->value }}" class="h-4 w-4 rounded border-gray-300 text-violet-600" data-pref="{{ $model }}.{{ $type->value }}.{{ $channel->value }}">
                             </label>
                         </td>
                     @endforeach

@@ -60,7 +60,7 @@ enum EstimateStatus: string
         return match ($this) {
             self::Draft => 'bg-gray-100 text-gray-700 ring-gray-500/20',
             self::Sent => 'bg-blue-50 text-blue-700 ring-blue-600/20',
-            self::Viewed => 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+            self::Viewed => 'bg-violet-50 text-violet-700 ring-violet-600/20',
             self::Accepted => 'bg-green-50 text-green-700 ring-green-600/20',
             self::Declined => 'bg-red-50 text-red-700 ring-red-600/20',
             self::Expired => 'bg-amber-50 text-amber-800 ring-amber-600/20',

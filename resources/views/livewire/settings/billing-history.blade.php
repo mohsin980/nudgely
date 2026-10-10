@@ -18,7 +18,7 @@
                             <span class="text-sm text-gray-900">{{ \App\Support\Money::format($invoice->amountCents, $invoice->currency) }}</span>
                             <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">{{ ucfirst($invoice->status) }}</span>
                             @if ($invoice->viewUrl)
-                                <a href="{{ $invoice->viewUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-indigo-700 hover:underline">View invoice</a>
+                                <a href="{{ $invoice->viewUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-violet-700 hover:underline">View invoice</a>
                             @endif
                         </div>
                     </li>

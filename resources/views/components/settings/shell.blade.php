@@ -4,7 +4,7 @@
 <div class="space-y-6 lg:grid lg:grid-cols-[12rem_1fr] lg:gap-8 lg:space-y-0">
     <nav aria-label="Settings" class="lg:pt-1">
         <label for="settings-menu" class="sr-only">Settings section</label>
-        <select id="settings-menu" class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 lg:hidden"
+        <select id="settings-menu" class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 lg:hidden"
                 x-data x-on:change="Livewire.navigate($event.target.value)">
             @foreach ($menu as $group)
                 <optgroup label="{{ $group['label'] }}">
@@ -23,7 +23,7 @@
                             @php($active = request()->routeIs($item['route'], $item['route'].'.*'))
                             <li>
                                 <a href="{{ route($item['route']) }}" wire:navigate @if ($active) aria-current="page" @endif
-                                   @class(['block rounded-md px-3 py-1.5 text-sm', 'bg-indigo-50 font-medium text-indigo-700' => $active, 'text-gray-700 hover:bg-gray-100' => ! $active])>{{ $item['label'] }}</a>
+                                   @class(['block rounded-md px-3 py-1.5 text-sm', 'bg-violet-50 font-medium text-violet-700' => $active, 'text-gray-700 hover:bg-gray-100' => ! $active])>{{ $item['label'] }}</a>
                             </li>
                         @endforeach
                     </ul>
