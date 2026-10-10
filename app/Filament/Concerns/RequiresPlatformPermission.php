@@ -8,6 +8,7 @@ use App\Support\Admin\AdminAccess;
 /**
  * Fail-closed access for admin pages, resources and widgets: nothing is reachable (menu, URL, Livewire call)
  * unless the class names the platform permission it needs and the signed-in admin holds it.
+ * Visibility checks run on every render, so they are not written to the audit log (panel entry is).
  */
 trait RequiresPlatformPermission
 {
@@ -15,7 +16,7 @@ trait RequiresPlatformPermission
 
     public static function canAccess(): bool
     {
-        return AdminAccess::allows(auth()->user(), static::requiredPermission());
+        return AdminAccess::allows(auth()->user(), static::requiredPermission(), audit: false);
     }
 
     public static function canView(): bool
