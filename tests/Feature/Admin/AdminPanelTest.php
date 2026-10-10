@@ -13,14 +13,6 @@ use Livewire\Livewire;
 |--------------------------------------------------------------------------
 */
 
-function platformAdmin(array $state = []): User
-{
-    $user = User::factory()->create($state);
-    PlatformAdmin::query()->forceCreate(['user_id' => $user->id]);
-
-    return $user;
-}
-
 // Access
 
 test('guests are sent to the admin sign-in page', function () {
@@ -59,7 +51,7 @@ test('a platform administrator sees the dashboard', function () {
 });
 
 test('a suspended platform administrator is refused', function () {
-    $this->actingAs(platformAdmin(['status' => 'suspended', 'suspended_at' => now()]))->get('/admin')->assertForbidden();
+    $this->actingAs(platformAdmin(state: ['status' => 'suspended', 'suspended_at' => now()]))->get('/admin')->assertForbidden();
 });
 
 test('an administrator can sign in through the admin form', function () {
@@ -106,7 +98,9 @@ test('a platform administrator keeps normal access to their own business pages',
 test('the grant command makes an existing account an administrator', function () {
     $user = User::factory()->create(['email' => 'founder@example.com']);
 
-    $this->artisan('platform-admin:grant', ['email' => 'Founder@Example.com'])->assertSuccessful();
+    seedPlatformRoles();
+
+    $this->artisan('platform-admin:grant', ['email' => 'Founder@Example.com', '--role' => ['support_admin']])->assertSuccessful();
 
     expect($user->fresh()->isPlatformAdmin())->toBeTrue();
     $this->actingAs($user->fresh())->get('/admin')->assertOk();
@@ -115,8 +109,10 @@ test('the grant command makes an existing account an administrator', function ()
 test('the grant command is safe to run twice', function () {
     $user = User::factory()->create();
 
-    $this->artisan('platform-admin:grant', ['email' => $user->email])->assertSuccessful();
-    $this->artisan('platform-admin:grant', ['email' => $user->email])->assertSuccessful();
+    seedPlatformRoles();
+
+    $this->artisan('platform-admin:grant', ['email' => $user->email, '--role' => ['support_admin']])->assertSuccessful();
+    $this->artisan('platform-admin:grant', ['email' => $user->email, '--role' => ['support_admin']])->assertSuccessful();
 
     expect(PlatformAdmin::query()->where('user_id', $user->id)->count())->toBe(1);
 });
@@ -124,7 +120,9 @@ test('the grant command is safe to run twice', function () {
 test('the grant command never creates an account', function () {
     $before = User::query()->count();
 
-    $this->artisan('platform-admin:grant', ['email' => 'nobody@example.com'])->assertFailed();
+    seedPlatformRoles();
+
+    $this->artisan('platform-admin:grant', ['email' => 'nobody@example.com', '--role' => ['support_admin']])->assertFailed();
 
     expect(User::query()->count())->toBe($before)->and(PlatformAdmin::query()->count())->toBe(0);
 });
@@ -132,7 +130,9 @@ test('the grant command never creates an account', function () {
 test('the grant command refuses an account that is not active', function () {
     $user = User::factory()->suspended()->create();
 
-    $this->artisan('platform-admin:grant', ['email' => $user->email])->assertFailed();
+    seedPlatformRoles();
+
+    $this->artisan('platform-admin:grant', ['email' => $user->email, '--role' => ['support_admin']])->assertFailed();
 
     expect($user->isPlatformAdmin())->toBeFalse();
 });
