@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex, nofollow">
         <meta name="referrer" content="no-referrer">
+        <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
         <title>{{ isset($title) ? $title.' · ' : '' }}{{ config('app.name', 'QuoteFollow') }}</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
@@ -30,7 +31,7 @@
             </aside>
 
             <main id="main" class="flex items-center justify-center px-6 py-12 sm:px-12">
-                <div class="w-full max-w-sm">
+                <div class="w-full max-w-md">
                     <div class="mb-8 flex items-center gap-2 lg:hidden">
                         <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-violet-600 text-sm font-bold text-white">Q</span>
                         <span class="text-base font-semibold tracking-tight">{{ config('app.name', 'QuoteFollow') }}</span>
