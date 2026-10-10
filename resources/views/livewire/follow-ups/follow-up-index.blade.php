@@ -5,7 +5,7 @@
             <p class="mt-1 text-sm text-gray-600">Who to follow up with, and when. Times in {{ $organization->timezone() }}.</p>
         </div>
         @unless ($showScheduleForm)
-            <button type="button" wire:click="openScheduleForm" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Schedule Follow-Up</button>
+            <button type="button" wire:click="openScheduleForm" class="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500">Schedule Follow-Up</button>
         @endunless
     </div>
 
@@ -16,7 +16,7 @@
     @endif
 
     @if ($filter !== '')
-        <p class="text-sm text-gray-600">Showing {{ $filter === 'overdue' ? 'overdue' : 'today’s' }} follow-ups only. <a href="{{ route('follow-ups.index') }}" wire:navigate class="font-medium text-indigo-700 hover:underline">Show all follow-ups</a></p>
+        <p class="text-sm text-gray-600">Showing {{ $filter === 'overdue' ? 'overdue' : 'today’s' }} follow-ups only. <a href="{{ route('follow-ups.index') }}" wire:navigate class="font-medium text-violet-700 hover:underline">Show all follow-ups</a></p>
     @endif
 
     @foreach (array_filter(['overdue' => 'Overdue', 'due_today' => 'Due today', 'upcoming' => 'Upcoming'], fn ($heading, $key) => $filter === '' || ['overdue' => 'overdue', 'today' => 'due_today'][$filter] === $key, ARRAY_FILTER_USE_BOTH) as $key => $heading)

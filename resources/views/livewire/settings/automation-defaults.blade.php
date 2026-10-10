@@ -1,4 +1,4 @@
-@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 <x-settings.shell title="Automation Defaults" description="Who automations work for when an automation doesn't say. Email safety stays under Automations and is the owner's call.">
     @include('livewire.settings.partials.status')
 
@@ -18,7 +18,7 @@
                 @error($property) <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>
         @endforeach
-        <div class="flex justify-end"><button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Save</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500">Save</button></div>
     </form>
 
     @include('livewire.settings.partials.history')

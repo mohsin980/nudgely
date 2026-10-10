@@ -14,10 +14,11 @@
             Skip to content
         </a>
 
-        <header class="border-b border-gray-200 bg-white">
+        <header class="border-b border-gray-200 bg-white shadow-sm">
             <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-                <a href="{{ url('/') }}" class="text-base font-semibold tracking-tight text-gray-900">
-                    {{ config('app.name', 'QuoteFlow') }}
+                <a href="{{ url('/') }}" class="flex items-center gap-2 text-base font-semibold tracking-tight text-gray-900">
+                    <span aria-hidden="true" class="grid size-7 place-items-center rounded-md bg-linear-to-br from-violet-600 to-emerald-500 text-sm font-bold text-white">Q</span>
+                    {{ config('app.name', 'QuoteFollow') }}
                 </a>
 
                 @auth
@@ -48,8 +49,8 @@
                         <a href="{{ route('dashboard') }}"
                            @if (request()->routeIs('dashboard')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('dashboard'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                               'bg-violet-50 text-violet-700' => request()->routeIs('dashboard'),
                                'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('dashboard'),
                            ])>
                             Dashboard
@@ -59,8 +60,8 @@
                         <a href="{{ route('follow-ups.index') }}"
                            @if (request()->routeIs('follow-ups.*')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('follow-ups.*'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                               'bg-violet-50 text-violet-700' => request()->routeIs('follow-ups.*'),
                                'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('follow-ups.*'),
                            ])>
                             Follow-Ups
@@ -70,8 +71,8 @@
                         <a href="{{ route('customers.index') }}"
                            @if (request()->routeIs('customers.*')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('customers.*'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                               'bg-violet-50 text-violet-700' => request()->routeIs('customers.*'),
                                'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('customers.*'),
                            ])>
                             Customers
@@ -81,8 +82,8 @@
                         <a href="{{ route('inbox.index') }}"
                            @if (request()->routeIs('inbox.*')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('inbox.*'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                               'bg-violet-50 text-violet-700' => request()->routeIs('inbox.*'),
                                'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('inbox.*'),
                            ])>
                             Conversations
@@ -92,8 +93,8 @@
                         <a href="{{ route('estimates.index') }}"
                            @if (request()->routeIs('estimates.*')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('estimates.*'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                               'bg-violet-50 text-violet-700' => request()->routeIs('estimates.*'),
                                'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('estimates.*'),
                            ])>
                             Estimates
@@ -104,8 +105,8 @@
                             <a href="{{ route('automations.index') }}"
                                @if (request()->routeIs('automations.*')) aria-current="page" @endif
                                @class([
-                                   'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                                   'bg-indigo-50 text-indigo-700' => request()->routeIs('automations.*'),
+                                   'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                                   'bg-violet-50 text-violet-700' => request()->routeIs('automations.*'),
                                    'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('automations.*'),
                                ])>
                                 Automations
@@ -116,8 +117,8 @@
                         <a href="{{ route('settings.index') }}"
                            @if (request()->routeIs('settings.*')) aria-current="page" @endif
                            @class([
-                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 lg:mt-4',
-                               'bg-indigo-50 text-indigo-700' => request()->routeIs('settings.*'),
+                               'block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 lg:mt-4',
+                               'bg-violet-50 text-violet-700' => request()->routeIs('settings.*'),
                                'text-gray-700 hover:bg-gray-100 hover:text-gray-900' => ! request()->routeIs('settings.*'),
                            ])>
                             Settings

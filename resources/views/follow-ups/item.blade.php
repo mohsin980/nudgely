@@ -1,7 +1,7 @@
 {{-- One follow-up with its actions. Expects $followUp, $organization and optionally $showCustomer. --}}
 @php($open = $followUp->status->isOpen())
 @php($ready = $open && $followUp->status === \App\Enums\FollowUpStatus::Due && $followUp->isAutomated() && $followUp->hasEmail() && $followUp->due_notified_at)
-@php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+@php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 <li wire:key="follow-up-{{ $followUp->id }}" id="follow-up-{{ $followUp->id }}" data-follow-up="{{ $followUp->id }}" class="space-y-3 p-4">
     {{-- $compact: narrow side panels stack the actions under the details. --}}
     <div @class(['flex flex-col gap-3', 'sm:flex-row sm:items-start sm:justify-between' => ! ($compact ?? false)])>
@@ -11,7 +11,7 @@
                     <a href="{{ route('customers.show', $followUp->customer_id) }}" wire:navigate class="font-semibold text-gray-900 hover:underline">{{ $followUp->customer?->name }}</a>
                 @endif
                 @if ($ready)
-                    <span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20 ring-inset">Follow-up ready</span>
+                    <span class="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">Follow-up ready</span>
                 @else
                     <x-automation-status-badge :status="$followUp->status" />
                 @endif
@@ -30,7 +30,7 @@
                     · Assigned to {{ $followUp->assignee->name }}
                 @endif
                 @if ($followUp->conversation_id && ($showCustomer ?? true))
-                    · <a href="{{ route('inbox.show', $followUp->conversation_id) }}" wire:navigate class="text-indigo-700 hover:underline">Conversation</a>
+                    · <a href="{{ route('inbox.show', $followUp->conversation_id) }}" wire:navigate class="text-violet-700 hover:underline">Conversation</a>
                 @endif
             </p>
             @if ($followUp->status === \App\Enums\FollowUpStatus::Skipped && $followUp->skip_reason)
@@ -48,7 +48,7 @@
         @if ($open)
             <div @class(['flex flex-wrap gap-2', 'sm:justify-end' => ! ($compact ?? false)])>
                 @if ($ready)
-                    <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-md bg-indigo-600 px-2.5 py-1 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">Send Follow-Up</button>
+                    <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-md bg-violet-600 px-2.5 py-1 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50">Send Follow-Up</button>
                 @endif
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'complete')" class="rounded-md bg-white px-2.5 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50">Complete</button>
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'reschedule')" class="rounded-md bg-white px-2.5 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50">Reschedule</button>
@@ -95,7 +95,7 @@
             @endif
 
             <div class="flex gap-2">
-                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500">
+                <button type="submit" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-500">
                     {{ ['complete' => 'Mark completed', 'reschedule' => 'Save new time', 'cancel' => 'Cancel follow-up', 'assign' => 'Save assignee'][$followUpForm] }}
                 </button>
                 <button type="button" wire:click="closeFollowUpForm" class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:underline">Close</button>

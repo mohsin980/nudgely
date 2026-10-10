@@ -1,12 +1,12 @@
 <div class="space-y-8">
-    @php($button = 'inline-flex items-center justify-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500')
+    @php($button = 'inline-flex items-center justify-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Automations</h1>
             <p class="mt-1 text-sm text-gray-600">WHEN something happens, WAIT if you like, IF it still makes sense, THEN take action.</p>
         </div>
         @can('create', \App\Models\Automation::class)
-        <a href="{{ route('automations.create') }}" wire:navigate class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Create Automation</a>
+        <a href="{{ route('automations.create') }}" wire:navigate class="inline-flex items-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Create Automation</a>
         @endcan
     </div>
 
@@ -32,7 +32,7 @@
                 <p class="text-base font-semibold text-gray-900">Automate repetitive follow-ups and customer tasks.</p>
                 <p class="mt-1 text-sm text-gray-600">Start from a template below, or build your own.</p>
                 @can('create', \App\Models\Automation::class)
-                <a href="{{ route('automations.create') }}" wire:navigate class="mt-4 inline-flex rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Create Automation</a>
+                <a href="{{ route('automations.create') }}" wire:navigate class="mt-4 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500">Create Automation</a>
                 @endcan
             </div>
         @else
@@ -81,7 +81,7 @@
                         <p class="mt-1 text-xs text-gray-500">When: {{ \App\Services\Automation\Registry\TriggerRegistry::get($template['trigger_type'])->label }}</p>
                     </div>
                     <div>
-                        <button type="button" wire:click="installTemplate('{{ $key }}')" class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-200 ring-inset hover:bg-indigo-50">Use template</button>
+                        <button type="button" wire:click="installTemplate('{{ $key }}')" class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50">Use template</button>
                     </div>
                 </li>
             @endforeach
@@ -108,8 +108,8 @@
                     <button type="button" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}" aria-labelledby="setting-{{ $setting }}"
                             @can('manage-email') wire:click="toggleSetting('{{ $setting }}')" @else disabled title="Only the owner can change this." @endcan data-setting="{{ $setting }}"
                             @class([
-                                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
-                                'bg-indigo-600' => $on,
+                                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2',
+                                'bg-violet-600' => $on,
                                 'bg-gray-200' => ! $on,
                             ])>
                         <span class="sr-only">{{ $on ? 'On' : 'Off' }}</span>

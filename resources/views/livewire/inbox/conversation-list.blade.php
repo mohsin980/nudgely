@@ -1,5 +1,5 @@
 <div class="space-y-6">
-    @php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+    @php($field = 'block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
     <div>
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Conversations</h1>
         <p class="mt-1 text-sm text-gray-600">Customer conversations, most recently active first.</p>
@@ -12,8 +12,8 @@
             @foreach (\App\Livewire\Inbox\ConversationList::FILTERS as $key => $label)
                 <button type="button" wire:click="$set('filter', '{{ $key }}')" @if ($filter === $key) aria-current="true" @endif
                         @class([
-                            'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
-                            'bg-indigo-600 text-white ring-indigo-600' => $filter === $key,
+                            'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                            'bg-violet-600 text-white ring-violet-600' => $filter === $key,
                             'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' => $filter !== $key,
                         ])>
                     {{ $label }}
@@ -46,12 +46,12 @@
                         @php($priority = $this->priorityOf($conversation))
                         <li wire:key="conversation-{{ $conversation->id }}">
                             <a href="{{ route('inbox.show', $conversation->id) }}" wire:navigate
-                               class="flex flex-col gap-1 px-4 py-3 hover:bg-gray-50 focus:outline-none focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset sm:flex-row sm:items-start sm:justify-between sm:px-5">
+                               class="flex flex-col gap-1 px-4 py-3 hover:bg-gray-50 focus:outline-none focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset sm:flex-row sm:items-start sm:justify-between sm:px-5">
                                 <div class="min-w-0 flex-1">
                                     <p class="flex flex-wrap items-center gap-2">
                                         <span @class(['truncate text-sm text-gray-900', 'font-bold' => $conversation->unread_count, 'font-semibold' => ! $conversation->unread_count])>{{ $conversation->customer->name }}</span>
                                         @if ($conversation->unread_count)
-                                            <span class="text-xs font-semibold text-indigo-700" data-unread="{{ $conversation->unread_count }}"><span aria-hidden="true">●</span> {{ $conversation->unread_count }} unread</span>
+                                            <span class="text-xs font-semibold text-violet-700" data-unread="{{ $conversation->unread_count }}"><span aria-hidden="true">●</span> {{ $conversation->unread_count }} unread</span>
                                         @endif
                                     </p>
                                     <p class="truncate text-sm text-gray-600">{{ $conversation->subject ?? '(no subject)' }}</p>

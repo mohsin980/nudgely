@@ -1,11 +1,11 @@
 <div class="space-y-6 pb-24 sm:pb-0">
     @php($card = 'rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5')
     @php($heading = 'text-sm font-semibold tracking-wide text-gray-500 uppercase')
-    @php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-indigo-600 focus:ring-inset')
+    @php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
     @php($totals = $this->totals)
 
     <div class="space-y-1">
-        <a href="{{ $estimateId ? route('estimates.show', $estimateId) : route('estimates.index') }}" wire:navigate class="text-sm font-medium text-indigo-700 hover:underline">&larr; {{ $estimateId ? 'Back to estimate' : 'Estimates' }}</a>
+        <a href="{{ $estimateId ? route('estimates.show', $estimateId) : route('estimates.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; {{ $estimateId ? 'Back to estimate' : 'Estimates' }}</a>
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900">{{ $estimateId ? 'Edit draft estimate' : 'New estimate' }}</h1>
     </div>
 
@@ -27,7 +27,7 @@
                             <p class="text-xs text-gray-500">Linked to conversation: {{ $this->conversation->subject ?? '(no subject)' }}</p>
                         @endif
                     </div>
-                    <button type="button" wire:click="clearCustomer" class="text-sm font-medium text-indigo-700 hover:underline">Change</button>
+                    <button type="button" wire:click="clearCustomer" class="text-sm font-medium text-violet-700 hover:underline">Change</button>
                 </div>
             @else
                 <div>
@@ -37,12 +37,12 @@
                 <ul role="list" class="divide-y divide-gray-100 rounded-md ring-1 ring-gray-200" aria-label="Matching customers">
                     @forelse ($this->customerMatches as $match)
                         <li wire:key="match-{{ $match->id }}">
-                            <button type="button" wire:click="selectCustomer({{ $match->id }})" class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-inset">
+                            <button type="button" wire:click="selectCustomer({{ $match->id }})" class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset">
                                 <span class="font-medium text-gray-900">{{ $match->name }}</span> <span class="text-gray-600">{{ $match->email }}</span>
                             </button>
                         </li>
                     @empty
-                        <li class="px-3 py-2 text-sm text-gray-600">No customers found. <a href="{{ route('customers.create') }}" wire:navigate class="font-medium text-indigo-700 hover:underline">Add a customer</a> first.</li>
+                        <li class="px-3 py-2 text-sm text-gray-600">No customers found. <a href="{{ route('customers.create') }}" wire:navigate class="font-medium text-violet-700 hover:underline">Add a customer</a> first.</li>
                     @endforelse
                 </ul>
             @endif
@@ -135,7 +135,7 @@
             <p class="text-sm font-semibold whitespace-nowrap text-gray-900 sm:hidden">Total {{ $this->money($totals->total) }}</p>
             <div class="flex gap-2">
                 <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-white px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 disabled:opacity-50">Save Draft</button>
-                <button type="button" wire:click="saveAndSend" wire:loading.attr="disabled" class="rounded-md bg-indigo-600 px-3 py-2 whitespace-nowrap text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"><span wire:loading.remove wire:target="saveAndSend">Save &amp; Send</span><span wire:loading wire:target="saveAndSend">Sending…</span></button>
+                <button type="button" wire:click="saveAndSend" wire:loading.attr="disabled" class="rounded-md bg-violet-600 px-3 py-2 whitespace-nowrap text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"><span wire:loading.remove wire:target="saveAndSend">Save &amp; Send</span><span wire:loading wire:target="saveAndSend">Sending…</span></button>
             </div>
         </div>
     </form>
