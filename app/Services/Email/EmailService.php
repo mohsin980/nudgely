@@ -37,9 +37,9 @@ class EmailService
     /** Message types that don't count against (or wait for) the monthly email limit. */
     private const UNMETERED_TYPES = ['team_invitation', 'team_notification'];
 
-    public const TEST_EMAIL_SUBJECT = 'QuoteFlow test email';
+    public const TEST_EMAIL_SUBJECT = 'QuoteFollow test email';
 
-    public const TEST_EMAIL_BODY = 'This is a test email from QuoteFlow. Your business email connection is working correctly.';
+    public const TEST_EMAIL_BODY = 'This is a test email from QuoteFollow. Your business email connection is working correctly.';
 
     public function __construct(
         private readonly EmailProviderManager $providers,

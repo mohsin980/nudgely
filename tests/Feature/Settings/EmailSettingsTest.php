@@ -56,7 +56,7 @@ class EmailSettingsTest extends TestCase
             ->assertOk()
             ->assertSeeLivewire(EmailSettings::class)
             ->assertSee('Email Settings')
-            ->assertSee('Configure the email address QuoteFlow will use when communicating with your customers.');
+            ->assertSee('Configure the email address QuoteFollow will use when communicating with your customers.');
     }
 
     public function test_guest_is_redirected_away_from_email_settings(): void
@@ -96,7 +96,7 @@ class EmailSettingsTest extends TestCase
     {
         $this->settings()
             ->assertSee('Connect your business email')
-            ->assertSee('Add your business domain and sender address so QuoteFlow can eventually send automated follow-ups from your own email.')
+            ->assertSee('Add your business domain and sender address so QuoteFollow can eventually send automated follow-ups from your own email.')
             ->assertSee('Add Business Email');
     }
 

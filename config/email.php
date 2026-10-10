@@ -7,7 +7,7 @@ return [
     | Transactional Email Provider
     |--------------------------------------------------------------------------
     |
-    | The provider QuoteFlow uses to register and verify organizations'
+    | The provider QuoteFollow uses to register and verify organizations'
     | sending domains. Credentials stay server-side and are never stored
     | on email connections or sent to the browser.
     |
