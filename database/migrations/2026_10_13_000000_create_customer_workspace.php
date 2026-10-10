@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -32,10 +33,11 @@ return new class extends Migration
         });
 
         // Existing customers: split "John Smith" into first/last name; last activity from their conversations.
-        DB::statement(<<<'SQL'
+        $firstWord = DB::getDriverName() === 'pgsql' ? "split_part(trim(name), ' ', 1)" : "substring_index(trim(name), ' ', 1)";
+        DB::statement(<<<SQL
             update customers set
-                first_name = split_part(trim(name), ' ', 1),
-                last_name = nullif(trim(substr(trim(name), length(split_part(trim(name), ' ', 1)) + 1)), ''),
+                first_name = {$firstWord},
+                last_name = nullif(trim(substr(trim(name), length({$firstWord}) + 1)), ''),
                 last_activity_at = (select max(c.last_message_at) from conversations c where c.customer_id = customers.id)
         SQL);
 
@@ -48,11 +50,12 @@ return new class extends Migration
         // Search: one lowercased text column, indexed with trigrams for "contains" searches.
         DB::statement(<<<'SQL'
             alter table customers add column search_text text generated always as (
-                lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' || name || ' ' || email || ' ' || coalesce(phone_digits, '') || ' ' || coalesce(company, ''))
+                lower(concat(coalesce(first_name, ''), ' ', coalesce(last_name, ''), ' ', name, ' ', email, ' ', coalesce(phone_digits, ''), ' ', coalesce(company, '')))
             ) stored
         SQL);
 
-        if ($this->trigramsAvailable()) {
+        // Trigram index for "contains" search: PostgreSQL only. MySQL scans one organization's rows instead.
+        if (DB::getDriverName() === 'pgsql' && $this->trigramsAvailable()) {
             DB::statement('create index customers_search_text_trgm on customers using gin (search_text gin_trgm_ops)');
         }
 
@@ -67,14 +70,10 @@ return new class extends Migration
 
         DB::statement(<<<'SQL'
             update conversations set
-                latest_confidence = mc.confidence,
-                latest_urgency = mc.urgency
-            from (
-                select distinct on (conversation_id) conversation_id, confidence, urgency
-                from message_classifications where status = 'succeeded'
-                order by conversation_id, id desc
-            ) mc
-            where mc.conversation_id = conversations.id
+                latest_confidence = (select mc.confidence from message_classifications mc
+                    where mc.conversation_id = conversations.id and mc.status = 'succeeded' order by mc.id desc limit 1),
+                latest_urgency = (select mc.urgency from message_classifications mc
+                    where mc.conversation_id = conversations.id and mc.status = 'succeeded' order by mc.id desc limit 1)
         SQL);
 
         Schema::table('messages', function (Blueprint $table) {
@@ -83,7 +82,7 @@ return new class extends Migration
 
         // Messages received before this feature count as read.
         DB::statement("update messages set read_at = coalesce(received_at, created_at) where direction = 'inbound'");
-        DB::statement("create index messages_unread_index on messages (conversation_id) where direction = 'inbound' and read_at is null");
+        PartialIndex::index('messages', 'messages_unread_index', ['conversation_id'], "direction = 'inbound' and read_at is null");
 
         Schema::table('message_classifications', function (Blueprint $table) {
             // "ai" (from the classifier) or "manual" (a person corrected the intent; the AI row is kept).
@@ -128,13 +127,15 @@ return new class extends Migration
             $table->dropConstrainedForeignId('overridden_by');
             $table->dropColumn(['source', 'previous_intent', 'override_reason']);
         });
-        DB::statement('drop index if exists messages_unread_index');
+        PartialIndex::drop('messages', 'messages_unread_index');
         Schema::table('messages', fn (Blueprint $table) => $table->dropColumn('read_at'));
         Schema::table('conversations', function (Blueprint $table) {
             $table->dropIndex(['customer_id', 'last_message_at']);
             $table->dropColumn(['latest_confidence', 'latest_urgency', 'closed_at', 'closed_reason']);
         });
-        DB::statement('drop index if exists customers_search_text_trgm');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('drop index if exists customers_search_text_trgm');
+        }
         Schema::table('customers', function (Blueprint $table) {
             $table->dropColumn('search_text');
             $table->dropUnique(['organization_id', 'email']);

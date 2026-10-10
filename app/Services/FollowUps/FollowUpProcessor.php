@@ -80,18 +80,21 @@ class FollowUpProcessor
             $ids = collect(DB::select(
                 'select id from follow_ups where status = ? and due_at <= ? order by due_at limit ? for update skip locked',
                 [FollowUpStatus::Pending->value, $now, (int) config('follow_ups.batch_size')],
-            ))->pluck('id')->map(fn ($id) => (int) $id);
+            ))->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-            if ($ids->isEmpty()) {
+            if ($ids === []) {
                 return [];
             }
 
-            return DB::select(
-                'update follow_ups set status = ?, updated_at = ?
-                 where status = ? and id = any(?::bigint[])
-                 returning id, organization_id, customer_id, conversation_id, estimate_id, due_at',
-                [FollowUpStatus::Due->value, $now, FollowUpStatus::Pending->value, '{'.$ids->implode(',').'}'],
-            );
+            // The rows are locked above, so this update and the read below see exactly the batch.
+            DB::table('follow_ups')
+                ->whereIn('id', $ids)
+                ->where('status', FollowUpStatus::Pending->value)
+                ->update(['status' => FollowUpStatus::Due->value, 'updated_at' => $now]);
+
+            return DB::table('follow_ups')
+                ->whereIn('id', $ids)
+                ->get(['id', 'organization_id', 'customer_id', 'conversation_id', 'estimate_id', 'due_at']);
         });
 
         foreach ($rows as $row) {

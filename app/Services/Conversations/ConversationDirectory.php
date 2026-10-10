@@ -79,7 +79,7 @@ class ConversationDirectory
         }
 
         return $query
-            ->orderByRaw('conversations.last_message_at desc nulls last')
+            ->orderByRaw('conversations.last_message_at is null, conversations.last_message_at desc')
             ->orderByDesc('conversations.id')
             ->paginate(25)
             ->withQueryString();

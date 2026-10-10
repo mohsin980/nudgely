@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -47,7 +48,8 @@ return new class extends Migration
             $table->foreignId('automation_id')->constrained()->cascadeOnDelete();
             $table->string('type', 64);
             // Per-action settings (e.g. {"delay_days": 2}); validated per action type by the engine.
-            $table->jsonb('configuration')->default('{}');
+            // A JSON column default must be an expression on MySQL (8.0.13+); a literal is refused.
+            $table->jsonb('configuration')->default(DB::raw("('{}')"));
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->boolean('requires_approval')->default(false);
             $table->timestamps();
@@ -95,7 +97,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Each action executes at most once per run.
-            $table->unique(['automation_run_id', 'automation_action_id']);
+            // Named explicitly: MySQL caps identifiers at 64 characters, and the generated name is longer.
+            $table->unique(['automation_run_id', 'automation_action_id'], 'automation_action_runs_run_action_unique');
             $table->index('status');
         });
     }

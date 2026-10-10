@@ -52,8 +52,8 @@ class CustomerDirectory
             ->where('customers.organization_id', $organization->id)
             ->select(['customers.id', 'customers.organization_id', 'customers.name', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone', 'customers.company', 'customers.status', 'customers.last_activity_at', 'customers.created_at'])
             // The most recently active conversation's status and intent, and the next open follow-up.
-            ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at desc nulls last')->limit(1)->select('status'), 'conversation_status')
-            ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at desc nulls last')->limit(1)->select('latest_intent'), 'latest_intent')
+            ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at is null, last_message_at desc')->limit(1)->select('status'), 'conversation_status')
+            ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at is null, last_message_at desc')->limit(1)->select('latest_intent'), 'latest_intent')
             ->selectSub(fn ($q) => $q->from('follow_ups')->whereColumn('follow_ups.customer_id', 'customers.id')->whereIn('status', ['pending', 'due'])->selectRaw('min(due_at)'), 'next_follow_up_at');
 
         $this->search($query, (string) ($filters['search'] ?? ''));
@@ -88,7 +88,7 @@ class CustomerDirectory
             'oldest' => $query->orderBy('customers.created_at'),
             'name_asc' => $query->orderBy('customers.last_name')->orderBy('customers.first_name'),
             'name_desc' => $query->orderByDesc('customers.last_name')->orderByDesc('customers.first_name'),
-            default => $query->orderByRaw('customers.last_activity_at desc nulls last')->orderByDesc('customers.created_at'),
+            default => $query->orderByRaw('customers.last_activity_at is null, customers.last_activity_at desc')->orderByDesc('customers.created_at'),
         };
 
         return $query->orderBy('customers.id')->paginate($perPage)->withQueryString();

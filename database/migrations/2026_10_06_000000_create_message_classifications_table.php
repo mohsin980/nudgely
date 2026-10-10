@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use App\Support\Database\PartialIndex;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -37,10 +38,7 @@ return new class extends Migration
         });
 
         // A request can succeed at most once, even if duplicate jobs race.
-        DB::statement(
-            'CREATE UNIQUE INDEX message_classifications_one_success_per_request '
-            ."ON message_classifications (request_id) WHERE status = 'succeeded'"
-        );
+        PartialIndex::unique('message_classifications', 'message_classifications_one_success_per_request', ['request_id'], "status = 'succeeded'");
 
         Schema::table('conversations', function (Blueprint $table) {
             // Denormalized from the latest classified customer reply, for Inbox filters.

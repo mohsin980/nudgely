@@ -57,7 +57,7 @@ test('a redacted event is refused by replay with a clear reason', function () {
 });
 
 test('the message lookup index for delivery events exists', function () {
-    $indexes = collect(DB::select("select indexname from pg_indexes where tablename = 'webhook_events'"))->pluck('indexname');
+    $indexes = indexNamesOf(['webhook_events']);
 
     expect($indexes)->toContain('webhook_events_delivery_message_id_index');
 });

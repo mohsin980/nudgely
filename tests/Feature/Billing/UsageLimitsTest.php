@@ -310,16 +310,16 @@ describe('concurrency', function () {
         tightFreePlan(['customers' => 100]);
         $queries = [];
         DB::listen(function ($query) use (&$queries) {
-            $queries[] = strtolower($query->sql);
+            $queries[] = strtolower(str_replace(['"', '`'], '', $query->sql));
         });
 
         app(CustomerService::class)->create($this->owner->fresh(), ['first_name' => 'New', 'last_name' => 'Person', 'email' => 'lock@example.com']);
 
         $position = fn (string $needle) => collect($queries)->search(fn ($sql) => str_contains($sql, $needle));
-        $lock = collect($queries)->search(fn ($sql) => str_contains($sql, 'from "organizations"') && str_contains($sql, 'for update'));
-        $count = collect($queries)->search(fn ($sql) => str_contains($sql, 'count(*)') && str_contains($sql, 'from "customers"'));
+        $lock = collect($queries)->search(fn ($sql) => str_contains($sql, 'from organizations') && str_contains($sql, 'for update'));
+        $count = collect($queries)->search(fn ($sql) => str_contains($sql, 'count(*)') && str_contains($sql, 'from customers'));
 
-        expect($lock)->not->toBeFalse()->and($count)->toBeGreaterThan($lock)->and($position('insert into "customers"'))->toBeGreaterThan($count);
+        expect($lock)->not->toBeFalse()->and($count)->toBeGreaterThan($lock)->and($position('insert into customers'))->toBeGreaterThan($count);
     });
 
     test('every guarded creation takes the lock before counting', function () {
@@ -327,10 +327,10 @@ describe('concurrency', function () {
         fakeEmailProvider();
         $queries = [];
         DB::listen(function ($query) use (&$queries) {
-            $queries[] = strtolower($query->sql);
+            $queries[] = strtolower(str_replace(['"', '`'], '', $query->sql));
         });
         $locks = function () use (&$queries) {
-            return collect($queries)->filter(fn ($sql) => str_contains($sql, 'from "organizations"') && str_contains($sql, 'for update'))->count();
+            return collect($queries)->filter(fn ($sql) => str_contains($sql, 'from organizations') && str_contains($sql, 'for update'))->count();
         };
 
         app(EstimateService::class)->create($this->owner->fresh(), estimateInput($this->customer));

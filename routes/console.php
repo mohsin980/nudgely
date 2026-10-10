@@ -147,7 +147,7 @@ Artisan::command('email:trace {message : Message ID}', function () {
         ->where('provider', $message->provider?->value)
         ->where('event_type', WebhookEvent::TYPE_DELIVERY_EVENT)
         // Bounce and complaint events are keyed by their own ID, so match the message ID inside the payload.
-        ->whereRaw("payload->>'MessageID' = ?", [$message->provider_message_id])
+        ->where('delivery_message_id', $message->provider_message_id)
         ->get(['id', 'status', 'attempt_count', 'failure_reason', 'correlation_id', 'received_at']);
 
     $this->line('Provider events: '.$events->count());

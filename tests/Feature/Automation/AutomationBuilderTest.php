@@ -107,7 +107,7 @@ class AutomationBuilderTest extends TestCase
             ->assertSee('Customer reply received (with AI intent)')
             ->assertSee('Active')
             ->assertSeeInOrder(['Actions:', '0', 'Runs:', '1', 'Last run:', 'ago'])
-            ->assertSee($mine->created_at->format('M j, Y'))
+            ->assertSee($mine->created_at->timezone(Organization::query()->findOrFail($mine->organization_id)->timezone ?? config('follow_ups.default_timezone'))->format('M j, Y'))
             ->assertDontSee('Foreign flow');
     }
 

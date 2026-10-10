@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use App\Support\Database\PartialIndex;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -27,10 +28,7 @@ return new class extends Migration
         });
 
         // Database-level guarantee of at most one default connection per organization.
-        DB::statement(
-            'CREATE UNIQUE INDEX email_connections_one_default_per_organization '
-            .'ON email_connections (organization_id) WHERE is_default = true'
-        );
+        PartialIndex::unique('email_connections', 'email_connections_one_default_per_organization', ['organization_id'], 'is_default = true');
     }
 
     /**

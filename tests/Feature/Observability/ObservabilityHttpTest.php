@@ -186,9 +186,10 @@ test('readiness returns only a status, and is not cached', function () {
 });
 
 test('readiness reports unavailable when the database cannot be reached, without saying why', function () {
-    $original = config('database.connections.pgsql.port');
-    config(['database.connections.pgsql.port' => 1]);
-    DB::purge('pgsql');
+    $connection = config('database.default');
+    $original = config("database.connections.{$connection}.port");
+    config(["database.connections.{$connection}.port" => 1]);
+    DB::purge($connection);
 
     try {
         $response = null;
@@ -200,9 +201,9 @@ test('readiness reports unavailable when the database cannot be reached, without
         expect(json_encode($response->json()))->not->toContain('127.0.0.1')->not->toContain('port');
         expect(recordsNamed($logs, 'Readiness check failed: database.')[0]['context']['event'])->toBe('health.database_unavailable');
     } finally {
-        config(['database.connections.pgsql.port' => $original]);
-        DB::purge('pgsql');
-        DB::reconnect('pgsql');
+        config(["database.connections.{$connection}.port" => $original]);
+        DB::purge($connection);
+        DB::reconnect($connection);
     }
 });
 

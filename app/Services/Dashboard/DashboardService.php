@@ -102,10 +102,10 @@ class DashboardService
         $row = FollowUp::query()
             ->forOrganization($organization)
             ->where(fn ($q) => $q->whereIn('status', [FollowUpStatus::Pending, FollowUpStatus::Due])->orWhere('completed_at', '>=', $start))
-            ->selectRaw("count(*) filter (where {$open} and due_at < ?) as overdue", [$start])
-            ->selectRaw("count(*) filter (where {$open} and due_at between ? and ?) as due_today", [$start, $end])
-            ->selectRaw("count(*) filter (where status = 'completed' and completed_at between ? and ?) as completed_today", [$start, $end])
-            ->selectRaw("count(*) filter (where {$open}) as open")
+            ->selectRaw("count(case when {$open} and due_at < ? then 1 end) as overdue", [$start])
+            ->selectRaw("count(case when {$open} and due_at between ? and ? then 1 end) as due_today", [$start, $end])
+            ->selectRaw("count(case when status = 'completed' and completed_at between ? and ? then 1 end) as completed_today", [$start, $end])
+            ->selectRaw("count(case when {$open} then 1 end) as open")
             ->toBase()
             ->first();
 
@@ -128,9 +128,9 @@ class DashboardService
             ->where(fn ($q) => $q
                 ->where(fn ($q) => $q->where('direction', MessageDirection::Inbound)->where('received_at', '>=', $since))
                 ->orWhere(fn ($q) => $q->where('direction', MessageDirection::Outbound)->where('sent_at', '>=', $start)))
-            ->selectRaw("count(*) filter (where direction = 'inbound' and received_at >= ?) as new_replies", [$window])
-            ->selectRaw("count(*) filter (where direction = 'inbound' and received_at between ? and ?) as replies_today", [$start, $end])
-            ->selectRaw("count(*) filter (where direction = 'outbound' and sent_at between ? and ?) as emails_sent_today", [$start, $end])
+            ->selectRaw("count(case when direction = 'inbound' and received_at >= ? then 1 end) as new_replies", [$window])
+            ->selectRaw("count(case when direction = 'inbound' and received_at between ? and ? then 1 end) as replies_today", [$start, $end])
+            ->selectRaw("count(case when direction = 'outbound' and sent_at between ? and ? then 1 end) as emails_sent_today", [$start, $end])
             ->toBase()
             ->first();
 
@@ -145,7 +145,7 @@ class DashboardService
         $row = DB::table('customers')
             ->where('organization_id', $organization->id)
             ->selectRaw('count(*) as total')
-            ->selectRaw('count(*) filter (where created_at between ? and ?) as new_today', [$start, $end])
+            ->selectRaw('count(case when created_at between ? and ? then 1 end) as new_today', [$start, $end])
             ->first();
 
         return array_map('intval', (array) $row);
@@ -165,7 +165,7 @@ class DashboardService
             ->groupBy('status')
             ->select('status')
             ->selectRaw('count(*) as total')
-            ->selectRaw("count(*) filter (where {$sql}) as waiting", $bindings)
+            ->selectRaw("count(case when {$sql} then 1 end) as waiting", $bindings)
             ->toBase()
             ->get();
 
@@ -190,9 +190,9 @@ class DashboardService
         $row = Estimate::query()
             ->where('organization_id', $organization->id)
             ->where(fn ($q) => $q->whereIn('status', ['sent', 'viewed'])->orWhere('sent_at', '>=', $start)->orWhere('accepted_at', '>=', $start))
-            ->selectRaw('count(*) filter (where sent_at between ? and ?) as sent_today', [$start, $end])
-            ->selectRaw("count(*) filter (where status in ('sent', 'viewed')) as awaiting")
-            ->selectRaw('count(*) filter (where accepted_at between ? and ?) as accepted_today', [$start, $end])
+            ->selectRaw('count(case when sent_at between ? and ? then 1 end) as sent_today', [$start, $end])
+            ->selectRaw("count(case when status in ('sent', 'viewed') then 1 end) as awaiting")
+            ->selectRaw('count(case when accepted_at between ? and ? then 1 end) as accepted_today', [$start, $end])
             ->toBase()
             ->first();
 
@@ -210,9 +210,9 @@ class DashboardService
             ->where('organization_id', $organization->id)
             ->where('status', TaskStatus::Pending)
             ->selectRaw('count(*) as open')
-            ->selectRaw('count(*) filter (where due_at is null or due_at <= ?) as due', [$end])
-            ->selectRaw('count(*) filter (where due_at < ?) as overdue', [now()])
-            ->selectRaw('count(*) filter (where due_at > ?) as later', [$end])
+            ->selectRaw('count(case when due_at is null or due_at <= ? then 1 end) as due', [$end])
+            ->selectRaw('count(case when due_at < ? then 1 end) as overdue', [now()])
+            ->selectRaw('count(case when due_at > ? then 1 end) as later', [$end])
             ->toBase()
             ->first();
 
@@ -231,7 +231,7 @@ class DashboardService
             ->where('status', TaskStatus::Pending)
             ->where(fn ($q) => $q->whereNull('due_at')->orWhere('due_at', '<=', $end))
             ->with(['customer:id,name', 'assignee:id,name'])
-            ->orderByRaw('due_at asc nulls last')
+            ->orderByRaw('due_at is null, due_at asc')
             ->orderBy('id')
             ->limit((int) config('dashboard.limits.tasks'))
             ->get(['id', 'organization_id', 'customer_id', 'conversation_id', 'assigned_to', 'title', 'priority', 'status', 'due_at', 'idempotency_key', 'created_at']);

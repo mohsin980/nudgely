@@ -51,7 +51,8 @@ class RetentionPruner
             $ids = DB::table('webhook_events')
                 ->where('status', 'failed')
                 ->where('failed_at', '<', $before)
-                ->whereRaw("payload <> '{\"redacted\": true}'::jsonb")
+                // Already-redacted payloads are {"redacted": true}; this skips them without a JSON literal.
+                ->whereJsonDoesntContainKey('payload->redacted')
                 ->orderBy('id')->limit($chunk)->pluck('id');
 
             if ($ids->isEmpty()) {

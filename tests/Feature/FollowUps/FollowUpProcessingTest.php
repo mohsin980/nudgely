@@ -86,7 +86,8 @@ test('overdue follow-ups notify once', function () {
     $this->artisan('follow-ups:notify-overdue')->expectsOutput('1 overdue follow-up notification(s) sent.');
     $this->artisan('follow-ups:notify-overdue')->expectsOutput('0 overdue follow-up notification(s) sent.');
 
-    expect(DB::table('notifications')->pluck('data')->map(fn ($d) => json_decode($d)->message)->all())
+    // Notifications use UUID keys, so their stored order is not the order they were sent in: compare as sets.
+    expect(DB::table('notifications')->pluck('data')->map(fn ($d) => json_decode($d)->message)->sort()->values()->all())
         ->toBe(["John Smith's follow-up is due today.", "John Smith's follow-up is overdue."]);
 });
 
