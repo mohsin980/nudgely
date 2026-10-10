@@ -7,7 +7,9 @@ use App\Contracts\Email\EmailProviderInterface;
 use App\Enums\Platform\PlatformPermission;
 use App\Enums\Team\Permission;
 use App\Listeners\LogQueueLifecycle;
+use App\Models\Organization;
 use App\Models\User;
+use App\Policies\OrganizationPolicy;
 use App\Policies\RolePolicy;
 use App\Services\AI\ReplyClassifierManager;
 use App\Services\Automation\AutomationExecutionScope;
@@ -87,9 +89,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Organization::class, OrganizationPolicy::class);
 
         // Pages that show an organization's data require the user to be an active member of one.
-        Gate::define('access-organization', fn (User $user) => $user->isActiveMember() && $user->organization()->exists());
+        Gate::define('access-organization', fn (User $user) => $user->isActiveMember() && $user->organization !== null && ! $user->organization->isSuspended());
 
         // Role permissions (OrganizationRole::permissions()) as Gates: can:manage-team, @can('manage-email'), …
         foreach (Permission::cases() as $permission) {

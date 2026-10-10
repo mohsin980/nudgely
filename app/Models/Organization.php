@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Platform\OrganizationStatus;
 use App\Support\Settings\OrganizationSettings;
 use Carbon\CarbonImmutable;
 use Database\Factories\OrganizationFactory;
@@ -61,6 +62,7 @@ class Organization extends Model
             'automatic_email_enabled' => 'boolean',
             'require_approval_for_email' => 'boolean',
             'settings' => 'array',
+            'suspended_at' => 'datetime',
             'trial_ends_at' => 'datetime',
             'trial_used_at' => 'datetime',
             'trial_expired_at' => 'datetime',
@@ -156,6 +158,17 @@ class Organization extends Model
         return CarbonImmutable::now($this->timezone());
     }
 
+    /** Suspended by the platform: members cannot use the app; nothing is deleted. */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    public function status(): OrganizationStatus
+    {
+        return $this->isSuspended() ? OrganizationStatus::Suspended : OrganizationStatus::Active;
+    }
+
     /**
      * Every subscription the organization has had (newest last).
      *
@@ -174,6 +187,16 @@ class Organization extends Model
     public function currentSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->current()->latestOfMany();
+    }
+
+    /**
+     * Platform-side history (suspensions). Joined by id only: the log outlives the organization.
+     *
+     * @return HasMany<PlatformAuditLog, $this>
+     */
+    public function platformAuditLogs(): HasMany
+    {
+        return $this->hasMany(PlatformAuditLog::class);
     }
 
     /**
