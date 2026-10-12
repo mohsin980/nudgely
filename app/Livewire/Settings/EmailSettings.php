@@ -9,12 +9,14 @@ use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\EmailConnection;
 use App\Models\Organization;
 use App\Services\Email\EmailDomainService;
+use App\Services\Email\EmailProviderManager;
 use App\Services\Email\EmailService;
 use App\Validation\EmailConnectionRules;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -78,6 +80,73 @@ class EmailSettings extends Component
             ->oldest()
             ->oldest('id')
             ->get();
+    }
+
+    /**
+     * Whether the server can send email and verify domains at all (credentials present), so the page can say so
+     * instead of offering actions that would only fail. Nothing about the credentials is exposed.
+     */
+    #[Computed]
+    public function sendingConfigured(): bool
+    {
+        return app(EmailProviderManager::class)->sendingConfigured();
+    }
+
+    #[Computed]
+    public function verificationConfigured(): bool
+    {
+        return app(EmailProviderManager::class)->domainVerificationConfigured();
+    }
+
+    /**
+     * Which actions each sender may use right now and, when one may not, why. The page shows the reasons, and the
+     * handlers below check the same rules again on the server.
+     *
+     * @return array<int, array{test: array{allowed: bool, reason: ?string}, default: array{allowed: bool, reason: ?string}, delete: array{allowed: bool, reason: ?string}}>
+     */
+    #[Computed]
+    public function actionStates(): array
+    {
+        return $this->connections->mapWithKeys(fn (EmailConnection $connection) => [$connection->id => [
+            'test' => $this->testEmailState($connection),
+            'default' => $this->setDefaultState($connection),
+            'delete' => $this->deleteState($connection),
+        ]])->all();
+    }
+
+    /** @return array{allowed: bool, reason: ?string} */
+    private function testEmailState(EmailConnection $connection): array
+    {
+        return match (true) {
+            ! $connection->isVerified() => ['allowed' => false, 'reason' => 'Verify this domain first.'],
+            ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending is not set up on this server yet. Contact support.'],
+            default => ['allowed' => true, 'reason' => null],
+        };
+    }
+
+    /** @return array{allowed: bool, reason: ?string} */
+    private function setDefaultState(EmailConnection $connection): array
+    {
+        return match (true) {
+            $connection->is_default => ['allowed' => false, 'reason' => 'This is already the default sender.'],
+            ! $connection->canBecomeDefault() => ['allowed' => false, 'reason' => 'Verify this domain first. Only verified senders can be the default.'],
+            default => ['allowed' => true, 'reason' => null],
+        };
+    }
+
+    /**
+     * A default sender that another verified sender could replace cannot be removed until that sender is made the
+     * default, so there is never a moment with sending set up but no valid default.
+     *
+     * @return array{allowed: bool, reason: ?string}
+     */
+    private function deleteState(EmailConnection $connection): array
+    {
+        $hasVerifiedAlternative = $this->connections->contains(fn (EmailConnection $other) => $other->id !== $connection->id && $other->isVerified());
+
+        return $connection->is_default && $hasVerifiedAlternative
+            ? ['allowed' => false, 'reason' => 'This is your default sender. Make another verified sender the default first, then remove this one.']
+            : ['allowed' => true, 'reason' => null];
     }
 
     public function create(): void
@@ -151,6 +220,12 @@ class EmailSettings extends Component
         $connection = $this->findConnection($connectionId);
         $this->authorize('delete', $connection);
 
+        if (! $this->deleteState($connection)['allowed']) {
+            $this->notify($this->deleteState($connection)['reason'], 'error');
+
+            return;
+        }
+
         $this->confirmingDeletionId = $connection->id;
     }
 
@@ -163,6 +238,14 @@ class EmailSettings extends Component
     {
         $connection = $this->findConnection($this->confirmingDeletionId);
         $this->authorize('delete', $connection);
+
+        // Checked again here: the state may have changed since the dialog opened.
+        if (! $this->deleteState($connection)['allowed']) {
+            $this->confirmingDeletionId = null;
+            $this->notify($this->deleteState($connection)['reason'], 'error');
+
+            return;
+        }
 
         // The default is a flag on the row itself, so deleting it simply leaves no default.
         $this->domains()->deleteConnection($connection);
@@ -201,6 +284,12 @@ class EmailSettings extends Component
         $connection = $this->findConnection($connectionId);
         $this->authorize('verify', $connection);
 
+        if (! $this->verificationConfigured) {
+            $this->notify('Domain verification isn\'t available right now. Please contact support.', 'error');
+
+            return;
+        }
+
         try {
             $this->domains()->registerDomain($connection);
             $this->showingDnsRecordsFor = $connection->id;
@@ -225,6 +314,12 @@ class EmailSettings extends Component
         $connection = $this->findConnection($connectionId);
         $this->authorize('verify', $connection);
 
+        if (! $this->verificationConfigured) {
+            $this->notify('Domain verification isn\'t available right now. Please contact support.', 'error');
+
+            return;
+        }
+
         try {
             if ($this->domains()->verifyDomain($connection)) {
                 $this->showingDnsRecordsFor = null;
@@ -245,6 +340,12 @@ class EmailSettings extends Component
         $connection = $this->findConnection($connectionId);
         $this->authorize('sendTestEmail', $connection);
 
+        if (! $this->testEmailState($connection)['allowed']) {
+            $this->notify($this->testEmailState($connection)['reason'], 'error');
+
+            return;
+        }
+
         $this->resetValidation('testRecipient');
         $this->testEmailConnectionId = $connection->id;
         $this->testRecipient = (string) Auth::user()->email;
@@ -264,6 +365,12 @@ class EmailSettings extends Component
     {
         $connection = $this->findConnection($this->testEmailConnectionId);
         $this->authorize('sendTestEmail', $connection);
+
+        if (! $this->testEmailState($connection)['allowed']) {
+            $this->notify($this->testEmailState($connection)['reason'], 'error');
+
+            return;
+        }
 
         $this->testRecipient = strtolower(trim($this->testRecipient));
         $this->validateOnly('testRecipient', ['testRecipient' => ['required', 'string', 'max:254', 'email:rfc,strict']]);
@@ -320,7 +427,10 @@ class EmailSettings extends Component
         return [
             'domain' => $rules['domain'],
             'senderName' => $rules['sender_name'],
-            'senderEmail' => $rules['sender_email'],
+            // The same address cannot be added twice in one organization (this also stops a double-click from saving two).
+            'senderEmail' => [...$rules['sender_email'], Rule::unique('email_connections', 'sender_email')
+                ->where('organization_id', $this->organization->id)
+                ->ignore($this->editingConnectionId)],
         ];
     }
 
