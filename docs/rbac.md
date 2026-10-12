@@ -122,3 +122,5 @@ php artisan test --filter=RolesAndPermissionsTest   # seeder, matrix, allowed an
 php artisan test --filter=AdminPanelTest            # panel access and sign-in
 php artisan test                                    # whole suite
 ```
+
+See [admin-security.md](admin-security.md) for enforcement details (middleware, page trait, audit log) and first super admin provisioning.

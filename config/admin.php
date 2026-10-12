@@ -14,4 +14,7 @@ return [
 
     'brand' => env('ADMIN_PANEL_BRAND', 'QuoteFlow AI'),
 
+    // Log channel for refused admin access (null = the application's default channel).
+    'audit_channel' => env('ADMIN_AUDIT_LOG_CHANNEL'),
+
 ];
