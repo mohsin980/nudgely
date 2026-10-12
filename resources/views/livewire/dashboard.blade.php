@@ -1,15 +1,15 @@
 <div class="space-y-6" wire:poll.{{ (int) config('dashboard.refresh_seconds') }}s.visible>
-    @php($card = 'rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm ring-1 ring-black/[0.02] sm:p-5')
-    @php($heading = 'text-sm font-semibold tracking-wide text-gray-500 uppercase')
-    @php($button = 'inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+    @php($card = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6')
+    @php($heading = 'text-base font-semibold text-slate-900')
+    @php($button = 'inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
 
     {{-- Header --}}
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900">{{ $greeting }}, {{ $firstName }}</h1>
-            <p class="mt-1 text-sm text-gray-600">{{ "Here's what needs your attention today." }}</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{{ $greeting }}, {{ $firstName }}</h1>
+            <p class="mt-1 text-sm text-slate-500">{{ "Here's what needs your attention today." }}</p>
         </div>
-        <p class="text-sm text-gray-600">
+        <p class="rounded-full bg-white px-3.5 py-1.5 text-sm text-slate-600 shadow-xs ring-1 ring-slate-200">
             <time datetime="{{ $d->localNow->toDateString() }}">{{ $d->localNow->format('l, F j, Y') }}</time>
             <span class="sr-only">({{ $organization->timezone() }})</span>
             <span wire:loading.delay class="ml-2 text-xs text-gray-500" role="status">Updating…</span>
@@ -37,15 +37,20 @@
 
     @if (! $d->hasCustomers)
         {{-- New business: one clear next step instead of a wall of zeros. --}}
-        <section aria-labelledby="welcome-heading" class="{{ $card }} max-w-xl">
-            <h2 id="welcome-heading" class="text-lg font-semibold text-gray-900">No customers yet.</h2>
-            <p class="mt-1 text-sm text-gray-600">Add your first customer to get started. Let's get your first customer workflow running.</p>
-            <div class="mt-3 flex flex-wrap gap-2" data-empty-actions>
-                <a href="{{ route('customers.create') }}" wire:navigate class="{{ $button }}">Add Customer</a>
-                <a href="{{ route('estimates.create') }}" wire:navigate class="{{ $button }}">Create Estimate</a>
-                <a href="{{ route('automations.index') }}" wire:navigate class="{{ $button }}">Create Automation</a>
+        <section aria-labelledby="welcome-heading" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div class="bg-linear-to-br from-violet-600 to-indigo-600 px-6 py-8 text-white sm:px-8">
+                <span class="grid size-11 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25"><x-ui-icon name="users" class="size-6" /></span>
+                <h2 id="welcome-heading" class="mt-4 text-xl font-semibold">No customers yet.</h2>
+                <p class="mt-1 max-w-xl text-sm text-violet-100">Add your first customer to get started. Let's get your first customer workflow running.</p>
+                <div class="mt-5 flex flex-wrap gap-2" data-empty-actions>
+                    <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-violet-700 shadow-xs transition hover:bg-violet-50"><x-ui-icon name="plus" class="size-4" />Add Customer</a>
+                    <a href="{{ route('estimates.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-2 text-sm font-medium text-white ring-1 ring-white/30 ring-inset transition hover:bg-white/20">Create Estimate</a>
+                    <a href="{{ route('automations.index') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-2 text-sm font-medium text-white ring-1 ring-white/30 ring-inset transition hover:bg-white/20">Create Automation</a>
+                </div>
             </div>
-            <div class="mt-4">
+            <div class="p-5 sm:p-8">
+                <h3 class="text-sm font-semibold text-slate-900">Quick add</h3>
+                <p class="mb-4 text-sm text-slate-500">Create a customer right here.</p>
                 <livewire:customers.create-customer-form />
             </div>
         </section>
@@ -54,18 +59,19 @@
         <section aria-label="Summary">
             <ul role="list" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 @foreach ([
-                    ['overdue', 'Overdue Follow-Ups', route('follow-ups.index', ['filter' => 'overdue']), $d->summary['overdue'] > 0 ? 'border-red-300 bg-red-50' : '', '⚠'],
-                    ['due_today', 'Due Today', route('follow-ups.index', ['filter' => 'today']), '', '◷'],
-                    ['waiting', 'Waiting for You', route('inbox.index', ['filter' => 'waiting']), $d->summary['waiting'] > 0 ? 'border-amber-300 bg-amber-50' : '', '●'],
-                    ['new_replies', 'New Customer Replies', route('inbox.index'), '', '✉'],
+                    ['overdue', 'Overdue Follow-Ups', route('follow-ups.index', ['filter' => 'overdue']), $d->summary['overdue'] > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500', 'exclamation'],
+                    ['due_today', 'Due Today', route('follow-ups.index', ['filter' => 'today']), 'bg-violet-50 text-violet-600', 'clock'],
+                    ['waiting', 'Waiting for You', route('inbox.index', ['filter' => 'waiting']), $d->summary['waiting'] > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500', 'inbox'],
+                    ['new_replies', 'New Customer Replies', route('inbox.index'), 'bg-emerald-50 text-emerald-600', 'envelope'],
                 ] as [$key, $label, $url, $tone, $icon])
                     <li>
                         <a href="{{ $url }}" wire:navigate data-card="{{ $key }}"
-                           class="block h-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-violet-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 {{ $tone }}">
-                            <p class="flex items-center gap-1.5 text-sm font-medium text-gray-700"><span aria-hidden="true">{{ $icon }}</span>{{ $label }}</p>
-                            <p class="mt-1 text-3xl font-semibold text-gray-900" data-count="{{ $key }}">{{ $d->summary[$key] }}</p>
+                           class="block h-full rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition hover:border-violet-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:p-5">
+                            <span class="grid size-9 place-items-center rounded-lg {{ $tone }}"><x-ui-icon :name="$icon" class="size-5" /></span>
+                            <p class="mt-4 text-3xl font-semibold tracking-tight text-slate-900" data-count="{{ $key }}">{{ $d->summary[$key] }}</p>
+                            <p class="mt-0.5 text-sm font-medium text-slate-600">{{ $label }}</p>
                             @if ($key === 'new_replies')
-                                <p class="text-xs text-gray-500">Last {{ (int) config('dashboard.new_replies_hours') }} hours</p>
+                                <p class="text-xs text-slate-400">Last {{ (int) config('dashboard.new_replies_hours') }} hours</p>
                             @endif
                         </a>
                     </li>
