@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
+use App\Enums\Billing\DataFreshness;
 use App\Enums\Billing\SubscriptionStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,6 +34,7 @@ class Subscription extends Model
             'cancel_at_period_end' => 'boolean',
             'canceled_at' => 'datetime',
             'ended_at' => 'datetime',
+            'last_synced_at' => 'datetime',
             'past_due_since' => 'datetime',
             'restricted_at' => 'datetime',
             'scheduled_change_at' => 'datetime',
@@ -51,6 +53,25 @@ class Subscription extends Model
      * The plan applies now: the status allows it, a trial hasn't run out, and a cancellation
      * scheduled for the period end hasn't reached it (until a provider sync marks it ended).
      */
+    /**
+     * Whether this stored record can be trusted against the provider. Finished subscriptions do not change any more,
+     * so they are not flagged stale.
+     */
+    public function dataFreshness(): DataFreshness
+    {
+        if ($this->provider === 'manual') {
+            return DataFreshness::Local;
+        }
+
+        if ($this->last_synced_at === null) {
+            return DataFreshness::Unconfirmed;
+        }
+
+        $isStale = ! $this->status->isTerminal() && $this->last_synced_at->lt(now()->subMinutes((int) config('billing.stale_after_minutes', 180)));
+
+        return $isStale ? DataFreshness::Stale : DataFreshness::Confirmed;
+    }
+
     public function scheduledPlanDefinition(): ?Plan
     {
         return app(PlanCatalog::class)->find($this->scheduled_plan);

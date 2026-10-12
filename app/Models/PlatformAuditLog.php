@@ -21,6 +21,7 @@ class PlatformAuditLog extends Model
         'organization_reactivated' => 'Organization reactivated',
         'user_deactivated' => 'User deactivated',
         'user_reactivated' => 'User reactivated',
+        'subscription_refreshed' => 'Subscription refreshed from provider',
         'plan_updated' => 'Plan updated',
         'plan_reset' => 'Plan reset to configured defaults',
     ];

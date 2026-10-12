@@ -37,6 +37,10 @@ return [
     // fixes the card. After that, paid-only limits stop applying (Free limits; nothing is deleted).
     'grace_days' => (int) env('BILLING_GRACE_DAYS', 7),
 
+    // A stored subscription that the provider has not confirmed for this many minutes is shown as stale to
+    // administrators (webhooks and the hourly sync normally keep it much fresher).
+    'stale_after_minutes' => (int) env('BILLING_STALE_AFTER_MINUTES', 180),
+
     // The "trial ending soon" banner appears this many days before a trial ends.
     'trial_banner_days' => (int) env('BILLING_TRIAL_BANNER_DAYS', 7),
 
