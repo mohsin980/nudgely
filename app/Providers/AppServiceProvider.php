@@ -8,6 +8,7 @@ use App\Enums\Platform\PlatformPermission;
 use App\Enums\Team\Permission;
 use App\Listeners\LogQueueLifecycle;
 use App\Models\Organization;
+use App\Models\PlanSetting;
 use App\Models\User;
 use App\Policies\OrganizationPolicy;
 use App\Policies\RolePolicy;
@@ -47,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ReplyClassifierManager::class);
         $this->app->singleton(BillingProviderManager::class);
         // Plans are read from config/billing.php once and validated (a bad plan fails loudly).
-        $this->app->singleton(PlanCatalog::class, fn ($app) => new PlanCatalog($app['config']->get('billing', [])));
+        $this->app->singleton(PlanCatalog::class, fn ($app) => new PlanCatalog($app['config']->get('billing', []), fn () => PlanSetting::overrides()));
         // Per job / request, so a chain depth never leaks into unrelated work.
         $this->app->scoped(AutomationExecutionScope::class);
     }

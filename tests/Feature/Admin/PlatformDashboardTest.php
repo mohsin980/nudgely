@@ -235,6 +235,7 @@ test('metric queries do not grow with the number of organizations', function () 
     };
 
     makeSubscription('active');
+    $count(); // warm-up: the plan catalog loads its overrides once
     $small = $count();
 
     foreach (range(1, 15) as $i) {
