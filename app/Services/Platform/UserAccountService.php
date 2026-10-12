@@ -12,10 +12,10 @@ use App\Models\PlatformAuditLog;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\Billing\EntitlementService;
+use App\Services\Platform\Concerns\AuditsDeniedAttempts;
 use App\Services\Team\TeamService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * Deactivates and reactivates user accounts from the Super Admin panel, using the account lifecycle the customer
@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\Gate;
  */
 class UserAccountService
 {
+    use AuditsDeniedAttempts;
+
     public const MIN_REASON = 10;
 
     public const MAX_REASON = 500;
@@ -39,7 +41,7 @@ class UserAccountService
      */
     public function deactivate(User $target, User $actor, string $reason): User
     {
-        Gate::forUser($actor)->authorize('deactivate', $target);
+        $this->authorizeAudited($actor, 'deactivate', $target, 'user_deactivated', ['type' => 'user', 'id' => $target->id, 'subject_user_id' => $target->id, 'organization_id' => $target->organization_id]);
         $reason = $this->cleanReason($reason);
 
         return DB::transaction(function () use ($target, $actor, $reason) {
@@ -68,7 +70,7 @@ class UserAccountService
      */
     public function reactivate(User $target, User $actor, string $reason): User
     {
-        Gate::forUser($actor)->authorize('reactivate', $target);
+        $this->authorizeAudited($actor, 'reactivate', $target, 'user_reactivated', ['type' => 'user', 'id' => $target->id, 'subject_user_id' => $target->id, 'organization_id' => $target->organization_id]);
         $reason = $this->cleanReason($reason);
 
         return DB::transaction(function () use ($target, $actor, $reason) {

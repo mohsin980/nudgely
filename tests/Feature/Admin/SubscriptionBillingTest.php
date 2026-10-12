@@ -299,7 +299,7 @@ test('only administrators with manage_subscriptions may refresh, and customers n
         expect(fn () => $service->refresh($paid['subscription'], $user))->toThrow(AuthorizationException::class);
     }
 
-    expect(PlatformAuditLog::count())->toBe(0);
+    expect(PlatformAuditLog::where('outcome', 'success')->count())->toBe(0)->and(PlatformAuditLog::where('outcome', 'denied')->count())->toBe(3);
 });
 
 test('refresh re-reads Stripe through the billing service, records what changed and is audited', function () {
@@ -326,7 +326,8 @@ test('refresh is rate limited and reports provider failures without changing the
     $this->stripe->failWith(500);
     $before = $paid['subscription']->fresh()->getAttributes();
     expect(fn () => $service->refresh($paid['subscription']->fresh(), $admin))->toThrow(SubscriptionRefreshException::class);
-    expect($paid['subscription']->fresh()->getAttributes())->toBe($before)->and(PlatformAuditLog::count())->toBe(0);
+    expect($paid['subscription']->fresh()->getAttributes())->toBe($before)->and(PlatformAuditLog::where('outcome', 'success')->count())->toBe(0)
+        ->and(PlatformAuditLog::where('outcome', 'failed')->sole()->action)->toBe('subscription_refreshed');
 
     $this->stripe->recover();
     expect(fn () => $service->refresh($paid['subscription']->fresh(), $admin))->toThrow(SubscriptionRefreshException::class, 'a moment ago');

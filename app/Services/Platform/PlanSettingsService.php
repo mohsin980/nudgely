@@ -13,9 +13,9 @@ use App\Models\PlatformAuditLog;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\UsageService;
+use App\Services\Platform\Concerns\AuditsDeniedAttempts;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -32,6 +32,8 @@ use Illuminate\Validation\ValidationException;
  */
 class PlanSettingsService
 {
+    use AuditsDeniedAttempts;
+
     public const MIN_REASON = 10;
 
     public const MAX_REASON = 500;
@@ -162,7 +164,7 @@ class PlanSettingsService
      */
     public function update(string $planKey, string $name, array $limits, User $actor, string $reason): array
     {
-        Gate::forUser($actor)->authorize('manage_plans');
+        $this->authorizeAudited($actor, 'manage_plans', [], 'plan_updated', ['type' => 'plan', 'id' => $planKey]);
 
         $reason = $this->cleanReason($reason);
         $clean = $this->validate($planKey, $name, $limits);
@@ -187,7 +189,7 @@ class PlanSettingsService
                 'updated_by' => $actor->id,
             ])->save();
 
-            PlatformAuditLog::record('plan_updated', $actor, null, $reason, null, ['plan' => $planKey, 'fields' => $changes]);
+            PlatformAuditLog::record('plan_updated', $actor, null, $reason, null, ['plan' => $planKey, 'fields' => $changes], 'plan', $planKey);
         });
 
         $this->plans->refresh();
@@ -203,7 +205,7 @@ class PlanSettingsService
      */
     public function reset(string $planKey, User $actor, string $reason): void
     {
-        Gate::forUser($actor)->authorize('manage_plans');
+        $this->authorizeAudited($actor, 'manage_plans', [], 'plan_reset', ['type' => 'plan', 'id' => $planKey]);
 
         $reason = $this->cleanReason($reason);
         $configured = $this->plans->configured()[$planKey] ?? throw PlanSettingsException::unknownPlan();
@@ -213,7 +215,7 @@ class PlanSettingsService
 
         DB::transaction(function () use ($planKey, $actor, $reason, $changes) {
             PlanSetting::query()->where('plan_key', $planKey)->delete();
-            PlatformAuditLog::record('plan_reset', $actor, null, $reason, null, ['plan' => $planKey, 'fields' => $changes]);
+            PlatformAuditLog::record('plan_reset', $actor, null, $reason, null, ['plan' => $planKey, 'fields' => $changes], 'plan', $planKey);
         });
 
         $this->plans->refresh();

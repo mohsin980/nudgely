@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\Platform\PlatformRole;
 use App\Enums\Team\MemberStatus;
 use App\Models\PlatformAdmin;
+use App\Models\PlatformAuditLog;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Spatie\Permission\Models\Role;
@@ -60,12 +61,19 @@ class PlatformAdminGrantCommand extends Command
             return self::FAILURE;
         }
 
+        $before = $user->isPlatformAdmin() ? $user->roles()->pluck('name')->sort()->values()->all() : null;
+
         if (! $user->isPlatformAdmin()) {
             // forceCreate: the model refuses mass assignment, so a grant can only come from deliberate code like this.
             PlatformAdmin::query()->forceCreate(['user_id' => $user->id]);
         }
 
         $user->syncRoles($roles);
+
+        // Run on the server, so there is no signed-in actor: the event is attributed to the system.
+        PlatformAuditLog::record('platform_admin_granted', null, $user->organization_id, null, $user->id, [
+            'roles' => $roles, 'previous_roles' => $before, 'via' => 'cli',
+        ]);
 
         $this->info("Granted: {$user->email} is a platform administrator with role(s): ".implode(', ', $roles).'. They can sign in at /admin.');
 

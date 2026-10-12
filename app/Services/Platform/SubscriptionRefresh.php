@@ -8,9 +8,9 @@ use App\Models\PlatformAuditLog;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\BillingService;
+use App\Services\Platform\Concerns\AuditsDeniedAttempts;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Log;
  */
 class SubscriptionRefresh
 {
+    use AuditsDeniedAttempts;
+
     public function __construct(private readonly BillingService $billing) {}
 
     /**
@@ -28,7 +30,7 @@ class SubscriptionRefresh
      */
     public function refresh(Subscription $subscription, User $actor): Subscription
     {
-        Gate::forUser($actor)->authorize('manage_subscriptions');
+        $this->authorizeAudited($actor, 'manage_subscriptions', [], 'subscription_refreshed', ['type' => 'subscription', 'id' => $subscription->id, 'organization_id' => $subscription->organization_id]);
 
         // The panel loads a trimmed record; billing needs the whole row and organization.
         $subscription = Subscription::query()->findOrFail($subscription->id);
@@ -49,6 +51,8 @@ class SubscriptionRefresh
         } catch (BillingException $e) {
             Log::warning('Admin subscription refresh failed.', ['event' => 'billing.admin_refresh.failed', 'subscription_id' => $subscription->id, 'actor_id' => $actor->id]);
 
+            PlatformAuditLog::record('subscription_refreshed', $actor, $subscription->organization_id, null, null, ['subscription_id' => $subscription->id], 'subscription', $subscription->id, PlatformAuditLog::FAILED);
+
             throw SubscriptionRefreshException::providerFailed();
         }
 
@@ -61,7 +65,7 @@ class SubscriptionRefresh
             }
         }
 
-        PlatformAuditLog::record('subscription_refreshed', $actor, $subscription->organization_id, null, null, ['subscription_id' => $subscription->id, 'changed' => $changed]);
+        PlatformAuditLog::record('subscription_refreshed', $actor, $subscription->organization_id, null, null, ['subscription_id' => $subscription->id, 'changed' => $changed], 'subscription', $subscription->id);
 
         return $fresh;
     }
