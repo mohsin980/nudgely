@@ -6,9 +6,9 @@ use App\Exceptions\Platform\OrganizationStateException;
 use App\Models\Organization;
 use App\Models\PlatformAuditLog;
 use App\Models\User;
+use App\Services\Platform\Concerns\AuditsDeniedAttempts;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * Suspends and reactivates organizations. Suspension is reversible and deletes nothing: members are signed
@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Gate;
  */
 class OrganizationSuspension
 {
+    use AuditsDeniedAttempts;
+
     public const MIN_REASON = 10;
 
     public const MAX_REASON = 500;
@@ -29,7 +31,7 @@ class OrganizationSuspension
      */
     public function suspend(Organization $organization, User $actor, string $reason): Organization
     {
-        Gate::forUser($actor)->authorize('suspend', $organization);
+        $this->authorizeAudited($actor, 'suspend', $organization, 'organization_suspended', ['type' => 'organization', 'id' => $organization->id, 'organization_id' => $organization->id]);
 
         $reason = $this->cleanReason($reason);
 
@@ -57,7 +59,7 @@ class OrganizationSuspension
      */
     public function reactivate(Organization $organization, User $actor, string $reason): Organization
     {
-        Gate::forUser($actor)->authorize('reactivate', $organization);
+        $this->authorizeAudited($actor, 'reactivate', $organization, 'organization_reactivated', ['type' => 'organization', 'id' => $organization->id, 'organization_id' => $organization->id]);
 
         $reason = $this->cleanReason($reason);
 

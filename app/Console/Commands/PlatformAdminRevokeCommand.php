@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\PlatformAdmin;
+use App\Models\PlatformAuditLog;
 use App\Models\User;
 use Illuminate\Console\Command;
 
@@ -22,8 +23,11 @@ class PlatformAdminRevokeCommand extends Command
             return self::FAILURE;
         }
 
+        $previous = $user->roles()->pluck('name')->sort()->values()->all();
         $user->syncRoles([]);
         PlatformAdmin::query()->where('user_id', $user->id)->delete();
+
+        PlatformAuditLog::record('platform_admin_revoked', null, $user->organization_id, null, $user->id, ['previous_roles' => $previous, 'via' => 'cli']);
 
         $this->info("Revoked: {$user->email} can no longer sign in to /admin.");
 

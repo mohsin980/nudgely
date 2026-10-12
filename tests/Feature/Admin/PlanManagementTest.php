@@ -91,7 +91,7 @@ test('only administrators with manage_plans may edit', function () {
 
     expect(fn () => $service->update('pro', 'Pro', proLimits(['customers' => 5000]), User::factory()->owner()->create(), 'A customer editing plans'))
         ->toThrow(AuthorizationException::class);
-    expect(PlanSetting::count())->toBe(0)->and(PlatformAuditLog::count())->toBe(0);
+    expect(PlanSetting::count())->toBe(0)->and(PlatformAuditLog::where('outcome', 'success')->count())->toBe(0)->and(PlatformAuditLog::where('outcome', 'denied')->count())->toBe(5);
 });
 
 test('the edit action is hidden from administrators who may not manage plans', function () {
@@ -172,7 +172,7 @@ test('reset restores the configured name and limits and is audited', function ()
     $pro = app(PlanCatalog::class)->get('pro');
     expect($pro->name)->toBe('Pro')->and($pro->limit(LimitKey::Customers))->toBe(2000)
         ->and(PlanSetting::count())->toBe(0)
-        ->and(PlatformAuditLog::pluck('action')->all())->toBe(['plan_updated', 'plan_reset']);
+        ->and(PlatformAuditLog::orderBy('id')->pluck('action')->all())->toBe(['plan_updated', 'plan_reset']);
 });
 
 // Validation
@@ -203,7 +203,7 @@ test('invalid prices, limits and names are rejected', function () {
         }
     }
 
-    expect(PlanSetting::count())->toBe(0)->and(PlatformAuditLog::count())->toBe(0);
+    expect(PlanSetting::count())->toBe(0)->and(PlatformAuditLog::where('outcome', 'success')->count())->toBe(0);
 });
 
 test('a cheaper plan cannot be raised above a dearer one', function () {

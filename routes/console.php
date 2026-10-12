@@ -86,6 +86,7 @@ Schedule::command('email:recover-stuck-sends')->everyFiveMinutes()->withoutOverl
 Schedule::command('billing:sync-subscriptions')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('billing:send-trial-reminders')->dailyAt('09:00')->withoutOverlapping()->onOneServer();
 Schedule::command('retention:prune')->dailyAt('03:30')->withoutOverlapping()->onOneServer();
+Schedule::command('platform-audit:prune')->dailyAt('03:45')->withoutOverlapping()->onOneServer();
 Schedule::job(new ExpireTrialsJob)->hourlyAt(5)->name('billing-expire-trials')->withoutOverlapping()->onOneServer();
 Schedule::job(new CheckGracePeriodsJob)->hourlyAt(35)->name('billing-check-grace-periods')->withoutOverlapping()->onOneServer();
 

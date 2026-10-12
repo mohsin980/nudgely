@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\PlatformAuditLog;
 use App\Support\Admin\AdminAccess;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -26,5 +27,11 @@ class AuthenticatePlatformAdmin extends Authenticate
         }
 
         parent::authenticate($request, $guards);
+
+        // One audit event per admin session (not per request): who is using the panel, and when it started.
+        if ($user !== null && ! $request->session()->get('admin_session_audited')) {
+            PlatformAuditLog::record('admin_session_started', $user, $user->organization_id, null, $user->id);
+            $request->session()->put('admin_session_audited', true);
+        }
     }
 }

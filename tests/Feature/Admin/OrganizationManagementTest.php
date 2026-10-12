@@ -206,7 +206,7 @@ test('only administrators with suspend_organizations may suspend', function () {
             ->toThrow(AuthorizationException::class);
     }
 
-    expect($org->fresh()->isSuspended())->toBeFalse()->and(PlatformAuditLog::count())->toBe(0);
+    expect($org->fresh()->isSuspended())->toBeFalse()->and(PlatformAuditLog::where('outcome', 'success')->count())->toBe(0)->and(PlatformAuditLog::where('outcome', 'denied')->count())->toBe(2);
 });
 
 test('a customer cannot suspend an organization even through the service', function () {

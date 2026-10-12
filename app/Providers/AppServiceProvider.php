@@ -9,8 +9,10 @@ use App\Enums\Team\Permission;
 use App\Listeners\LogQueueLifecycle;
 use App\Models\Organization;
 use App\Models\PlanSetting;
+use App\Models\PlatformAuditLog;
 use App\Models\User;
 use App\Policies\OrganizationPolicy;
+use App\Policies\PlatformAuditLogPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\UserPolicy;
 use App\Services\AI\ReplyClassifierManager;
@@ -93,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(PlatformAuditLog::class, PlatformAuditLogPolicy::class);
 
         // Pages that show an organization's data require the user to be an active member of one.
         Gate::define('access-organization', fn (User $user) => $user->isActiveMember() && $user->organization !== null && ! $user->organization->isSuspended());
