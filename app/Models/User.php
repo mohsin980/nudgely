@@ -7,11 +7,14 @@ use App\Enums\OrganizationRole;
 use App\Enums\Team\MemberStatus;
 use App\Enums\Team\Permission;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -21,7 +24,7 @@ use Illuminate\Notifications\Notifiable;
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -47,6 +50,30 @@ class User extends Authenticatable
     /**
      * @return BelongsTo<Organization, $this>
      */
+    /**
+     * @return HasOne<PlatformAdmin, $this>
+     */
+    public function platformAdmin(): HasOne
+    {
+        return $this->hasOne(PlatformAdmin::class);
+    }
+
+    public function isPlatformAdmin(): bool
+    {
+        return $this->platformAdmin()->exists();
+    }
+
+    /**
+     * The Super Admin panel is for platform administrators only. Business roles (owner, manager, staff) never
+     * grant it, and a suspended or removed account is refused even if it was once granted.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $panel->getId() === 'admin'
+            && $this->status === MemberStatus::Active
+            && $this->isPlatformAdmin();
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
