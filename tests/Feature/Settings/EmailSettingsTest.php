@@ -109,7 +109,7 @@ class EmailSettingsTest extends TestCase
 
         $this->settings()
             ->assertDontSee('Connect your business email')
-            ->assertSeeInOrder(['Dallas Cooling', 'Default', 'sales@example.com', 'Verified', 'Billing', 'billing@example.com', 'Pending Verification']);
+            ->assertSeeInOrder(['Dallas Cooling', 'Default sender', 'Verified', 'sales@example.com', 'Billing', 'Pending Verification', 'billing@example.com']);
     }
 
     public function test_other_organizations_connections_are_not_listed(): void
@@ -331,7 +331,7 @@ class EmailSettingsTest extends TestCase
         $this->assertModelExists($connection);
     }
 
-    public function test_deleting_the_default_connection_warns_and_leaves_no_default(): void
+    public function test_the_default_sender_cannot_be_deleted_while_another_verified_sender_could_replace_it(): void
     {
         $default = $this->verifiedConnection();
         $default->markAsDefault();
@@ -339,11 +339,48 @@ class EmailSettingsTest extends TestCase
 
         $this->settings()
             ->call('confirmDelete', $default->id)
+            ->assertSet('confirmingDeletionId', null)
+            ->assertSet('statusType', 'error')
+            ->assertSee('Make another verified sender the default first');
+
+        $this->assertModelExists($default);
+        $this->assertTrue($default->fresh()->is_default);
+
+        // Once another sender is the default, the old one can go.
+        $other->markAsDefault();
+        $this->settings()->call('confirmDelete', $default->id)->assertSet('confirmingDeletionId', $default->id)->call('delete');
+        $this->assertModelMissing($default);
+        $this->assertTrue($other->fresh()->is_default);
+    }
+
+    public function test_the_delete_check_is_repeated_when_confirming(): void
+    {
+        $default = $this->verifiedConnection();
+        $default->markAsDefault();
+        $other = $this->verifiedConnection();
+        $other->forceFill(['verification_status' => EmailVerificationStatus::Pending])->save();
+
+        $page = $this->settings()->call('confirmDelete', $default->id)->assertSet('confirmingDeletionId', $default->id);
+
+        // Meanwhile another sender becomes verified: confirming must now be refused.
+        $other->forceFill(['verification_status' => EmailVerificationStatus::Verified])->save();
+        $page->call('delete')->assertSet('confirmingDeletionId', null)->assertSet('statusType', 'error');
+
+        $this->assertModelExists($default);
+    }
+
+    public function test_deleting_a_default_sender_with_no_verified_replacement_warns_and_is_allowed(): void
+    {
+        $default = $this->verifiedConnection();
+        $default->markAsDefault();
+        EmailConnection::factory()->for($this->organization)->create(['sender_email' => 'pending@example.com']);
+
+        $this->settings()
+            ->call('confirmDelete', $default->id)
             ->assertSee('This is your default sender.')
             ->call('delete');
 
         $this->assertModelMissing($default);
-        $this->assertFalse($other->fresh()->is_default);
         $this->assertSame(0, $this->organization->emailConnections()->default()->count());
     }
 

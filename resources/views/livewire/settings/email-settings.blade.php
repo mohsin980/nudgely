@@ -51,64 +51,68 @@
         @else
             <ul role="list" class="space-y-4">
                 @foreach ($this->connections as $connection)
-                    <li wire:key="connection-{{ $connection->id }}" class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div class="min-w-0 space-y-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <p class="truncate text-base font-semibold text-gray-900">{{ $connection->sender_name }}</p>
-                                    @if ($connection->is_default)
-                                        <span class="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">Default</span>
-                                    @endif
+                    @php
+                        $states = $this->actionStates[$connection->id];
+                        $failed = $connection->verification_status === \App\Enums\EmailVerificationStatus::Failed;
+                        $registered = $connection->isRegisteredWithProvider();
+                        $showingRecords = $registered && $showingDnsRecordsFor === $connection->id;
+                    @endphp
+                    <li wire:key="connection-{{ $connection->id }}" class="rounded-lg border border-gray-200 bg-white shadow-sm">
+                        <div class="p-5">
+                            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                {{-- What this sender is: name, address, domain and whether it can be used. --}}
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 class="min-w-0 break-words text-base font-semibold text-gray-900">{{ $connection->sender_name }}</h3>
+                                        @if ($connection->is_default)
+                                            <span class="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">
+                                                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.9L10 1.5z"/></svg>
+                                                Default sender
+                                            </span>
+                                        @endif
+                                        <x-email-verification-badge :status="$connection->verification_status" />
+                                    </div>
+                                    <p class="mt-1 break-all text-sm text-gray-800">{{ $connection->sender_email }}</p>
+                                    <p class="mt-0.5 text-sm text-gray-500">Domain: <span class="break-all font-medium text-gray-700">{{ $connection->domain }}</span></p>
                                 </div>
-                                <p class="truncate text-sm text-gray-700">{{ $connection->sender_email }}</p>
 
-                                <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-                                    <dt class="text-gray-500">Domain:</dt>
-                                    <dd class="truncate text-gray-900">{{ $connection->domain }}</dd>
-                                    <dt class="text-gray-500">Status:</dt>
-                                    <dd><x-email-verification-badge :status="$connection->verification_status" /></dd>
+                                {{-- What you can do: Edit stays visible, the rest is one tap away. --}}
+                                <div class="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
                                     @if ($connection->isVerified())
-                                        <dt class="text-gray-500">Sender:</dt>
-                                        <dd class="min-w-0 break-words text-gray-900">{{ $connection->sender_name }} &lt;{{ $connection->sender_email }}&gt;</dd>
+                                        <button type="button"
+                                                wire:click="openTestEmail({{ $connection->id }})"
+                                                @disabled(! $states['test']['allowed'])
+                                                @unless ($states['test']['allowed']) aria-describedby="test-reason-{{ $connection->id }}" @endunless
+                                                class="inline-flex flex-1 items-center justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
+                                            Send Test Email
+                                        </button>
                                     @endif
-                                </dl>
-                            </div>
-
-                            <div class="flex flex-wrap gap-2 sm:justify-end">
-                                <button type="button" wire:click="edit({{ $connection->id }})" class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
-                                    Edit
-                                </button>
-
-                                <button type="button"
-                                        wire:click="openTestEmail({{ $connection->id }})"
-                                        @disabled(! $connection->isVerified())
-                                        @if (! $connection->isVerified()) title="Verify this domain before sending a test email." aria-describedby="default-hint-{{ $connection->id }}" @endif
-                                        class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white">
-                                    Send Test Email
-                                </button>
-
-                                @unless ($connection->is_default)
-                                    <button type="button"
-                                            wire:click="setDefault({{ $connection->id }})"
-                                            wire:loading.attr="disabled"
-                                            @disabled(! $connection->canBecomeDefault())
-                                            @if (! $connection->canBecomeDefault()) title="Verify this domain before making it the default sender." aria-describedby="default-hint-{{ $connection->id }}" @endif
-                                            class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white">
-                                        Set as Default
+                                    <button type="button" wire:click="edit({{ $connection->id }})" class="inline-flex flex-1 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
+                                        Edit<span class="sr-only"> {{ $connection->sender_email }}</span>
                                     </button>
-                                @endunless
 
-                                <button type="button" wire:click="confirmDelete({{ $connection->id }})" class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-gray-300 ring-inset hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
-                                    Delete
-                                </button>
+                                    <x-action-menu :label="'More actions for '.$connection->sender_email">
+                                        @unless ($connection->isVerified())
+                                            <x-action-menu-item :item-id="'menu-test-'.$connection->id" :disabled="true" :reason="$states['test']['reason']">Send Test Email</x-action-menu-item>
+                                        @endunless
+                                        @unless ($connection->is_default)
+                                            <x-action-menu-item :item-id="'menu-default-'.$connection->id" wire:click="setDefault({{ $connection->id }})" :disabled="! $states['default']['allowed']" :reason="$states['default']['reason']">Set as Default</x-action-menu-item>
+                                        @endunless
+                                        <x-action-menu-item :item-id="'menu-delete-'.$connection->id" wire:click="confirmDelete({{ $connection->id }})" :disabled="! $states['delete']['allowed']" :reason="$states['delete']['reason']" :danger="true">Delete</x-action-menu-item>
+                                    </x-action-menu>
+                                </div>
                             </div>
+
+                            @if ($connection->isVerified() && ! $states['test']['allowed'])
+                                <p id="test-reason-{{ $connection->id }}" class="mt-3 text-sm text-gray-600">{{ $states['test']['reason'] }}</p>
+                            @endif
                         </div>
 
-                        @if ($connection->isVerified() && $testEmailConnectionId === $connection->id)
-                            <form wire:submit="sendTestEmail" class="mt-4 rounded-md bg-gray-50 p-4" novalidate>
+                        @if ($connection->isVerified() && $testEmailConnectionId === $connection->id && $states['test']['allowed'])
+                            <form wire:submit="sendTestEmail" class="border-t border-gray-100 bg-gray-50 p-5" novalidate>
                                 <label for="testRecipient" class="block text-sm font-medium text-gray-900">Test Email Address</label>
                                 <p id="testRecipient-hint" class="text-sm text-gray-600">
-                                    We'll send a short test message from {{ $connection->sender_name }} &lt;{{ $connection->sender_email }}&gt;.
+                                    We'll send a short test message from {{ $connection->sender_name }} &lt;<span class="break-all">{{ $connection->sender_email }}</span>&gt;.
                                 </p>
                                 <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
                                     <div class="min-w-0 flex-1 sm:max-w-md">
@@ -131,9 +135,9 @@
                                     <div class="flex shrink-0 gap-2">
                                         <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
                                             <span wire:loading.remove wire:target="sendTestEmail">Send Test Email</span>
-                                            <span wire:loading wire:target="sendTestEmail">Sending…</span>
+                                            <span wire:loading wire:target="sendTestEmail" role="status">Sending…</span>
                                         </button>
-                                        <button type="button" wire:click="cancelTestEmail" class="rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                        <button type="button" wire:click="cancelTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                             Cancel
                                         </button>
                                     </div>
@@ -142,16 +146,11 @@
                         @endif
 
                         @unless ($connection->isVerified())
-                            @php
-                                $failed = $connection->verification_status === \App\Enums\EmailVerificationStatus::Failed;
-                                $registered = $connection->isRegisteredWithProvider();
-                                $showingRecords = $registered && $showingDnsRecordsFor === $connection->id;
-                            @endphp
-
-                            <div class="mt-4 rounded-md bg-gray-50 p-4">
-                                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div class="text-sm">
-                                        <p class="font-medium text-gray-900">
+                            {{-- Guided verification: what is wrong, the next step, and the one button that does it. --}}
+                            <div class="border-t border-gray-100 bg-gray-50 p-5">
+                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="min-w-0 text-sm">
+                                        <p class="font-semibold text-gray-900">
                                             @if ($failed)
                                                 Your domain could not be verified.
                                             @elseif ($registered)
@@ -161,38 +160,52 @@
                                             @endif
                                         </p>
                                         @if ($failed && $connection->verification_error)
-                                            <p class="text-red-700">{{ $connection->verification_error }}</p>
+                                            <p class="mt-1 text-red-700" role="alert">{{ $connection->verification_error }}</p>
+                                            <p class="mt-1 text-gray-600">Check the domain spelling and your DNS records, then try again. If it keeps failing, contact support.</p>
+                                        @elseif (! $registered)
+                                            <p class="mt-1 text-gray-600">Verify your domain to prove you own it. We'll show the DNS records to add at your DNS provider.</p>
+                                        @else
+                                            <ol class="mt-2 list-decimal space-y-1 pl-5 text-gray-600">
+                                                <li>Add the DNS records below at your DNS provider.</li>
+                                                <li>Wait for DNS to update. This can take some time.</li>
+                                                <li>Select <span class="font-medium text-gray-900">Check Verification</span>. Your domain only shows as verified once we confirm it.</li>
+                                            </ol>
                                         @endif
-                                        <p id="default-hint-{{ $connection->id }}" class="text-gray-600">
+                                        <p id="default-hint-{{ $connection->id }}" class="mt-2 text-gray-600">
                                             Only verified emails can send email or become the default sender.
                                         </p>
+                                        @unless ($this->verificationConfigured)
+                                            <p class="mt-2 rounded-md bg-amber-50 p-2 text-amber-800">Domain verification isn't available right now. Please contact support.</p>
+                                        @endunless
                                     </div>
 
-                                    <div class="flex shrink-0 flex-wrap gap-2">
+                                    <div class="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                                         @if ($registered)
                                             <button type="button"
                                                     wire:click="toggleDnsRecords({{ $connection->id }})"
                                                     aria-expanded="{{ $showingRecords ? 'true' : 'false' }}"
                                                     aria-controls="dns-records-{{ $connection->id }}"
-                                                    class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                                    class="inline-flex flex-1 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
                                                 {{ $showingRecords ? 'Hide DNS Records' : 'View DNS Records' }}
                                             </button>
                                             <button type="button"
                                                     wire:click="checkVerification({{ $connection->id }})"
                                                     wire:loading.attr="disabled"
                                                     wire:target="checkVerification({{ $connection->id }})"
-                                                    class="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                                    @disabled(! $this->verificationConfigured)
+                                                    class="inline-flex flex-1 items-center justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none">
                                                 <span wire:loading.remove wire:target="checkVerification({{ $connection->id }})">Check Verification</span>
-                                                <span wire:loading wire:target="checkVerification({{ $connection->id }})">Checking…</span>
+                                                <span wire:loading wire:target="checkVerification({{ $connection->id }})" role="status">Checking…</span>
                                             </button>
                                         @else
                                             <button type="button"
                                                     wire:click="startVerification({{ $connection->id }})"
                                                     wire:loading.attr="disabled"
                                                     wire:target="startVerification({{ $connection->id }})"
-                                                    class="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                                    @disabled(! $this->verificationConfigured)
+                                                    class="inline-flex w-full items-center justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
                                                 <span wire:loading.remove wire:target="startVerification({{ $connection->id }})">{{ $failed ? 'Try Again' : 'Verify Domain' }}</span>
-                                                <span wire:loading wire:target="startVerification({{ $connection->id }})">Connecting…</span>
+                                                <span wire:loading wire:target="startVerification({{ $connection->id }})" role="status">Connecting…</span>
                                             </button>
                                         @endif
                                     </div>
