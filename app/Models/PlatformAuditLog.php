@@ -21,17 +21,19 @@ class PlatformAuditLog extends Model
         'organization_reactivated' => 'Organization reactivated',
         'user_deactivated' => 'User deactivated',
         'user_reactivated' => 'User reactivated',
+        'plan_updated' => 'Plan updated',
+        'plan_reset' => 'Plan reset to configured defaults',
     ];
 
     protected function casts(): array
     {
-        return ['created_at' => 'datetime'];
+        return ['created_at' => 'datetime', 'changes' => 'array'];
     }
 
-    public static function record(string $action, ?User $actor, ?int $organizationId = null, ?string $reason = null, ?int $subjectUserId = null): self
+    public static function record(string $action, ?User $actor, ?int $organizationId = null, ?string $reason = null, ?int $subjectUserId = null, ?array $changes = null): self
     {
         $entry = new self;
-        $entry->forceFill(['action' => $action, 'actor_id' => $actor?->id, 'organization_id' => $organizationId, 'reason' => $reason, 'subject_user_id' => $subjectUserId])->save();
+        $entry->forceFill(['action' => $action, 'actor_id' => $actor?->id, 'organization_id' => $organizationId, 'reason' => $reason, 'subject_user_id' => $subjectUserId, 'changes' => $changes])->save();
 
         return $entry;
     }

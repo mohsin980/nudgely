@@ -9,28 +9,41 @@ use App\Exceptions\Billing\BillingException;
 /**
  * All plans, from config/billing.php, validated once: every plan must define every limit,
  * a non-negative price and a known interval, and the default plan must exist.
+ *
+ * Config defines the plans and everything the billing provider owns (price, interval, provider price ID).
+ * Platform administrators may override only the display name and the limits (see PlanSettingsService); those
+ * overrides are applied on top, lazily, and invalid ones are ignored so a bad row can never break billing.
  */
 final class PlanCatalog
 {
-    /** @var array<string, Plan> */
-    private array $plans = [];
+    /** @var array<string, Plan> The plans exactly as configured. */
+    private array $configured = [];
+
+    /** @var array<string, Plan>|null Configured plans with administrator overrides applied. */
+    private ?array $resolved = null;
+
+    /** @var (\Closure(): array<string, array{name: ?string, limits: ?array<string, int|null>}>)|null */
+    private ?\Closure $overrides;
 
     private string $defaultKey;
 
     /**
      * @param  array<string, mixed>  $config  config('billing')
+     * @param  (\Closure(): array<string, array{name: ?string, limits: ?array<string, int|null>}>)|null  $overrides  loaded on first use
      *
      * @throws BillingException
      */
-    public function __construct(array $config)
+    public function __construct(array $config, ?\Closure $overrides = null)
     {
+        $this->overrides = $overrides;
+
         foreach ($config['plans'] ?? [] as $key => $plan) {
-            $this->plans[$key] = $this->build((string) $key, is_array($plan) ? $plan : []);
+            $this->configured[$key] = $this->build((string) $key, is_array($plan) ? $plan : []);
         }
 
         $this->defaultKey = (string) ($config['default_plan'] ?? '');
 
-        if ($this->plans === [] || ! isset($this->plans[$this->defaultKey])) {
+        if ($this->configured === [] || ! isset($this->configured[$this->defaultKey])) {
             throw BillingException::invalidConfiguration('the default plan must be one of the configured plans.');
         }
     }
@@ -40,7 +53,23 @@ final class PlanCatalog
      */
     public function all(): array
     {
-        return $this->plans;
+        return $this->resolved();
+    }
+
+    /** Forget the loaded overrides so the next read sees saved changes (used after an administrator edits a plan). */
+    public function refresh(): void
+    {
+        $this->resolved = null;
+    }
+
+    /**
+     * The plans exactly as configured, ignoring administrator overrides (to show what "reset" restores).
+     *
+     * @return array<string, Plan>
+     */
+    public function configured(): array
+    {
+        return $this->configured;
     }
 
     /**
@@ -48,12 +77,12 @@ final class PlanCatalog
      */
     public function get(string $key): Plan
     {
-        return $this->plans[$key] ?? throw BillingException::unknownPlan($key);
+        return $this->resolved()[$key] ?? throw BillingException::unknownPlan($key);
     }
 
     public function find(?string $key): ?Plan
     {
-        return $key === null ? null : ($this->plans[$key] ?? null);
+        return $key === null ? null : ($this->resolved()[$key] ?? null);
     }
 
     /**
@@ -65,7 +94,7 @@ final class PlanCatalog
             return null;
         }
 
-        foreach ($this->plans as $plan) {
+        foreach ($this->resolved() as $plan) {
             if ($plan->providerPriceId === $priceId) {
                 return $plan;
             }
@@ -76,7 +105,7 @@ final class PlanCatalog
 
     public function default(): Plan
     {
-        return $this->plans[$this->defaultKey];
+        return $this->resolved()[$this->defaultKey];
     }
 
     /**
@@ -114,5 +143,53 @@ final class PlanCatalog
         }
 
         return new Plan($key, $plan['name'], $price, $interval, $limits, array_values($plan['features'] ?? []), $plan['provider_price_id'] ?? null);
+    }
+
+    /**
+     * @return array<string, Plan>
+     */
+    private function resolved(): array
+    {
+        if ($this->resolved !== null) {
+            return $this->resolved;
+        }
+
+        $overrides = [];
+
+        try {
+            $overrides = $this->overrides === null ? [] : ($this->overrides)();
+        } catch (\Throwable) {
+            // Billing must keep working from config if the settings cannot be read.
+        }
+
+        $plans = [];
+
+        foreach ($this->configured as $key => $plan) {
+            $plans[$key] = isset($overrides[$key]) ? $this->applyOverride($plan, $overrides[$key]) : $plan;
+        }
+
+        return $this->resolved = $plans;
+    }
+
+    /**
+     * @param  array{name?: ?string, limits?: ?array<string, mixed>}  $override
+     */
+    private function applyOverride(Plan $plan, array $override): Plan
+    {
+        $name = is_string($override['name'] ?? null) && trim($override['name']) !== '' ? trim($override['name']) : $plan->name;
+        $limits = $plan->limits;
+
+        foreach (LimitKey::cases() as $limit) {
+            if (is_array($override['limits'] ?? null) && array_key_exists($limit->value, $override['limits'])) {
+                $value = $override['limits'][$limit->value];
+
+                if ($value === null || (is_int($value) && $value >= 0)) {
+                    $limits[$limit->value] = $value;
+                }
+            }
+        }
+
+        // Price, interval, features and the provider price ID are never overridden.
+        return new Plan($plan->key, $name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId);
     }
 }

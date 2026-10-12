@@ -41,7 +41,7 @@ class ReplyRouteServiceTest extends TestCase
         $address = $this->routes->createFor($conversation);
 
         $this->assertMatchesRegularExpression('/^reply\+[a-f0-9]{40}@inbound\.quoteflow\.ai$/', $address);
-        $this->assertStringNotContainsString((string) $conversation->id.'@', $address);
+        $this->assertStringNotContainsString('reply+'.$conversation->id.'@', $address); // the ID is not the address (a random token may legitimately end in the same digit)
         $this->assertNotSame($address, $this->routes->createFor($conversation));
     }
 
