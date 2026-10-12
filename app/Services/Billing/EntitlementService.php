@@ -25,8 +25,15 @@ class EntitlementService
 
     public function plan(Organization $organization): Plan
     {
-        $subscription = $this->subscription($organization);
+        return $this->planFor($organization, $this->subscription($organization));
+    }
 
+    /**
+     * The same decision as plan(), for callers that already hold the organization's current subscription
+     * (e.g. the admin usage list, which loads them for many organizations at once).
+     */
+    public function planFor(Organization $organization, ?Subscription $subscription): Plan
+    {
         // A paid subscription first; otherwise the sign-up trial while it lasts; otherwise Free.
         return ($subscription?->grantsAccess() ? $subscription->planDefinition() : null)
             ?? $this->trial($organization)['plan']

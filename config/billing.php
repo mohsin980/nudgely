@@ -37,6 +37,9 @@ return [
     // fixes the card. After that, paid-only limits stop applying (Free limits; nothing is deleted).
     'grace_days' => (int) env('BILLING_GRACE_DAYS', 7),
 
+    // The admin usage monitor warns when an organization has used at least this percent of a plan limit.
+    'usage_warning_percent' => (int) env('BILLING_USAGE_WARNING_PERCENT', 80),
+
     // A stored subscription that the provider has not confirmed for this many minutes is shown as stale to
     // administrators (webhooks and the hourly sync normally keep it much fresher).
     'stale_after_minutes' => (int) env('BILLING_STALE_AFTER_MINUTES', 180),

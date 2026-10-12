@@ -15,6 +15,7 @@ use App\Models\Organization;
 use App\Models\Subscription;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 /**
  * How much of each plan limit an organization uses, counted from the records themselves
@@ -68,8 +69,16 @@ class UsageService
      */
     public function period(Organization $organization): array
     {
-        $subscription = Subscription::query()->where('organization_id', $organization->id)->current()->latest('id')->first();
+        return $this->periodFor($organization, Subscription::query()->where('organization_id', $organization->id)->current()->latest('id')->first());
+    }
 
+    /**
+     * period() for callers that already hold the organization's current subscription.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function periodFor(Organization $organization, ?Subscription $subscription): array
+    {
         if ($subscription?->grantsAccess() && $subscription->current_period_start !== null && $subscription->current_period_end !== null) {
             $start = CarbonImmutable::instance($subscription->current_period_start)->utc();
             $end = CarbonImmutable::instance($subscription->current_period_end)->utc();
@@ -86,5 +95,77 @@ class UsageService
         $start = $organization->localNow()->startOfMonth();
 
         return [$start->utc(), $start->addMonth()->utc()];
+    }
+
+    /**
+     * usage() for many organizations at once, in a fixed number of queries per 100 organizations instead of five per
+     * organization. Same definitions and the same periods as usage()/period(); a test keeps them identical.
+     *
+     * @param  iterable<Organization>  $organizations
+     * @param  array<int, Subscription|null>  $subscriptions  current subscription by organization ID (as loaded by currentSubscriptions())
+     * @return array<int, array<string, int>> organization ID => LimitKey value => usage
+     */
+    public function usageForMany(iterable $organizations, array $subscriptions): array
+    {
+        $result = [];
+
+        foreach (collect($organizations)->chunk(100) as $chunk) {
+            $ids = $chunk->pluck('id')->all();
+            $periods = $chunk->mapWithKeys(fn (Organization $o) => [$o->id => $this->periodFor($o, $subscriptions[$o->id] ?? null)]);
+
+            $customers = Customer::query()->whereIn('organization_id', $ids)->where('is_demo', false)->selectRaw('organization_id, count(*) as total')->groupBy('organization_id')->pluck('total', 'organization_id');
+            $automations = Automation::query()->whereIn('organization_id', $ids)->where('status', AutomationStatus::Active)->selectRaw('organization_id, count(*) as total')->groupBy('organization_id')->pluck('total', 'organization_id');
+            $members = User::query()->whereIn('organization_id', $ids)->where('status', MemberStatus::Active)->selectRaw('organization_id, count(*) as total')->groupBy('organization_id')->pluck('total', 'organization_id');
+
+            $sentStatuses = array_map(fn (MessageStatus $status) => $status->value, array_filter(MessageStatus::cases(), fn (MessageStatus $status) => $status->countsAsSent()));
+            $emails = $this->inPeriods(Message::query()->where('direction', MessageDirection::Outbound)->whereIn('status', $sentStatuses), $periods)->pluck('total', 'organization_id');
+            $estimates = $this->inPeriods(Estimate::query()->where('revision', 1), $periods)->pluck('total', 'organization_id');
+
+            foreach ($ids as $id) {
+                $result[$id] = [
+                    LimitKey::Customers->value => (int) ($customers[$id] ?? 0),
+                    LimitKey::Automations->value => (int) ($automations[$id] ?? 0),
+                    LimitKey::TeamMembers->value => (int) ($members[$id] ?? 0),
+                    LimitKey::OutboundEmails->value => (int) ($emails[$id] ?? 0),
+                    LimitKey::Estimates->value => (int) ($estimates[$id] ?? 0),
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Current subscription of each organization (the latest non-finished one, as period()/EntitlementService use).
+     *
+     * @param  list<int>  $organizationIds
+     * @return array<int, Subscription>
+     */
+    public function currentSubscriptions(array $organizationIds): array
+    {
+        $subscriptions = [];
+
+        foreach (array_chunk($organizationIds, 500) as $ids) {
+            foreach (Subscription::query()->whereIn('organization_id', $ids)->current()->orderBy('id')->get() as $subscription) {
+                $subscriptions[$subscription->organization_id] = $subscription; // the later id wins, as latest('id') does
+            }
+        }
+
+        return $subscriptions;
+    }
+
+    /**
+     * Rows created inside each organization's own [start, end) period, counted per organization.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<*>  $query
+     * @param  Collection<int, array{0: CarbonImmutable, 1: CarbonImmutable}>  $periods
+     */
+    private function inPeriods($query, $periods)
+    {
+        return $query->where(function ($q) use ($periods) {
+            foreach ($periods as $id => [$start, $end]) {
+                $q->orWhere(fn ($inner) => $inner->where('organization_id', $id)->where('created_at', '>=', $start)->where('created_at', '<', $end));
+            }
+        })->selectRaw('organization_id, count(*) as total')->groupBy('organization_id')->get();
     }
 }
