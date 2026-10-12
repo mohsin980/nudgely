@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\OrganizationRole;
+use App\Enums\Platform\PlatformPermission;
+use App\Enums\Platform\PlatformRole;
 use App\Enums\Team\MemberStatus;
 use App\Enums\Team\Permission;
 use Database\Factories\UserFactory;
@@ -17,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * organization_id, role and status are intentionally not mass assignable: they only change
@@ -27,7 +30,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -60,18 +63,38 @@ class User extends Authenticatable implements FilamentUser
 
     public function isPlatformAdmin(): bool
     {
-        return $this->platformAdmin()->exists();
+        // Loaded once per user instance: this is called from gates, which run for every row of a list.
+        $this->loadMissing('platformAdmin');
+
+        return $this->platformAdmin !== null;
     }
 
     /**
-     * The Super Admin panel is for platform administrators only. Business roles (owner, manager, staff) never
-     * grant it, and a suspended or removed account is refused even if it was once granted.
+     * An account that is active and recorded as a platform administrator. Roles alone never make this true.
+     */
+    public function isActivePlatformAdmin(): bool
+    {
+        return $this->status === MemberStatus::Active && $this->isPlatformAdmin();
+    }
+
+    /**
+     * A platform permission needs all three: an active account, a platform_admins record, and a role that holds the
+     * permission. A role on its own (for example one attached to a customer by mistake) grants nothing.
+     * Business roles (OrganizationRole) are checked with hasPermission(), which is a separate system.
+     */
+    public function hasPlatformPermission(PlatformPermission $permission): bool
+    {
+        return $this->isActivePlatformAdmin()
+            && $this->checkPermissionTo($permission->value, PlatformRole::GUARD);
+    }
+
+    /**
+     * The Super Admin panel is for platform administrators who hold the access_admin_panel permission. Business
+     * roles (owner, manager, staff) never grant it, and a suspended or removed account is refused.
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $panel->getId() === 'admin'
-            && $this->status === MemberStatus::Active
-            && $this->isPlatformAdmin();
+        return $panel->getId() === 'admin' && $this->hasPlatformPermission(PlatformPermission::AccessAdminPanel);
     }
 
     public function organization(): BelongsTo

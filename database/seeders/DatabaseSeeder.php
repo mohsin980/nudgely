@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
+        // Roles and permissions only; it never makes anyone an administrator (see docs/rbac.md).
+        $this->call(PlatformRolesAndPermissionsSeeder::class);
+
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',

@@ -20,13 +20,13 @@ hPanel → PHP Configuration → Extensions → `intl`).
 
 ## Who can enter `/admin`
 
-Only a user with a row in **`platform_admins`** (new table: `id`, `user_id` unique → `users`, timestamps) who is also an
-**active** account. Business roles (owner, manager, staff) never grant it.
+An **active** account with a row in **`platform_admins`** and a platform role that holds `access_admin_panel` (SA-02). Business
+roles (owner, manager, staff) never grant it. Roles and permissions are described in [rbac.md](rbac.md).
 
-The grant is created on the server, for an account that already exists:
+The grant is created on the server, for an account that already exists, with an explicit role:
 
 ```bash
-php artisan platform-admin:grant founder@example.com    # never creates an account; refuses inactive accounts
+php artisan platform-admin:grant founder@example.com --role=super_admin   # never creates an account; refuses inactive accounts
 php artisan platform-admin:revoke founder@example.com
 ```
 
@@ -40,7 +40,7 @@ web path to it. There is no registration page, form or API for administrators (`
 |---|---|
 | `app/Providers/Filament/AdminPanelProvider.php` | Panel id `admin`, path `/admin`, `web` guard (same `users` table and session as the customer app), Filament login, violet theme, navigation groups (Platform, Customers, Billing, Access, System) |
 | `config/admin.php` | `brand` (`ADMIN_PANEL_BRAND`, default `QuoteFlow AI`): the panel title |
-| `app/Models/User.php` | Implements `FilamentUser`; `canAccessPanel()` = admin panel + active account + platform admin |
+| `app/Models/User.php` | Implements `FilamentUser`; `canAccessPanel()` = admin panel + active account + platform admin + `access_admin_panel` |
 | `app/Models/PlatformAdmin.php` | The grant. Mass assignment is blocked on purpose |
 | `app/Filament/Pages/Dashboard.php` | "Platform overview" page |
 | `app/Filament/AvatarProviders/InitialsAvatarProvider.php` | Initials avatar drawn locally. Filament's default sends the user's name to `ui-avatars.com` |
@@ -55,10 +55,8 @@ assets (no second CSS framework in the customer pages).
 
 ## Notes for the next tasks
 
-- `AppServiceProvider` has `Gate::before(fn (User $user) => $user->isActiveMember() ? null : false)`. It does not affect
-  panel access (that is `canAccessPanel`), but it **will** deny a platform administrator who has no business when
-  resources are authorized through policies. SA-02 (roles and permissions) needs to decide how platform permissions
-  sit next to business permissions.
+- Done in SA-02: the business-membership `Gate::before` now steps aside for active platform administrators and platform
+  abilities, so policies on platform models work for an administrator who has no business ([rbac.md](rbac.md)).
 - Models that read across organizations (SA-05 onward) must be queried deliberately, since the customer application
   scopes everything by `organization_id`.
 - The platform administrator is also a normal user of their own business and keeps that access.

@@ -5,6 +5,7 @@ use App\Billing\ProviderSubscription;
 use App\Enums\Billing\SubscriptionStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Enums\Platform\PlatformRole;
 use App\Jobs\SendEmailJob;
 use App\Models\Automation;
 use App\Models\Conversation;
@@ -14,6 +15,7 @@ use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\Organization;
+use App\Models\PlatformAdmin;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\BillingService;
@@ -24,6 +26,7 @@ use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\FollowUps\FollowUpService;
 use App\Support\Database\TenantIntegrity;
 use Carbon\CarbonImmutable;
+use Database\Seeders\PlatformRolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -293,6 +296,28 @@ function webhook(array $event, ?string $secret = 'whsec_test_secret', ?int $time
 function stripeEvent(string $type, array $object, ?string $id = null): array
 {
     return ['id' => $id ?? 'evt_'.uniqid(), 'object' => 'event', 'type' => $type, 'data' => ['object' => $object]];
+}
+
+function seedPlatformRoles(): void
+{
+    app(PlatformRolesAndPermissionsSeeder::class)->run();
+}
+
+/**
+ * A platform administrator: an active user with a platform_admins record and the given platform role. The roles and
+ * permissions are seeded first, as they are on a real installation.
+ *
+ * @param  array<string, mixed>  $state
+ */
+function platformAdmin(PlatformRole|string $role = PlatformRole::SuperAdmin, array $state = []): User
+{
+    app(PlatformRolesAndPermissionsSeeder::class)->run();
+
+    $user = User::factory()->create($state);
+    PlatformAdmin::query()->forceCreate(['user_id' => $user->id]);
+    $user->assignRole($role instanceof PlatformRole ? $role->value : $role);
+
+    return $user;
 }
 
 /**
