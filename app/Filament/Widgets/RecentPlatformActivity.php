@@ -3,7 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\Platform\PlatformPermission;
-use App\Filament\Concerns\RequiresPlatformPermission;
+use App\Filament\Concerns\RequiresPlatformPermissionForWidget;
 use App\Models\OrganizationActivity;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -15,7 +15,7 @@ use Filament\Widgets\TableWidget;
  */
 class RecentPlatformActivity extends TableWidget
 {
-    use RequiresPlatformPermission;
+    use RequiresPlatformPermissionForWidget;
 
     protected static ?int $sort = 50;
 

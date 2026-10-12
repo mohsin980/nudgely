@@ -4,7 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\Platform\PlatformPermission;
 use App\Filament\Concerns\ReportsPlatformMetrics;
-use App\Filament\Concerns\RequiresPlatformPermission;
+use App\Filament\Concerns\RequiresPlatformPermissionForWidget;
 use App\Support\Admin\PlatformMetrics;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -12,7 +12,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class SubscriptionStats extends StatsOverviewWidget
 {
     use ReportsPlatformMetrics;
-    use RequiresPlatformPermission;
+    use RequiresPlatformPermissionForWidget;
 
     protected static ?int $sort = 30;
 

@@ -18,9 +18,4 @@ trait RequiresPlatformPermission
     {
         return AdminAccess::allows(auth()->user(), static::requiredPermission(), audit: false);
     }
-
-    public static function canView(): bool
-    {
-        return static::canAccess();
-    }
 }
