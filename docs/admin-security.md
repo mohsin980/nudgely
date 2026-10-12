@@ -12,7 +12,7 @@ Guests, customers (owner / manager / staff) and suspended accounts are denied. B
 
 | Layer | What enforces it |
 | --- | --- |
-| Every `/admin` request and every admin Livewire update | `AuthenticatePlatformAdmin` (persistent middleware): guests go to `/admin/login`, non-admins get 403, refusals are logged |
+| Every `/admin` request and every admin Livewire update | `AuthenticatePlatformAdmin` (persistent middleware): guests go to `/admin/login`, non-admins get 403, refusals to enter the panel are logged |
 | Pages, resources, widgets | `RequiresPlatformPermission` trait: `canAccess()` / `canView()` use `AdminAccess`; menu, URL and Livewire calls all go through it |
 | Actions and bulk actions | `->authorize(...)` / policies; unauthorized actions are hidden and cannot be called |
 | Roles | `RolePolicy` (needs `manage_roles`) |
@@ -27,7 +27,7 @@ Access is re-checked on every request, so removing a `platform_admins` row, a ro
 - Failures show the same generic message for admin, customer and unknown accounts, so privileged accounts cannot be discovered.
 - A customer who signs in on the admin form is refused the same way.
 - There is no admin registration. Registration ignores any role or admin fields sent by the client.
-- Refused attempts are logged (`Admin access denied`: user id, permission, path, IP; no email or request data). Set `ADMIN_AUDIT_LOG_CHANNEL` to send them to a dedicated channel.
+- Refused panel entry is logged (`Admin access denied`: user id, permission, path, IP; no email or request data). Set `ADMIN_AUDIT_LOG_CHANNEL` to send them to a dedicated channel.
 
 ## Provisioning the first super administrator
 
