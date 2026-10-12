@@ -44,6 +44,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('platform_audit_logs', function (Blueprint $table) {
+            // MySQL keeps the actor foreign key on the composite (actor_id, id) index and refuses to drop it until a
+            // plain actor_id index exists again (the one Laravel names for the foreign key).
+            $table->index('actor_id', 'platform_audit_logs_actor_id_foreign');
+
             $table->dropIndex('platform_audit_action_idx');
             $table->dropIndex('platform_audit_actor_idx');
             $table->dropIndex('platform_audit_target_idx');
