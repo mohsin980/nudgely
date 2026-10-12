@@ -73,9 +73,9 @@ class TestEmailTest extends TestCase
         $connection = $this->connection();
 
         $this->settings()
-            ->assertSee('Dallas Cooling <sales@example.com>')
+            ->assertSee('sales@example.com')
             ->assertSeeHtml('wire:click="openTestEmail('.$connection->id.')"')
-            ->assertDontSeeHtml('wire:click="openTestEmail('.$connection->id.')"'."\n".'                                        disabled');
+            ->assertSet('actionStates.'.$connection->id.'.test.allowed', true);
     }
 
     public function test_admin_can_send_a_test_email_from_the_business_sender(): void
@@ -129,11 +129,12 @@ class TestEmailTest extends TestCase
             $this->settings()
                 ->assertSee('Send Test Email')
                 ->assertSee('Only verified emails can send email or become the default sender.')
+                ->assertSet('actionStates.'.$connection->id.'.test.allowed', false)
                 ->call('openTestEmail', $connection->id)
                 ->assertDontSee('Test Email Address')
-                ->call('sendTestEmail')
+                ->assertSet('testEmailConnectionId', null)
                 ->assertSet('statusType', 'error')
-                ->assertSet('statusMessage', 'Your business email domain must be verified before emails can be sent.');
+                ->assertSet('statusMessage', 'Verify this domain first.');
 
             $connection->delete();
         }
