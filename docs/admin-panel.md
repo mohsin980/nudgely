@@ -72,6 +72,8 @@ php artisan test                             # whole suite
 Manual check: run `php artisan platform-admin:grant you@example.com`, then open `/admin`, sign in, and you should see
 "Platform overview" under the QuoteFlow AI title. A normal business account signing in at `/admin/login` is refused.
 
+See [admin-users.md](admin-users.md) for user and access management.
+
 See [admin-organizations.md](admin-organizations.md) for organization management.
 
 See [admin-dashboard.md](admin-dashboard.md) for the dashboard metrics and their definitions.

@@ -19,6 +19,8 @@ class PlatformAuditLog extends Model
     public const LABELS = [
         'organization_suspended' => 'Organization suspended',
         'organization_reactivated' => 'Organization reactivated',
+        'user_deactivated' => 'User deactivated',
+        'user_reactivated' => 'User reactivated',
     ];
 
     protected function casts(): array
@@ -26,10 +28,10 @@ class PlatformAuditLog extends Model
         return ['created_at' => 'datetime'];
     }
 
-    public static function record(string $action, ?User $actor, ?int $organizationId = null, ?string $reason = null): self
+    public static function record(string $action, ?User $actor, ?int $organizationId = null, ?string $reason = null, ?int $subjectUserId = null): self
     {
         $entry = new self;
-        $entry->forceFill(['action' => $action, 'actor_id' => $actor?->id, 'organization_id' => $organizationId, 'reason' => $reason])->save();
+        $entry->forceFill(['action' => $action, 'actor_id' => $actor?->id, 'organization_id' => $organizationId, 'reason' => $reason, 'subject_user_id' => $subjectUserId])->save();
 
         return $entry;
     }
