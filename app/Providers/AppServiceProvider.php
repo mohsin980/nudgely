@@ -6,6 +6,7 @@ use App\Billing\PlanCatalog;
 use App\Contracts\Email\EmailProviderInterface;
 use App\Enums\Platform\PlatformPermission;
 use App\Enums\Team\Permission;
+use App\Http\Middleware\DisableUnusedFilamentRoutes;
 use App\Listeners\LogQueueLifecycle;
 use App\Models\Organization;
 use App\Models\PlanSetting;
@@ -33,6 +34,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Role;
 
@@ -91,6 +93,9 @@ class AppServiceProvider extends ServiceProvider
         foreach (PlatformPermission::cases() as $permission) {
             Gate::define($permission->value, fn (User $user) => $user->hasPlatformPermission($permission));
         }
+
+        // Filament's export/import download routes are not used by this application: close them (see the middleware).
+        Route::middlewareGroup('filament.actions', [DisableUnusedFilamentRoutes::class]);
 
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Organization::class, OrganizationPolicy::class);

@@ -14,16 +14,20 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Auth\Access\AuthorizationException;
+use Livewire\Attributes\Locked;
 
 class ViewSubscription extends ViewRecord
 {
     protected static string $resource = SubscriptionResource::class;
 
-    /** @var list<array<string, mixed>>|null Invoices as Stripe reported them on request (never stored). */
+    /** @var list<array<string, mixed>>|null Invoices as Stripe reported them on request (never stored). Locked: the browser cannot forge what is displayed. */
+    #[Locked]
     public ?array $invoices = null;
 
+    #[Locked]
     public ?string $invoicesLoadedAt = null;
 
+    #[Locked]
     public ?string $invoicesError = null;
 
     protected function getHeaderActions(): array

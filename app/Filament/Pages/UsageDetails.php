@@ -7,6 +7,7 @@ use App\Filament\Concerns\RequiresPlatformPermission;
 use App\Models\Organization;
 use App\Services\Platform\UsageMonitor;
 use Filament\Pages\Page;
+use Livewire\Attributes\Locked;
 
 /**
  * One organization's usage in detail: this plan period, the last 30 days and lifetime. Opened from the usage list.
@@ -21,12 +22,15 @@ class UsageDetails extends Page
 
     protected string $view = 'filament.admin.usage-page';
 
+    #[Locked]
     public int $organizationId;
 
     /** @var array<string, mixed> */
+    #[Locked]
     public array $row = [];
 
     /** @var array<string, array<string, int|null>> */
+    #[Locked]
     public array $activity = [];
 
     protected static function requiredPermission(): PlatformPermission
