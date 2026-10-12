@@ -28,6 +28,34 @@ class EmailProviderManager extends Manager
     }
 
     /**
+     * Can emails be sent through the configured provider? Only whether credentials exist: nothing secret is returned.
+     */
+    public function sendingConfigured(): bool
+    {
+        return $this->credentialConfigured('server_token');
+    }
+
+    /**
+     * Can domains be registered and verified with the configured provider?
+     */
+    public function domainVerificationConfigured(): bool
+    {
+        return $this->credentialConfigured('account_token');
+    }
+
+    private function credentialConfigured(string $key): bool
+    {
+        $provider = $this->config->get('email.provider');
+
+        // A driver registered in code (extend()) brings its own setup, so there is no credential to look for.
+        if (filled($provider) && isset($this->customCreators[$provider])) {
+            return true;
+        }
+
+        return filled($provider) && filled($this->config->get("email.providers.{$provider}.{$key}"));
+    }
+
+    /**
      * The implementation for a connection's stored provider.
      */
     public function for(EmailProvider $provider): EmailProviderInterface
