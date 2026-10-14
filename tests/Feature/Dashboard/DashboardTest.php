@@ -117,7 +117,7 @@ test('an authenticated user can access the dashboard', function () {
     $this->actingAs($this->admin)->get('/dashboard')->assertOk()->assertSee('Loading your dashboard');
 
     dashboard($this->admin)->assertSee('Good morning, Mohsin')
-        ->assertSee("Here's what needs your attention today.")
+        ->assertSee("Here's what's happening with your business today.")
         ->assertSee('Saturday, October 3, 2026');
 });
 
@@ -540,9 +540,11 @@ test('a new business sees a clear first step instead of zeros', function () {
         ->assertSeeLivewire('customers.create-customer-form');
 });
 
-test('quick actions: add a customer, schedule a follow-up, conversations and automations', function () {
+test('quick actions: add a customer, create a quote, reply to a message and set a reminder', function () {
     dashboard($this->admin)
-        ->assertSee(['Add Customer', 'Schedule Follow-Up', 'View Conversations', 'View Automations'])
+        ->assertSee(['Add a customer', 'Create a quote', 'Reply to a message', 'Set a reminder'])
+        ->assertSeeHtml('href="'.route('estimates.create').'"')
+        ->assertSeeHtml('href="'.route('inbox.index').'"')
         ->assertSeeHtml('href="'.route('follow-ups.index', ['schedule' => 1]).'"')
         ->set('showAddCustomer', true)
         ->assertSeeLivewire('customers.create-customer-form');
@@ -562,7 +564,7 @@ test('quick actions: add a customer, schedule a follow-up, conversations and aut
         ->assertSee('Overdue thing')->assertDontSee('Later thing')->assertSee('Show all follow-ups');
 
     // Staff can view automations (read-only), so they see the link too.
-    dashboard(User::factory()->staff()->for($this->organization)->create())->assertSee('View Automations');
+    dashboard(User::factory()->staff()->for($this->organization)->create())->assertSeeHtml('href="'.route('automations.index').'"');
 });
 
 test('the inbox "Waiting for you" filter matches the dashboard card', function () {

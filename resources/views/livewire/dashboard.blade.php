@@ -1,20 +1,66 @@
 <div class="space-y-6" wire:poll.{{ (int) config('dashboard.refresh_seconds') }}s.visible>
-    @php($card = 'rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm ring-1 ring-black/[0.02] sm:p-5')
-    @php($heading = 'text-sm font-semibold tracking-wide text-gray-500 uppercase')
-    @php($button = 'inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+    @php($card = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6')
+    @php($heading = 'text-base font-semibold text-slate-900')
+    @php($button = 'inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
 
     {{-- Header --}}
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900">{{ $greeting }}, {{ $firstName }}</h1>
-            <p class="mt-1 text-sm text-gray-600">{{ "Here's what needs your attention today." }}</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{{ $greeting }}, {{ $firstName }}! <span aria-hidden="true">👋</span></h1>
+            <p class="mt-1 text-sm text-slate-500">{{ "Here's what's happening with your business today." }}</p>
         </div>
-        <p class="text-sm text-gray-600">
+        <p class="rounded-full bg-white px-3.5 py-1.5 text-sm text-slate-600 shadow-xs ring-1 ring-slate-200">
             <time datetime="{{ $d->localNow->toDateString() }}">{{ $d->localNow->format('l, F j, Y') }}</time>
             <span class="sr-only">({{ $organization->timezone() }})</span>
             <span wire:loading.delay class="ml-2 text-xs text-gray-500" role="status">Updating…</span>
         </p>
     </div>
+
+    {{-- What do you want to do? Four big, plain-language buttons. --}}
+    <section aria-labelledby="quick-heading">
+        <h2 id="quick-heading" class="sr-only">Quick actions</h2>
+        <ul role="list" class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            @php($tile = 'group flex h-full w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:p-5')
+            <li>
+                <button type="button" wire:click="$toggle('showAddCustomer')" aria-expanded="{{ $showAddCustomer ? 'true' : 'false' }}" aria-controls="add-customer-panel" class="{{ $tile }}">
+                    <span class="grid size-11 place-items-center rounded-xl bg-violet-100 text-violet-600"><x-ui-icon name="user-plus" class="size-6" /></span>
+                    <span class="mt-4 text-base font-semibold text-slate-900">Add a customer</span>
+                    <span class="mt-0.5 text-sm text-slate-500">Save someone's contact details.</span>
+                    <x-ui-icon name="arrow-right" class="mt-3 size-4 self-end text-slate-300 transition group-hover:text-violet-500" />
+                </button>
+            </li>
+            <li>
+                <a href="{{ route('estimates.create') }}" wire:navigate class="{{ $tile }}">
+                    <span class="grid size-11 place-items-center rounded-xl bg-sky-100 text-sky-600"><x-ui-icon name="document" class="size-6" /></span>
+                    <span class="mt-4 text-base font-semibold text-slate-900">Create a quote</span>
+                    <span class="mt-0.5 text-sm text-slate-500">Tell a customer what a job will cost.</span>
+                    <x-ui-icon name="arrow-right" class="mt-3 size-4 self-end text-slate-300 transition group-hover:text-sky-500" />
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('inbox.index') }}" wire:navigate class="{{ $tile }}">
+                    <span class="grid size-11 place-items-center rounded-xl bg-emerald-100 text-emerald-600"><x-ui-icon name="chat" class="size-6" /></span>
+                    <span class="mt-4 text-base font-semibold text-slate-900">Reply to a message</span>
+                    <span class="mt-0.5 text-sm text-slate-500">Keep the conversation going.</span>
+                    <x-ui-icon name="arrow-right" class="mt-3 size-4 self-end text-slate-300 transition group-hover:text-emerald-500" />
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('follow-ups.index', ['schedule' => 1]) }}" wire:navigate class="{{ $tile }}">
+                    <span class="grid size-11 place-items-center rounded-xl bg-amber-100 text-amber-600"><x-ui-icon name="bell" class="size-6" /></span>
+                    <span class="mt-4 text-base font-semibold text-slate-900">Set a reminder</span>
+                    <span class="mt-0.5 text-sm text-slate-500">Remember to contact someone later.</span>
+                    <x-ui-icon name="arrow-right" class="mt-3 size-4 self-end text-slate-300 transition group-hover:text-amber-500" />
+                </a>
+            </li>
+        </ul>
+
+        @if ($showAddCustomer)
+            <div id="add-customer-panel" class="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
+                <livewire:customers.create-customer-form />
+            </div>
+        @endif
+    </section>
 
     @if ($checklist)
         {{-- Getting started: disappears by itself once everything is done. --}}
@@ -37,36 +83,46 @@
 
     @if (! $d->hasCustomers)
         {{-- New business: one clear next step instead of a wall of zeros. --}}
-        <section aria-labelledby="welcome-heading" class="{{ $card }} max-w-xl">
-            <h2 id="welcome-heading" class="text-lg font-semibold text-gray-900">No customers yet.</h2>
-            <p class="mt-1 text-sm text-gray-600">Add your first customer to get started. Let's get your first customer workflow running.</p>
-            <div class="mt-3 flex flex-wrap gap-2" data-empty-actions>
-                <a href="{{ route('customers.create') }}" wire:navigate class="{{ $button }}">Add Customer</a>
-                <a href="{{ route('estimates.create') }}" wire:navigate class="{{ $button }}">Create Estimate</a>
-                <a href="{{ route('automations.index') }}" wire:navigate class="{{ $button }}">Create Automation</a>
+        <section aria-labelledby="welcome-heading" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div class="flex flex-col gap-5 bg-linear-to-br from-violet-50 via-white to-emerald-50 p-6 sm:p-8">
+                <div class="flex items-start gap-4">
+                    <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-violet-600 shadow-xs ring-1 ring-slate-200"><x-ui-icon name="users" class="size-6" /></span>
+                    <div>
+                        <h2 id="welcome-heading" class="text-xl font-semibold text-slate-900">No customers yet.</h2>
+                        <p class="mt-1 max-w-xl text-[15px] text-slate-600">Add your first customer to get started. Let's get your first customer workflow running.</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2" data-empty-actions>
+                    <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700"><x-ui-icon name="plus" class="size-4" />Add Customer</a>
+                    <a href="{{ route('estimates.create') }}" wire:navigate class="{{ $button }}">Create Estimate</a>
+                    <a href="{{ route('automations.index') }}" wire:navigate class="{{ $button }}">Create Automation</a>
+                </div>
             </div>
-            <div class="mt-4">
+            <div class="border-t border-slate-100 p-5 sm:p-8">
+                <h3 class="text-sm font-semibold text-slate-900">Or add one right here</h3>
+                <p class="mb-4 text-sm text-slate-500">Just a name and an email is enough.</p>
                 <livewire:customers.create-customer-form />
             </div>
         </section>
     @else
-        {{-- Summary cards --}}
-        <section aria-label="Summary">
-            <ul role="list" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {{-- Today at a glance --}}
+        <section aria-labelledby="glance-heading">
+            <h2 id="glance-heading" class="text-lg font-semibold text-slate-900">Today</h2>
+            <ul role="list" class="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 @foreach ([
-                    ['overdue', 'Overdue Follow-Ups', route('follow-ups.index', ['filter' => 'overdue']), $d->summary['overdue'] > 0 ? 'border-red-300 bg-red-50' : '', '⚠'],
-                    ['due_today', 'Due Today', route('follow-ups.index', ['filter' => 'today']), '', '◷'],
-                    ['waiting', 'Waiting for You', route('inbox.index', ['filter' => 'waiting']), $d->summary['waiting'] > 0 ? 'border-amber-300 bg-amber-50' : '', '●'],
-                    ['new_replies', 'New Customer Replies', route('inbox.index'), '', '✉'],
+                    ['waiting', 'Messages to reply', route('inbox.index', ['filter' => 'waiting']), 'bg-violet-100 text-violet-600', 'chat'],
+                    ['due_today', 'Reminders due today', route('follow-ups.index', ['filter' => 'today']), 'bg-emerald-100 text-emerald-600', 'clock'],
+                    ['new_replies', 'New customer replies', route('inbox.index'), 'bg-sky-100 text-sky-600', 'envelope'],
+                    ['overdue', 'Overdue reminders', route('follow-ups.index', ['filter' => 'overdue']), $d->summary['overdue'] > 0 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500', 'exclamation'],
                 ] as [$key, $label, $url, $tone, $icon])
                     <li>
                         <a href="{{ $url }}" wire:navigate data-card="{{ $key }}"
-                           class="block h-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:border-violet-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 {{ $tone }}">
-                            <p class="flex items-center gap-1.5 text-sm font-medium text-gray-700"><span aria-hidden="true">{{ $icon }}</span>{{ $label }}</p>
-                            <p class="mt-1 text-3xl font-semibold text-gray-900" data-count="{{ $key }}">{{ $d->summary[$key] }}</p>
-                            @if ($key === 'new_replies')
-                                <p class="text-xs text-gray-500">Last {{ (int) config('dashboard.new_replies_hours') }} hours</p>
-                            @endif
+                           class="flex h-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition hover:border-slate-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                            <span class="grid size-11 shrink-0 place-items-center rounded-xl {{ $tone }}"><x-ui-icon :name="$icon" class="size-6" /></span>
+                            <span class="min-w-0">
+                                <span class="block text-2xl leading-none font-semibold tracking-tight text-slate-900" data-count="{{ $key }}">{{ $d->summary[$key] }}</span>
+                                <span class="mt-1 block text-sm text-slate-500">{{ $label }}@if ($key === 'new_replies') <span class="text-xs text-slate-400">(last {{ (int) config('dashboard.new_replies_hours') }}h)</span>@endif</span>
+                            </span>
                         </a>
                     </li>
                 @endforeach
@@ -201,24 +257,6 @@
             </div>
 
             <div class="min-w-0 space-y-6">
-                {{-- Quick actions --}}
-                <section aria-labelledby="quick-heading" class="{{ $card }}">
-                    <h2 id="quick-heading" class="{{ $heading }}">Quick actions</h2>
-                    <div class="mt-3 grid grid-cols-2 gap-2">
-                        <button type="button" wire:click="$toggle('showAddCustomer')" aria-expanded="{{ $showAddCustomer ? 'true' : 'false' }}" aria-controls="add-customer-panel" class="{{ $button }} justify-center">Add Customer</button>
-                        <a href="{{ route('follow-ups.index', ['schedule' => 1]) }}" wire:navigate class="{{ $button }} justify-center">Schedule Follow-Up</a>
-                        <a href="{{ route('inbox.index') }}" wire:navigate class="{{ $button }} justify-center">View Conversations</a>
-                        @can('viewAny', \App\Models\Automation::class)
-                            <a href="{{ route('automations.index') }}" wire:navigate class="{{ $button }} justify-center">View Automations</a>
-                        @endcan
-                    </div>
-                    @if ($showAddCustomer)
-                        <div id="add-customer-panel" class="mt-4 border-t border-gray-100 pt-4">
-                            <livewire:customers.create-customer-form />
-                        </div>
-                    @endif
-                </section>
-
                 {{-- Notifications --}}
                 <section aria-labelledby="notifications-heading" class="{{ $card }}">
                     <div class="flex items-center justify-between gap-2">
@@ -255,7 +293,7 @@
 
                 {{-- Today --}}
                 <section aria-labelledby="summary-heading" class="{{ $card }}">
-                    <h2 id="summary-heading" class="{{ $heading }}">Today</h2>
+                    <h2 id="summary-heading" class="{{ $heading }}">Today's activity</h2>
                     <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="today-summary">
                         @foreach ([
                             'new_customers' => 'New customers',
