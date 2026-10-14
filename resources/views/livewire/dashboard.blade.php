@@ -38,12 +38,12 @@
     @if (! $d->hasCustomers)
         {{-- New business: one clear next step instead of a wall of zeros. --}}
         <section aria-labelledby="welcome-heading" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-            <div class="bg-linear-to-br from-violet-600 to-indigo-600 px-6 py-8 text-white sm:px-8">
+            <div class="bg-linear-to-br from-violet-600 via-violet-600 to-emerald-500 px-6 py-8 text-white sm:px-8">
                 <span class="grid size-11 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25"><x-ui-icon name="users" class="size-6" /></span>
                 <h2 id="welcome-heading" class="mt-4 text-xl font-semibold">No customers yet.</h2>
-                <p class="mt-1 max-w-xl text-sm text-violet-100">Add your first customer to get started. Let's get your first customer workflow running.</p>
+                <p class="mt-1 max-w-xl text-sm text-white/90">Add your first customer to get started. Let's get your first customer workflow running.</p>
                 <div class="mt-5 flex flex-wrap gap-2" data-empty-actions>
-                    <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-violet-700 shadow-xs transition hover:bg-violet-50"><x-ui-icon name="plus" class="size-4" />Add Customer</a>
+                    <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-emerald-700 shadow-xs transition hover:bg-emerald-50"><x-ui-icon name="plus" class="size-4" />Add Customer</a>
                     <a href="{{ route('estimates.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-2 text-sm font-medium text-white ring-1 ring-white/30 ring-inset transition hover:bg-white/20">Create Estimate</a>
                     <a href="{{ route('automations.index') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-2 text-sm font-medium text-white ring-1 ring-white/30 ring-inset transition hover:bg-white/20">Create Automation</a>
                 </div>
@@ -60,9 +60,9 @@
             <ul role="list" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 @foreach ([
                     ['overdue', 'Overdue Follow-Ups', route('follow-ups.index', ['filter' => 'overdue']), $d->summary['overdue'] > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500', 'exclamation'],
-                    ['due_today', 'Due Today', route('follow-ups.index', ['filter' => 'today']), 'bg-violet-50 text-violet-600', 'clock'],
+                    ['due_today', 'Due Today', route('follow-ups.index', ['filter' => 'today']), 'bg-emerald-50 text-emerald-600', 'clock'],
                     ['waiting', 'Waiting for You', route('inbox.index', ['filter' => 'waiting']), $d->summary['waiting'] > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500', 'inbox'],
-                    ['new_replies', 'New Customer Replies', route('inbox.index'), 'bg-emerald-50 text-emerald-600', 'envelope'],
+                    ['new_replies', 'New Customer Replies', route('inbox.index'), 'bg-violet-50 text-violet-600', 'envelope'],
                 ] as [$key, $label, $url, $tone, $icon])
                     <li>
                         <a href="{{ $url }}" wire:navigate data-card="{{ $key }}"

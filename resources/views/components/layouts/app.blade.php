@@ -41,7 +41,7 @@
                    class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:z-30">
                 <div class="flex h-16 shrink-0 items-center justify-between px-5">
                     <a href="{{ url('/') }}" class="flex items-center gap-2.5 text-base font-semibold tracking-tight text-slate-900">
-                        <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-violet-600 to-indigo-500 text-sm font-bold text-white shadow-sm">Q</span>
+                        <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-violet-600 to-emerald-500 text-sm font-bold text-white shadow-sm">Q</span>
                         {{ config('app.name', 'QuoteFollow') }}
                     </a>
                     <button type="button" class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" @click="open = false">
