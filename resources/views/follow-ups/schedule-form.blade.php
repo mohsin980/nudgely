@@ -1,5 +1,5 @@
 {{-- New manual follow-up. Expects $organization, optionally $customers (pick one) — otherwise the page's customer. --}}
-@php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
 <form wire:submit="scheduleFollowUp" class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5" aria-label="Schedule follow-up">
     @error('schedule') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
     <div class="grid gap-3 sm:grid-cols-2">

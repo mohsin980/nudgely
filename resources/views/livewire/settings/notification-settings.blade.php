@@ -3,7 +3,7 @@
     @include('livewire.settings.partials.status')
 
     @unless ($canSendEmail)
-        <p class="rounded-md bg-amber-50 p-4 text-sm text-amber-900">Email notifications start once the business has a verified sender email. In-app notifications work now.</p>
+        <p class="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">Email notifications start once the business has a verified sender email. In-app notifications work now.</p>
     @endunless
 
     <form wire:submit="save" x-data="unsavedChanges" class="{{ $card }} space-y-4" aria-labelledby="mine-heading">

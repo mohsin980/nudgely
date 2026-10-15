@@ -12,7 +12,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="h-full bg-slate-50 font-sans text-slate-900 antialiased">
-        <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow">
+        <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow">
             Skip to content
         </a>
 
@@ -29,9 +29,9 @@
                 ['Reminders', 'follow-ups.index', 'follow-ups.*', 'clock', $badges['reminders']],
                 $user && $user->can('viewAny', \App\Models\Automation::class) ? ['Automations', 'automations.index', 'automations.*', 'bolt', 0] : null,
             ]));
-            $link = fn (bool $active) => 'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 '
-                .($active ? 'bg-violet-100/70 text-violet-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
-            $icon = fn (bool $active) => 'size-5 shrink-0 '.($active ? 'text-violet-600' : 'text-slate-400 group-hover:text-slate-600');
+            $link = fn (bool $active) => 'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 '
+                .($active ? 'bg-emerald-100/70 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
+            $icon = fn (bool $active) => 'size-5 shrink-0 '.($active ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600');
             $initials = $user ? collect(preg_split('/\s+/', trim($user->name)))->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('') : '';
             $tabs = ['dashboard', 'customers.index', 'inbox.index', 'estimates.index'];
         @endphp
@@ -44,10 +44,10 @@
                    class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:z-30">
                 <div class="flex h-16 shrink-0 items-center justify-between px-5">
                     <a href="{{ url('/') }}" class="flex items-center gap-2.5 text-base font-semibold tracking-tight text-slate-900">
-                        <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-violet-600 to-emerald-500 text-sm font-bold text-white shadow-sm">Q</span>
+                        <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-emerald-700 to-emerald-400 text-sm font-bold text-white shadow-sm">Q</span>
                         {{ config('app.name', 'QuoteFollow') }}
                     </a>
-                    <button type="button" class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" @click="open = false">
+                    <button type="button" class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" @click="open = false">
                         <span class="sr-only">Close menu</span>
                         <x-ui-icon name="close" />
                     </button>
@@ -70,7 +70,7 @@
                             @endforeach
                         </ul>
 
-                        <p class="mt-6 mb-2 px-3 text-xs font-semibold tracking-wider text-slate-400 uppercase">More</p>
+                        <p class="mt-6 mb-2 px-3 text-xs font-semiboldr text-slate-400">More</p>
                         @php($active = request()->routeIs('settings.*'))
                         <a href="{{ route('settings.index') }}" @if ($active) aria-current="page" @endif class="{{ $link($active) }}">
                             <x-ui-icon name="cog" class="{{ $icon($active) }}" />
@@ -80,14 +80,14 @@
 
                     <div class="border-t border-slate-200 p-3">
                         <div class="flex items-center gap-3 rounded-lg px-2 py-2">
-                            <span aria-hidden="true" class="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-sm font-semibold text-violet-700">{{ $initials }}</span>
+                            <span aria-hidden="true" class="grid size-9 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">{{ $initials }}</span>
                             <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-medium text-slate-900">{{ $user->name }}</p>
                                 <p class="truncate text-xs text-slate-500">{{ $organization?->name }}</p>
                             </div>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
-                                <button type="submit" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" title="Sign out">
+                                <button type="submit" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" title="Sign out">
                                     <span class="sr-only">Sign out</span>
                                     <x-ui-icon name="logout" />
                                 </button>
@@ -100,7 +100,7 @@
             <div class="lg:pl-64">
                 {{-- Mobile top bar --}}
                 <header class="sticky top-0 z-20 flex h-14 items-center gap-2.5 border-b border-slate-200 bg-white/90 px-4 backdrop-blur lg:hidden">
-                    <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-violet-600 to-emerald-500 text-sm font-bold text-white shadow-sm">Q</span>
+                    <span aria-hidden="true" class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-emerald-700 to-emerald-400 text-sm font-bold text-white shadow-sm">Q</span>
                     <span class="text-base font-semibold text-slate-900">{{ config('app.name', 'QuoteFollow') }}</span>
                 </header>
 
@@ -126,7 +126,7 @@
                             @continue(! in_array($route, $tabs, true))
                             @php($active = request()->routeIs($pattern))
                             <li>
-                                <a href="{{ route($route) }}" @if ($active) aria-current="page" @endif class="relative flex flex-col items-center gap-0.5 py-2 text-xs font-medium {{ $active ? 'text-violet-700' : 'text-slate-500' }}">
+                                <a href="{{ route($route) }}" @if ($active) aria-current="page" @endif class="relative flex flex-col items-center gap-0.5 py-2 text-xs font-medium {{ $active ? 'text-emerald-700' : 'text-slate-500' }}">
                                     <x-ui-icon :name="$ico" class="size-6" />
                                     {{ $label }}
                                     @if ($count > 0)

@@ -207,7 +207,7 @@
                     </div>
 
                     @if ($d->overdueFollowUps->isNotEmpty())
-                        <h3 class="mt-3 text-xs font-semibold tracking-wide text-red-700 uppercase">⚠ Overdue ({{ $d->summary['overdue'] }})</h3>
+                        <h3 class="mt-3 text-xs font-semibold text-red-700 font-semibold">⚠ Overdue ({{ $d->summary['overdue'] }})</h3>
                         <ul role="list" class="mt-1 divide-y divide-gray-100" data-section="overdue">
                             @foreach ($d->overdueFollowUps as $followUp)
                                 @include('livewire.partials.dashboard-follow-up', ['overdue' => true])
@@ -221,7 +221,7 @@
                             <p>{{ $d->hasOpenFollowUps ? 'Nothing is due today.' : 'No follow-ups are currently scheduled.' }}</p>
                         </div>
                     @elseif ($d->todaysFollowUps->isNotEmpty())
-                        <h3 class="mt-3 text-xs font-semibold tracking-wide text-gray-500 uppercase">Today ({{ $d->summary['due_today'] }})</h3>
+                        <h3 class="mt-3 text-xs font-semibold text-gray-500 font-semibold">Today ({{ $d->summary['due_today'] }})</h3>
                         <ul role="list" class="mt-1 divide-y divide-gray-100" data-section="today">
                             @foreach ($d->todaysFollowUps as $followUp)
                                 @include('livewire.partials.dashboard-follow-up', ['overdue' => false])

@@ -1,5 +1,5 @@
 <div class="space-y-6">
-    @php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+    @php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Customers</h1>
@@ -35,7 +35,7 @@
                     <select id="f-per-page" wire:model.live="perPage" class="mt-1 {{ $field }}">@foreach (\App\Services\Customers\CustomerDirectory::PER_PAGE as $n)<option value="{{ $n }}">{{ $n }}</option>@endforeach</select></div>
             </div>
             @if ($filtering)
-                <button type="button" wire:click="clearFilters" class="text-sm font-medium text-violet-700 hover:underline">Clear filters</button>
+                <button type="button" wire:click="clearFilters" class="text-sm font-medium text-emerald-700 hover:underline">Clear filters</button>
             @endif
         </section>
 
@@ -46,12 +46,12 @@
                 <ul role="list" class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs" data-section="customers">
                     @foreach ($customers as $customer)
                         <li wire:key="customer-{{ $customer->id }}">
-                            <a href="{{ route('customers.show', $customer->id) }}" wire:navigate class="grid gap-2 px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
+                            <a href="{{ route('customers.show', $customer->id) }}" wire:navigate class="grid gap-2 px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
                                 <div class="min-w-0">
                                     <p class="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
                                         <span class="truncate">{{ $customer->name }}</span>@if ($customer->is_demo)<span class="ml-2 shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif
                                         @if (! $customer->isActive())
-                                            <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
+                                            <span class="rounded-lg bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
                                         @endif
                                     </p>
                                     <p class="truncate text-sm text-slate-500">{{ $customer->email }}@if ($customer->phone) · {{ $customer->phone }}@endif</p>

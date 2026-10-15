@@ -1,5 +1,5 @@
 <div class="space-y-6">
-    @php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+    @php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
     <div>
         <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Conversations</h1>
         <p class="mt-1 text-sm text-slate-500">Customer conversations, most recently active first.</p>
@@ -12,8 +12,8 @@
             @foreach (\App\Livewire\Inbox\ConversationList::FILTERS as $key => $label)
                 <button type="button" wire:click="$set('filter', '{{ $key }}')" @if ($filter === $key) aria-current="true" @endif
                         @class([
-                            'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
-                            'bg-violet-600 text-white ring-violet-600' => $filter === $key,
+                            'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
+                            'bg-emerald-600 text-white ring-emerald-600' => $filter === $key,
                             'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => $filter !== $key,
                         ])>
                     {{ $label }}
@@ -46,12 +46,12 @@
                         @php($priority = $this->priorityOf($conversation))
                         <li wire:key="conversation-{{ $conversation->id }}">
                             <a href="{{ route('inbox.show', $conversation->id) }}" wire:navigate
-                               class="flex flex-col gap-1 px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset sm:flex-row sm:items-start sm:justify-between sm:px-5">
+                               class="flex flex-col gap-1 px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset sm:flex-row sm:items-start sm:justify-between sm:px-5">
                                 <div class="min-w-0 flex-1">
                                     <p class="flex flex-wrap items-center gap-2">
                                         <span @class(['truncate text-sm text-slate-900', 'font-bold' => $conversation->unread_count, 'font-semibold' => ! $conversation->unread_count])>{{ $conversation->customer->name }}</span>
                                         @if ($conversation->unread_count)
-                                            <span class="text-xs font-semibold text-violet-700" data-unread="{{ $conversation->unread_count }}"><span aria-hidden="true">●</span> {{ $conversation->unread_count }} unread</span>
+                                            <span class="text-xs font-semibold text-emerald-700" data-unread="{{ $conversation->unread_count }}"><span aria-hidden="true">●</span> {{ $conversation->unread_count }} unread</span>
                                         @endif
                                     </p>
                                     <p class="truncate text-sm text-slate-500">{{ $conversation->subject ?? '(no subject)' }}</p>
@@ -68,7 +68,7 @@
                                             <x-priority-badge :priority="$priority" />
                                         @endif
                                         @if ($conversation->needs_attention)
-                                            <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Needs attention</span>
+                                            <span class="inline-flex items-center rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Needs attention</span>
                                         @endif
                                     </p>
                                 </div>

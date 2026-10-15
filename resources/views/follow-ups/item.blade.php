@@ -1,7 +1,7 @@
 {{-- One follow-up with its actions. Expects $followUp, $organization and optionally $showCustomer. --}}
 @php($open = $followUp->status->isOpen())
 @php($ready = $open && $followUp->status === \App\Enums\FollowUpStatus::Due && $followUp->isAutomated() && $followUp->hasEmail() && $followUp->due_notified_at)
-@php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
 <li wire:key="follow-up-{{ $followUp->id }}" id="follow-up-{{ $followUp->id }}" data-follow-up="{{ $followUp->id }}" class="space-y-3 p-4">
     {{-- $compact: narrow side panels stack the actions under the details. --}}
     <div @class(['flex flex-col gap-3', 'sm:flex-row sm:items-start sm:justify-between' => ! ($compact ?? false)])>
@@ -11,7 +11,7 @@
                     <a href="{{ route('customers.show', $followUp->customer_id) }}" wire:navigate class="font-semibold text-slate-900 hover:underline">{{ $followUp->customer?->name }}</a>
                 @endif
                 @if ($ready)
-                    <span class="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">Follow-up ready</span>
+                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset">Follow-up ready</span>
                 @else
                     <x-automation-status-badge :status="$followUp->status" />
                 @endif
@@ -30,7 +30,7 @@
                     · Assigned to {{ $followUp->assignee->name }}
                 @endif
                 @if ($followUp->conversation_id && ($showCustomer ?? true))
-                    · <a href="{{ route('inbox.show', $followUp->conversation_id) }}" wire:navigate class="text-violet-700 hover:underline">Conversation</a>
+                    · <a href="{{ route('inbox.show', $followUp->conversation_id) }}" wire:navigate class="text-emerald-700 hover:underline">Conversation</a>
                 @endif
             </p>
             @if ($followUp->status === \App\Enums\FollowUpStatus::Skipped && $followUp->skip_reason)

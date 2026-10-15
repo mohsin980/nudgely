@@ -11,7 +11,7 @@
 @endphp
 
 {{-- The text carries the meaning; the icon is only a second cue (never colour alone). --}}
-<span {{ $attributes->class(['inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset', $classes]) }}>
+<span {{ $attributes->class(['inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', $classes]) }}>
     @if ($verified)
         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
     @elseif ($failed)

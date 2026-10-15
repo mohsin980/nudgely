@@ -1,5 +1,5 @@
 {{-- Customer form fields. Expects the component to have the customer properties, save(), and optionally $duplicateCustomerId. --}}
-@php($field = 'mt-1.5 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($field = 'mt-1.5 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
 <form wire:submit="save" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6" aria-label="{{ ($customerId ?? null) ? 'Edit customer' : 'Add customer' }}" novalidate>
     <div>
         <h2 class="text-base font-semibold text-slate-900">Basic information</h2>
@@ -14,7 +14,7 @@
                 @error($name)
                     <p id="customer-{{ $name }}-error" class="mt-1 text-sm text-red-600">{{ $message }}
                         @if ($name === 'email' && ($duplicateCustomerId ?? null))
-                            <a href="{{ route('customers.show', $duplicateCustomerId) }}" wire:navigate class="ml-1 font-medium text-violet-700 underline">View Customer</a>
+                            <a href="{{ route('customers.show', $duplicateCustomerId) }}" wire:navigate class="ml-1 font-medium text-emerald-700 underline">View Customer</a>
                         @endif
                         @if ($name === 'email' && ($limitReached ?? false))
                             <x-billing.upgrade-link class="ml-1" />
@@ -30,7 +30,7 @@
         </div>
         @if ($withStatus ?? false)
             <div>
-                <label for="customer-status" class="block text-sm font-medium text-gray-700">Status</label>
+                <label for="customer-status" class="block text-sm font-medium text-slate-700">Status</label>
                 <select id="customer-status" wire:model="status" class="{{ $field }}">
                     @foreach (\App\Enums\CustomerStatus::cases() as $s)
                         <option value="{{ $s->value }}">{{ $s->label() }}</option>
