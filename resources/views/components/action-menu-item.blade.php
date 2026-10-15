@@ -8,7 +8,7 @@
 <button type="button" role="menuitem"
         @if ($disabled) aria-disabled="true" aria-describedby="{{ $itemId }}-reason" @endif
         {{ $bag->class([
-            'block w-full px-4 py-2 text-left text-sm focus:outline-none focus-visible:bg-emerald-50',
+            'block w-full px-4 py-2 text-left text-sm focus:outline-none focus-visible:bg-violet-50',
             'cursor-not-allowed text-slate-400' => $disabled,
             'text-red-700 hover:bg-red-50' => ! $disabled && $danger,
             'text-slate-700 hover:bg-slate-50' => ! $disabled && ! $danger,

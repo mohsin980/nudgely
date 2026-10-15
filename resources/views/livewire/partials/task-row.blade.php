@@ -18,7 +18,7 @@
     </div>
     @if (! $done && isset($assignable))
         <label class="sr-only" for="task-{{ $task->id }}-assignee">Assign task: {{ $task->title }}</label>
-        <select id="task-{{ $task->id }}-assignee" wire:change="assignTask({{ $task->id }}, $event.target.value)" class="shrink-0 rounded-lg border-slate-300 py-1 text-xs shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+        <select id="task-{{ $task->id }}-assignee" wire:change="assignTask({{ $task->id }}, $event.target.value)" class="shrink-0 rounded-lg border-slate-300 py-1 text-xs shadow-sm focus:border-violet-500 focus:ring-violet-500">
             <option value="">Unassigned</option>
             @foreach ($assignable as $userId => $userName)
                 <option value="{{ $userId }}" @selected($task->assigned_to === $userId)>{{ $userName }}</option>
@@ -26,6 +26,6 @@
         </select>
     @endif
     @unless ($done)
-        <button type="button" wire:click="completeTask({{ $task->id }})" class="shrink-0 rounded-lg bg-white px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">Complete<span class="sr-only"> task: {{ $task->title }}</span></button>
+        <button type="button" wire:click="completeTask({{ $task->id }})" class="shrink-0 rounded-lg bg-white px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Complete<span class="sr-only"> task: {{ $task->title }}</span></button>
     @endunless
 </li>

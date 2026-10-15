@@ -15,7 +15,7 @@
         <header class="border-b border-slate-200 bg-white shadow-sm">
             <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
                 <a href="{{ url('/') }}" class="flex items-center gap-2 text-base font-semibold tracking-tight text-slate-900">
-                    <span aria-hidden="true" class="grid size-7 place-items-center rounded-lg bg-linear-to-br from-emerald-600 to-emerald-500 text-sm font-bold text-white">Q</span>
+                    <span aria-hidden="true" class="grid size-7 place-items-center rounded-lg bg-linear-to-br from-violet-600 to-violet-500 text-sm font-bold text-white">Q</span>
                     {{ config('app.name', 'QuoteFollow') }}
                 </a>
                 <div class="flex items-center gap-4 text-sm">

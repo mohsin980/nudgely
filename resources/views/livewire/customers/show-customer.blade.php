@@ -1,12 +1,12 @@
 <div class="space-y-6">
     @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
     @php($heading = 'text-sm font-semibold text-slate-500 font-semibold')
-    @php($button = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500')
-    @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
+    @php($button = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+    @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 
     {{-- Header --}}
     <div class="space-y-3">
-        <a href="{{ route('customers.index') }}" wire:navigate class="text-sm font-medium text-emerald-700 hover:underline">&larr; Customers</a>
+        <a href="{{ route('customers.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; Customers</a>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $this->customer->name }}@if ($this->customer->is_demo)<span class="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif</h1>
@@ -25,7 +25,7 @@
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button type="button" wire:click="openEmailForm" class="inline-flex items-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700">Send Email</button>
+                <button type="button" wire:click="openEmailForm" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Send Email</button>
                 <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="{{ $button }}">Create Estimate</a>
                 <button type="button" wire:click="openScheduleForm" class="{{ $button }}">Schedule Follow-Up</button>
                 <a href="{{ route('customers.edit', $this->customer->id) }}" wire:navigate class="{{ $button }}">Edit</a>
@@ -48,7 +48,7 @@
             <div><label for="new-email-subject" class="block text-sm font-medium text-slate-700">Subject</label><input id="new-email-subject" type="text" wire:model="emailSubject" maxlength="200" class="{{ $field }}">@error('emailSubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
             <div><label for="new-email-body" class="block text-sm font-medium text-slate-700">Message</label><textarea id="new-email-body" wire:model="emailBody" rows="5" class="{{ $field }}"></textarea>@error('emailBody') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
             <div class="flex gap-2">
-                <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><span wire:loading.remove wire:target="sendEmail">Send</span><span wire:loading wire:target="sendEmail">Sending…</span></button>
+                <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"><span wire:loading.remove wire:target="sendEmail">Send</span><span wire:loading wire:target="sendEmail">Sending…</span></button>
                 <button type="button" wire:click="$set('showEmailForm', false)" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:underline">Cancel</button>
             </div>
         </form>
@@ -69,12 +69,12 @@
                     <ul role="list" class="mt-2 divide-y divide-slate-100">
                         @foreach ($this->conversations as $conversation)
                             <li wire:key="conversation-{{ $conversation->id }}">
-                                <a href="{{ route('inbox.show', $conversation->id) }}" wire:navigate class="-mx-2 block rounded-lg px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                <a href="{{ route('inbox.show', $conversation->id) }}" wire:navigate class="-mx-2 block rounded-lg px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                     <p class="flex flex-wrap items-center gap-2">
                                         <span class="font-medium text-slate-900">{{ $conversation->subject ?? '(no subject)' }}</span>
                                         <x-conversation-status-badge :status="$conversation->status" />
                                         @if ($conversation->latest_intent) <x-intent-badge :intent="$conversation->latest_intent" /> @endif
-                                        @if ($conversation->unread_count) <span class="text-xs font-semibold text-emerald-700">● {{ $conversation->unread_count }} unread</span> @endif
+                                        @if ($conversation->unread_count) <span class="text-xs font-semibold text-violet-700">● {{ $conversation->unread_count }} unread</span> @endif
                                     </p>
                                     @if ($conversation->latestMessage?->excerpt)
                                         <p class="truncate text-sm text-slate-500">{{ $conversation->latestMessage->direction->value === 'inbound' ? 'Customer' : 'You' }}: {{ \Illuminate\Support\Str::limit(trim(strtok($conversation->latestMessage->excerpt, "\n")), 120) }}</p>
@@ -90,7 +90,7 @@
             <section aria-labelledby="estimates-heading" class="{{ $card }}">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <h2 id="estimates-heading" class="{{ $heading }}">Estimates</h2>
-                    <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="text-sm font-medium text-emerald-700 hover:underline">Create Estimate</a>
+                    <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">Create Estimate</a>
                 </div>
                 @if ($this->estimates->isEmpty())
                     <p class="mt-3 text-sm text-slate-500">{{ "This customer doesn't have any estimates yet." }}</p>
@@ -98,7 +98,7 @@
                     <ul role="list" class="mt-2 divide-y divide-slate-100" data-section="estimates">
                         @foreach ($this->estimates as $estimate)
                             <li wire:key="estimate-{{ $estimate->id }}">
-                                <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                     <span class="min-w-0">
                                         <span class="block font-medium text-slate-900">{{ $estimate->displayNumber() }}</span>
                                         <span class="block truncate text-sm text-slate-500">{{ $estimate->title }}</span>
@@ -123,7 +123,7 @@
                     @endforeach
                 </ol>
                 @if ($this->timeline->count() >= $timelineLimit)
-                    <button type="button" wire:click="loadMoreActivity" class="mt-2 text-sm font-medium text-emerald-700 hover:underline">Show earlier activity</button>
+                    <button type="button" wire:click="loadMoreActivity" class="mt-2 text-sm font-medium text-violet-700 hover:underline">Show earlier activity</button>
                 @endif
             </section>
         </div>

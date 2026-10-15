@@ -17,11 +17,11 @@
                 @endif
             </div>
             @unless ($usingDefaults)
-                <button type="button" wire:click="useDefaults" class="text-sm font-medium text-emerald-700 hover:underline">Use business defaults</button>
+                <button type="button" wire:click="useDefaults" class="text-sm font-medium text-violet-700 hover:underline">Use business defaults</button>
             @endunless
         </div>
         @include('livewire.settings.partials.notification-matrix', ['model' => 'mine'])
-        <div class="flex justify-end"><button type="submit" class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700">Save</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Save</button></div>
     </form>
 
     @can('manage-business-defaults')
@@ -31,7 +31,7 @@
                 <p class="mt-1 text-sm text-slate-500">For everyone on the team who hasn't chosen otherwise.</p>
             </div>
             @include('livewire.settings.partials.notification-matrix', ['model' => 'defaults'])
-            <div class="flex justify-end"><button type="submit" class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700">Save defaults</button></div>
+            <div class="flex justify-end"><button type="submit" class="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Save defaults</button></div>
         </form>
 
         @include('livewire.settings.partials.history')

@@ -13,7 +13,7 @@
                         <a href="{{ route($item['route']) }}" wire:navigate @if ($active) aria-current="page" @endif
                            @class([
                                'block whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium ring-1 ring-inset transition',
-                               'bg-emerald-600 text-white ring-emerald-600' => $active,
+                               'bg-violet-600 text-white ring-violet-600' => $active,
                                'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => ! $active,
                            ])>{{ $item['label'] }}</a>
                     </li>
@@ -37,8 +37,8 @@
                             <li>
                                 <a href="{{ route($item['route']) }}" wire:navigate @if ($active) aria-current="page" @endif
                                    @class([
-                                       'block rounded-xl py-2 pr-3 pl-10 text-[15px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
-                                       'bg-emerald-50 font-semibold text-emerald-800' => $active,
+                                       'block rounded-xl py-2 pr-3 pl-10 text-[15px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                                       'bg-violet-50 font-semibold text-violet-800' => $active,
                                        'text-slate-700 hover:bg-slate-100 hover:text-slate-900' => ! $active,
                                    ])>{{ $item['label'] }}</a>
                             </li>

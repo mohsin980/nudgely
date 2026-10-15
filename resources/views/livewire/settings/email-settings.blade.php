@@ -1,6 +1,6 @@
 <x-settings.shell title="Email Settings" description="Configure the email address QuoteFollow will use when communicating with your customers.">
     @if (request()->query('from') === 'onboarding')
-        <p><a href="{{ route('onboarding.show') }}" wire:navigate class="text-sm font-medium text-emerald-700 hover:underline" data-back-to-setup>← Back to setup</a></p>
+        <p><a href="{{ route('onboarding.show') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline" data-back-to-setup>← Back to setup</a></p>
     @endif
 <div class="space-y-8">
 
@@ -29,7 +29,7 @@
             <h2 id="connections-heading" class="text-sm font-semibold text-slate-500">Current sending email</h2>
 
             @if ($this->connections->isNotEmpty() && ! $showForm)
-                <button type="button" wire:click="create" class="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+                <button type="button" wire:click="create" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
                     Add Business Email
                 </button>
             @endif
@@ -43,7 +43,7 @@
                 </p>
 
                 @unless ($showForm)
-                    <button type="button" wire:click="create" class="mt-6 inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+                    <button type="button" wire:click="create" class="mt-6 inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
                         Add Business Email
                     </button>
                 @endunless
@@ -65,7 +65,7 @@
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 class="min-w-0 break-words text-base font-semibold text-slate-900">{{ $connection->sender_name }}</h3>
                                         @if ($connection->is_default)
-                                            <span class="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset">
+                                            <span class="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">
                                                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.9L10 1.5z"/></svg>
                                                 Default sender
                                             </span>
@@ -83,11 +83,11 @@
                                                 wire:click="openTestEmail({{ $connection->id }})"
                                                 @disabled(! $states['test']['allowed'])
                                                 @unless ($states['test']['allowed']) aria-describedby="test-reason-{{ $connection->id }}" @endunless
-                                                class="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
+                                                class="inline-flex flex-1 items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
                                             Send Test Email
                                         </button>
                                     @endif
-                                    <button type="button" wire:click="edit({{ $connection->id }})" class="inline-flex flex-1 items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-none">
+                                    <button type="button" wire:click="edit({{ $connection->id }})" class="inline-flex flex-1 items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
                                         Edit<span class="sr-only"> {{ $connection->sender_email }}</span>
                                     </button>
 
@@ -126,18 +126,18 @@
                                                @class([
                                                    'block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2',
                                                    'border-red-400 focus:border-red-500 focus:ring-red-500' => $errors->has('testRecipient'),
-                                                   'border-slate-300 focus:border-emerald-500 focus:ring-emerald-500' => ! $errors->has('testRecipient'),
+                                                   'border-slate-300 focus:border-violet-500 focus:ring-violet-500' => ! $errors->has('testRecipient'),
                                                ])>
                                         @error('testRecipient')
                                             <p id="testRecipient-error" class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
                                     <div class="flex shrink-0 gap-2">
-                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
                                             <span wire:loading.remove wire:target="sendTestEmail">Send Test Email</span>
                                             <span wire:loading wire:target="sendTestEmail" role="status">Sending…</span>
                                         </button>
-                                        <button type="button" wire:click="cancelTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                        <button type="button" wire:click="cancelTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                             Cancel
                                         </button>
                                     </div>
@@ -185,7 +185,7 @@
                                                     wire:click="toggleDnsRecords({{ $connection->id }})"
                                                     aria-expanded="{{ $showingRecords ? 'true' : 'false' }}"
                                                     aria-controls="dns-records-{{ $connection->id }}"
-                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-none">
+                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
                                                 {{ $showingRecords ? 'Hide DNS Records' : 'View DNS Records' }}
                                             </button>
                                             <button type="button"
@@ -193,7 +193,7 @@
                                                     wire:loading.attr="disabled"
                                                     wire:target="checkVerification({{ $connection->id }})"
                                                     @disabled(! $this->verificationConfigured)
-                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none">
+                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none">
                                                 <span wire:loading.remove wire:target="checkVerification({{ $connection->id }})">Check Verification</span>
                                                 <span wire:loading wire:target="checkVerification({{ $connection->id }})" role="status">Checking…</span>
                                             </button>
@@ -203,7 +203,7 @@
                                                     wire:loading.attr="disabled"
                                                     wire:target="startVerification({{ $connection->id }})"
                                                     @disabled(! $this->verificationConfigured)
-                                                    class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
+                                                    class="inline-flex w-full items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
                                                 <span wire:loading.remove wire:target="startVerification({{ $connection->id }})">{{ $failed ? 'Try Again' : 'Verify Domain' }}</span>
                                                 <span wire:loading wire:target="startVerification({{ $connection->id }})" role="status">Connecting…</span>
                                             </button>
@@ -228,7 +228,7 @@
                                         @if ($records === [])
                                             <p class="mt-3 text-sm text-slate-700">
                                                 We couldn't load the DNS records.
-                                                <button type="button" wire:click="startVerification({{ $connection->id }})" class="font-medium text-emerald-700 underline-offset-2 hover:underline">Try again</button>
+                                                <button type="button" wire:click="startVerification({{ $connection->id }})" class="font-medium text-violet-700 underline-offset-2 hover:underline">Try again</button>
                                             </p>
                                         @else
                                             {{-- Wide screens: table --}}
@@ -340,7 +340,7 @@
                                @class([
                                    'mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 sm:max-w-md',
                                    'border-red-400 focus:border-red-500 focus:ring-red-500' => $errors->has($field),
-                                   'border-slate-300 focus:border-emerald-500 focus:ring-emerald-500' => ! $errors->has($field),
+                                   'border-slate-300 focus:border-violet-500 focus:ring-violet-500' => ! $errors->has($field),
                                ])>
                         @error($field)
                             <p id="{{ $field }}-error" class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -349,11 +349,11 @@
                 @endforeach
 
                 <div class="flex flex-wrap gap-3 pt-2">
-                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
                         <span wire:loading.remove wire:target="save">Save</span>
                         <span wire:loading wire:target="save">Saving…</span>
                     </button>
-                    <button type="button" wire:click="cancel" wire:loading.attr="disabled" wire:target="save" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    <button type="button" wire:click="cancel" wire:loading.attr="disabled" wire:target="save" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                         Cancel
                     </button>
                 </div>
@@ -381,7 +381,7 @@
                 </div>
 
                 <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button type="button" wire:click="cancelDelete" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    <button type="button" wire:click="cancelDelete" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                         Cancel
                     </button>
                     <button type="button" wire:click="delete" wire:loading.attr="disabled" wire:target="delete" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-60">

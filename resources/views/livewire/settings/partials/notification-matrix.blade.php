@@ -16,7 +16,7 @@
                             <label class="group relative inline-flex cursor-pointer items-center justify-center">
                                 <span class="sr-only">{{ $type->label() }} — {{ $channel->label() }}</span>
                                 <input type="checkbox" wire:model="{{ $model }}.{{ $type->value }}.{{ $channel->value }}" data-pref="{{ $model }}.{{ $type->value }}.{{ $channel->value }}" class="peer sr-only">
-                                <span aria-hidden="true" class="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-300 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500 peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:size-5 after:rounded-full after:bg-white after:shadow-xs after:transition-transform peer-checked:after:translate-x-5"></span>
+                                <span aria-hidden="true" class="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-300 transition-colors peer-checked:bg-violet-600 peer-focus-visible:ring-2 peer-focus-visible:ring-violet-500 peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:size-5 after:rounded-full after:bg-white after:shadow-xs after:transition-transform peer-checked:after:translate-x-5"></span>
                             </label>
                         </td>
                     @endforeach

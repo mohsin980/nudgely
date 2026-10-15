@@ -1,12 +1,12 @@
 <div class="space-y-6 pb-24 sm:pb-0">
     @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
     @php($heading = 'text-sm font-semibold text-slate-500 font-semibold')
-    @php($fieldClass = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
-    @php($secondary = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 whitespace-nowrap')
-    @php($primary = 'inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-50 whitespace-nowrap')
+    @php($fieldClass = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+    @php($secondary = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 whitespace-nowrap')
+    @php($primary = 'inline-flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50 whitespace-nowrap')
 
     <div class="space-y-1">
-        <a href="{{ $automationId ? route('automations.show', $automationId) : route('automations.index') }}" wire:navigate class="text-sm font-medium text-emerald-700 hover:underline">&larr; {{ $automationId ? 'Back to automation' : 'Automations' }}</a>
+        <a href="{{ $automationId ? route('automations.show', $automationId) : route('automations.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; {{ $automationId ? 'Back to automation' : 'Automations' }}</a>
         <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $automationId ? 'Edit automation' : 'New automation' }}</h1>
     </div>
 
@@ -16,7 +16,7 @@
             @foreach ($steps as $number => $label)
                 <li>
                     <button type="button" wire:click="goToStep({{ $number }})" @disabled($number > $furthestStep) @if ($number === $step) aria-current="step" @endif
-                            @class(['rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset', 'bg-emerald-600 text-white ring-emerald-600' => $number === $step, 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => $number !== $step && $number <= $furthestStep, 'bg-slate-50 text-slate-400 ring-slate-200' => $number > $furthestStep])>
+                            @class(['rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset', 'bg-violet-600 text-white ring-violet-600' => $number === $step, 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => $number !== $step && $number <= $furthestStep, 'bg-slate-50 text-slate-400 ring-slate-200' => $number > $furthestStep])>
                         {{ $number }}. {{ $label }}
                     </button>
                 </li>
@@ -54,7 +54,7 @@
                 <legend class="sr-only">Trigger</legend>
                 <div class="grid gap-2 sm:grid-cols-2" data-section="triggers">
                     @foreach ($triggers as $definition)
-                        <label wire:key="trigger-{{ $definition->key() }}" @class(['flex cursor-pointer gap-3 rounded-lg p-3 ring-1 ring-inset', 'bg-emerald-50 ring-emerald-300' => $triggerType === $definition->key(), 'ring-slate-200 hover:bg-slate-50' => $triggerType !== $definition->key()])>
+                        <label wire:key="trigger-{{ $definition->key() }}" @class(['flex cursor-pointer gap-3 rounded-lg p-3 ring-1 ring-inset', 'bg-violet-50 ring-violet-300' => $triggerType === $definition->key(), 'ring-slate-200 hover:bg-slate-50' => $triggerType !== $definition->key()])>
                             <input type="radio" name="trigger" value="{{ $definition->key() }}" wire:model.live="triggerType" class="mt-1">
                             <span>
                                 <span class="block text-sm font-medium text-slate-900">{{ $definition->label }}</span>

@@ -1,14 +1,14 @@
 <div class="space-y-6" @if ($this->sending) wire:poll.3s @endif>
     @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
     @php($heading = 'text-sm font-semibold text-slate-500 font-semibold')
-    @php($button = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500')
-    @php($primary = 'inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-50')
+    @php($button = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+    @php($primary = 'inline-flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50')
     @php($estimate = $this->estimate)
     @php($status = $estimate->status)
 
     {{-- Header --}}
     <div class="space-y-3">
-        <a href="{{ route('estimates.index') }}" wire:navigate class="text-sm font-medium text-emerald-700 hover:underline">&larr; Estimates</a>
+        <a href="{{ route('estimates.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; Estimates</a>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
                 <p class="text-sm font-medium text-slate-500">{{ $estimate->displayNumber() }}</p>
@@ -103,9 +103,9 @@
                 <p class="break-words text-slate-500">{{ $estimate->customer?->email }}</p>
                 @if ($estimate->customer?->phone)<p class="text-slate-500">{{ $estimate->customer->phone }}</p>@endif
                 <div class="flex flex-wrap gap-3 pt-2">
-                    <a href="{{ route('customers.show', $estimate->customer_id) }}" wire:navigate class="font-medium text-emerald-700 hover:underline">View Customer</a>
+                    <a href="{{ route('customers.show', $estimate->customer_id) }}" wire:navigate class="font-medium text-violet-700 hover:underline">View Customer</a>
                     @if ($estimate->conversation_id)
-                        <a href="{{ route('inbox.show', $estimate->conversation_id) }}" wire:navigate class="font-medium text-emerald-700 hover:underline">View Conversation</a>
+                        <a href="{{ route('inbox.show', $estimate->conversation_id) }}" wire:navigate class="font-medium text-violet-700 hover:underline">View Conversation</a>
                     @endif
                 </div>
             </section>
@@ -154,7 +154,7 @@
                     <ul role="list" class="mt-2 divide-y divide-slate-100 text-sm" data-section="versions">
                         @foreach ($this->versions as $version)
                             <li wire:key="version-{{ $version->id }}" class="flex items-center justify-between gap-2 py-2">
-                                <a href="{{ route('estimates.show', $version->id) }}" wire:navigate @class(['font-medium hover:underline', 'text-slate-900' => $version->id !== $estimate->id, 'text-emerald-700' => $version->id === $estimate->id])>{{ $version->displayNumber() }}</a>
+                                <a href="{{ route('estimates.show', $version->id) }}" wire:navigate @class(['font-medium hover:underline', 'text-slate-900' => $version->id !== $estimate->id, 'text-violet-700' => $version->id === $estimate->id])>{{ $version->displayNumber() }}</a>
                                 <span class="flex items-center gap-2"><span class="text-slate-700">{{ $version->money('total') }}</span><x-estimate-status-badge :status="$version->status" /></span>
                             </li>
                         @endforeach

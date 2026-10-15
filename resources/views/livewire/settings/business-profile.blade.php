@@ -1,4 +1,4 @@
-@php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:ring-inset')
+@php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 @php($card = 'rounded-lg border border-slate-200 bg-white p-5 shadow-sm')
 @php($label = 'block text-sm font-medium text-slate-700')
 <x-settings.shell title="Business Profile" description="How your business appears to customers on estimates and emails.">
@@ -29,7 +29,7 @@
         </fieldset>
 
         <div class="flex justify-end">
-            <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Save</button>
+            <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">Save</button>
         </div>
     </form>
 

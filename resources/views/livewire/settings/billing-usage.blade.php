@@ -17,11 +17,11 @@
                     </div>
                     @if ($row['limit'])
                         <div class="mt-1.5 h-2 rounded-full bg-slate-100" role="progressbar" aria-label="{{ $row['label'] }} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $percent }}">
-                            <div @class(['h-2 rounded-full', 'bg-red-500' => $percent >= 100, 'bg-amber-500' => $percent >= 80 && $percent < 100, 'bg-emerald-500' => $percent < 80]) style="width: {{ $percent }}%"></div>
+                            <div @class(['h-2 rounded-full', 'bg-red-500' => $percent >= 100, 'bg-amber-500' => $percent >= 80 && $percent < 100, 'bg-violet-500' => $percent < 80]) style="width: {{ $percent }}%"></div>
                         </div>
                     @endif
                     @if ($reached)
-                        <p class="mt-1.5 text-sm text-slate-700" data-reached>You've reached your {{ $limitKey->shortName() }} limit. <a href="{{ route('settings.billing.plans') }}" wire:navigate class="font-semibold text-emerald-700 underline">Upgrade Plan</a></p>
+                        <p class="mt-1.5 text-sm text-slate-700" data-reached>You've reached your {{ $limitKey->shortName() }} limit. <a href="{{ route('settings.billing.plans') }}" wire:navigate class="font-semibold text-violet-700 underline">Upgrade Plan</a></p>
                         @if ($row['over'])
                             <p class="text-xs text-slate-500">You're over the limit, so existing records stay but new ones can't be added.</p>
                         @endif
