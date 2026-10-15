@@ -18,7 +18,7 @@
                         <h2 class="text-lg font-semibold text-slate-900">{{ $option->name }}</h2>
                         @if ($isCurrent)<span class="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">Current plan</span>@endif
                     </div>
-                    <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $option->isFree() ? 'Free' : \App\Support\Money::format($option->priceCents) }}@unless ($option->isFree()) <span class="text-sm font-normal text-slate-500">/ {{ $option->interval->value }}</span>@endunless</p>
+                    <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $option->isFree() ? '$0' : \App\Support\Money::format($option->priceCents) }}@unless ($option->isFree()) <span class="text-sm font-normal text-slate-500">/ {{ $option->interval->value }}</span>@endunless</p>
 
                     <ul class="mt-4 space-y-1.5 text-sm text-slate-700" aria-label="{{ $option->name }} limits">
                         @foreach (\App\Enums\Billing\LimitKey::cases() as $limitKey)

@@ -1,5 +1,5 @@
 @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-<x-settings.shell title="Automation Defaults" description="Who automations work for when an automation doesn't say. Email safety stays under Automations and is the owner's call.">
+<x-settings.shell title="Automation defaults" description="Who automations work for when an automation doesn't say. Email safety stays under Automations and is the owner's call.">
     @include('livewire.settings.partials.status')
 
     <form wire:submit="save" x-data="unsavedChanges" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

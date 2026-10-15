@@ -12,7 +12,7 @@
         <p class="rounded-full bg-white px-3.5 py-1.5 text-sm text-slate-600 shadow-xs ring-1 ring-slate-200">
             <time datetime="{{ $d->localNow->toDateString() }}">{{ $d->localNow->format('l, F j, Y') }}</time>
             <span class="sr-only">({{ $organization->timezone() }})</span>
-            <span wire:loading.delay class="ml-2 text-xs text-gray-500" role="status">Updating…</span>
+            <span wire:loading.delay class="ml-2 text-xs text-slate-500" role="status">Updating…</span>
         </p>
     </div>
 
@@ -69,9 +69,9 @@
             <ul role="list" class="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                 @foreach ($checklist as $item)
                     <li class="flex items-center gap-2">
-                        <span aria-hidden="true" @class(['inline-flex h-5 w-5 items-center justify-center rounded-full text-xs', 'bg-green-100 text-green-800' => $item['done'], 'ring-1 ring-gray-300 text-gray-400' => ! $item['done']])>{{ $item['done'] ? '✓' : '○' }}</span>
+                        <span aria-hidden="true" @class(['inline-flex h-5 w-5 items-center justify-center rounded-full text-xs', 'bg-green-100 text-green-800' => $item['done'], 'ring-1 ring-slate-300 text-slate-400' => ! $item['done']])>{{ $item['done'] ? '✓' : '○' }}</span>
                         @if ($item['done'])
-                            <span class="text-gray-600"><span class="sr-only">Done: </span>{{ $item['label'] }}</span>
+                            <span class="text-slate-500"><span class="sr-only">Done: </span>{{ $item['label'] }}</span>
                         @else
                             <a href="{{ $item['url'] }}" wire:navigate class="font-medium text-violet-700 hover:underline">{{ $item['label'] }}</a>
                         @endif
@@ -140,22 +140,22 @@
                             <p>No customer action is currently required.</p>
                         </div>
                     @else
-                        <ol role="list" class="mt-3 divide-y divide-gray-100" data-section="attention">
+                        <ol role="list" class="mt-3 divide-y divide-slate-100" data-section="attention">
                             @foreach ($d->attention as $item)
                                 <li wire:key="attention-{{ $item->kind }}-{{ $loop->index }}" class="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div class="min-w-0 space-y-1">
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <a href="{{ route('customers.show', $item->customerId) }}" wire:navigate class="font-semibold text-gray-900 hover:underline">{{ $item->customerName }}</a>
+                                            <a href="{{ route('customers.show', $item->customerId) }}" wire:navigate class="font-semibold text-slate-900 hover:underline">{{ $item->customerName }}</a>
                                             <x-priority-badge :priority="$item->priority" />
                                         </div>
                                         @if ($item->excerpt)
-                                            <p class="truncate text-sm text-gray-700">“{{ $item->excerpt }}”</p>
+                                            <p class="truncate text-sm text-slate-700">“{{ $item->excerpt }}”</p>
                                         @endif
-                                        <p class="flex flex-wrap items-center gap-x-2 text-sm text-gray-600">
+                                        <p class="flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
                                             @if ($item->intent)
                                                 <x-intent-badge :intent="$item->intent" />
                                             @else
-                                                <span class="font-medium {{ $item->overdue ? 'text-red-700' : 'text-gray-800' }}">{{ $item->reason }}</span>
+                                                <span class="font-medium {{ $item->overdue ? 'text-red-700' : 'text-slate-800' }}">{{ $item->reason }}</span>
                                             @endif
                                             @if ($item->confidence !== null)
                                                 <span>{{ (int) round($item->confidence * 100) }}% confidence</span>
@@ -175,20 +175,20 @@
                 <section aria-labelledby="tasks-heading" class="{{ $card }}">
                     <h2 id="tasks-heading" class="{{ $heading }}">Tasks{{ $d->taskCounts['due'] ? ' ('.$d->taskCounts['due'].')' : '' }}</h2>
                     @if ($d->tasks->isEmpty())
-                        <div class="mt-3 text-sm text-gray-600" role="status">
-                            <p class="font-medium text-gray-800">No tasks to do today.</p>
+                        <div class="mt-3 text-sm text-slate-500" role="status">
+                            <p class="font-medium text-slate-800">No tasks to do today.</p>
                             @if ($d->taskCounts['later'])
                                 <p>{{ trans_choice(':count task is scheduled for later.|:count tasks are scheduled for later.', $d->taskCounts['later']) }}</p>
                             @endif
                         </div>
                     @else
-                        <ul role="list" class="mt-1 divide-y divide-gray-100 text-sm" data-section="tasks">
+                        <ul role="list" class="mt-1 divide-y divide-slate-100 text-sm" data-section="tasks">
                             @foreach ($d->tasks as $task)
                                 @include('livewire.partials.task-row', ['showCustomer' => true])
                             @endforeach
                         </ul>
                         @if ($d->taskCounts['due'] > $d->tasks->count() || $d->taskCounts['later'])
-                            <p class="mt-2 text-xs text-gray-500">
+                            <p class="mt-2 text-xs text-slate-500">
                                 {{ collect([
                                     $d->taskCounts['due'] > $d->tasks->count() ? 'Showing '.$d->tasks->count().' of '.$d->taskCounts['due'].'.' : null,
                                     $d->taskCounts['later'] ? trans_choice(':count more task is scheduled for later.|:count more tasks are scheduled for later.', $d->taskCounts['later']) : null,
@@ -208,7 +208,7 @@
 
                     @if ($d->overdueFollowUps->isNotEmpty())
                         <h3 class="mt-3 text-xs font-semibold text-red-700 font-semibold">⚠ Overdue ({{ $d->summary['overdue'] }})</h3>
-                        <ul role="list" class="mt-1 divide-y divide-gray-100" data-section="overdue">
+                        <ul role="list" class="mt-1 divide-y divide-slate-100" data-section="overdue">
                             @foreach ($d->overdueFollowUps as $followUp)
                                 @include('livewire.partials.dashboard-follow-up', ['overdue' => true])
                             @endforeach
@@ -216,13 +216,13 @@
                     @endif
 
                     @if ($d->todaysFollowUps->isEmpty() && $d->overdueFollowUps->isEmpty())
-                        <div class="mt-3 text-sm text-gray-600" role="status">
-                            <p class="font-medium text-gray-800">{{ "You're all caught up." }}</p>
+                        <div class="mt-3 text-sm text-slate-500" role="status">
+                            <p class="font-medium text-slate-800">{{ "You're all caught up." }}</p>
                             <p>{{ $d->hasOpenFollowUps ? 'Nothing is due today.' : 'No follow-ups are currently scheduled.' }}</p>
                         </div>
                     @elseif ($d->todaysFollowUps->isNotEmpty())
-                        <h3 class="mt-3 text-xs font-semibold text-gray-500 font-semibold">Today ({{ $d->summary['due_today'] }})</h3>
-                        <ul role="list" class="mt-1 divide-y divide-gray-100" data-section="today">
+                        <h3 class="mt-3 text-xs font-semibold text-slate-500 font-semibold">Today ({{ $d->summary['due_today'] }})</h3>
+                        <ul role="list" class="mt-1 divide-y divide-slate-100" data-section="today">
                             @foreach ($d->todaysFollowUps as $followUp)
                                 @include('livewire.partials.dashboard-follow-up', ['overdue' => false])
                             @endforeach
@@ -234,19 +234,19 @@
                 <section aria-labelledby="replies-heading" class="{{ $card }}">
                     <h2 id="replies-heading" class="{{ $heading }}">Recent customer replies</h2>
                     @if ($d->recentReplies->isEmpty())
-                        <p class="mt-3 text-sm text-gray-600">No customer replies yet.</p>
+                        <p class="mt-3 text-sm text-slate-500">No customer replies yet.</p>
                     @else
-                        <ul role="list" class="mt-2 divide-y divide-gray-100" data-section="replies">
+                        <ul role="list" class="mt-2 divide-y divide-slate-100" data-section="replies">
                             @foreach ($d->recentReplies as $reply)
                                 <li wire:key="reply-{{ $reply->id }}">
-                                    <a href="{{ route('inbox.show', $reply->conversation_id) }}" wire:navigate class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                    <a href="{{ route('inbox.show', $reply->conversation_id) }}" wire:navigate class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                         <div class="flex flex-wrap items-baseline justify-between gap-x-3">
-                                            <p class="font-medium text-gray-900">{{ $reply->conversation?->customer?->name }}</p>
-                                            <time class="text-xs text-gray-500" datetime="{{ $reply->received_at->toIso8601String() }}">{{ $reply->received_at->diffForHumans() }}</time>
+                                            <p class="font-medium text-slate-900">{{ $reply->conversation?->customer?->name }}</p>
+                                            <time class="text-xs text-slate-500" datetime="{{ $reply->received_at->toIso8601String() }}">{{ $reply->received_at->diffForHumans() }}</time>
                                         </div>
-                                        <p class="truncate text-sm text-gray-700">“{{ \Illuminate\Support\Str::limit(trim(strtok((string) $reply->excerpt, "\n")), 120) }}”</p>
+                                        <p class="truncate text-sm text-slate-700">“{{ \Illuminate\Support\Str::limit(trim(strtok((string) $reply->excerpt, "\n")), 120) }}”</p>
                                         @if ($reply->latestClassification?->intent)
-                                            <p class="mt-1 flex items-center gap-2 text-sm text-gray-600"><x-intent-badge :intent="$reply->latestClassification->intent" /> {{ (int) round($reply->latestClassification->confidence * 100) }}%</p>
+                                            <p class="mt-1 flex items-center gap-2 text-sm text-slate-500"><x-intent-badge :intent="$reply->latestClassification->intent" /> {{ (int) round($reply->latestClassification->confidence * 100) }}%</p>
                                         @endif
                                     </a>
                                 </li>
@@ -266,23 +266,23 @@
                         @endif
                     </div>
                     @if ($d->notifications->isEmpty())
-                        <p class="mt-3 text-sm text-gray-600">No new notifications.</p>
+                        <p class="mt-3 text-sm text-slate-500">No new notifications.</p>
                     @else
-                        <ul role="list" class="mt-2 divide-y divide-gray-100" data-section="notifications">
+                        <ul role="list" class="mt-2 divide-y divide-slate-100" data-section="notifications">
                             @foreach ($d->notifications as $notification)
                                 <li wire:key="notification-{{ $notification->id }}" class="flex items-start justify-between gap-2 py-2 text-sm">
                                     <div>
                                         @if (! empty($notification->data['url']))
-                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="text-gray-900 hover:underline">{{ $notification->data['message'] ?? 'Notification' }}</a>
+                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="text-slate-900 hover:underline">{{ $notification->data['message'] ?? 'Notification' }}</a>
                                         @else
-                                            <p class="text-gray-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
+                                            <p class="text-slate-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
                                         @endif
                                         @if (! empty($notification->data['action']) && ! empty($notification->data['url']))
                                             <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-violet-700 hover:underline">{{ $notification->data['action'] }}</a>
                                         @endif
-                                        <time class="text-xs text-gray-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                        <time class="text-xs text-slate-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
                                     </div>
-                                    <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-gray-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                    <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-slate-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                         Dismiss<span class="sr-only"> notification</span>
                                     </button>
                                 </li>
@@ -302,8 +302,8 @@
                             'follow_ups_due' => 'Follow-ups due',
                             'emails_sent' => 'Emails sent',
                         ] as $key => $label)
-                            <dt class="text-gray-600">{{ $label }}</dt>
-                            <dd class="text-right font-semibold text-gray-900" data-stat="{{ $key }}">{{ $d->today[$key] }}</dd>
+                            <dt class="text-slate-500">{{ $label }}</dt>
+                            <dd class="text-right font-semibold text-slate-900" data-stat="{{ $key }}">{{ $d->today[$key] }}</dd>
                         @endforeach
                     </dl>
                 </section>
@@ -315,12 +315,12 @@
                         <a href="{{ route('estimates.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">View Estimates</a>
                     </div>
                     <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="estimates">
-                        <dt class="text-gray-600">Sent today</dt>
-                        <dd class="text-right font-semibold text-gray-900" data-estimates="sent_today">{{ $d->estimates['sent_today'] }}</dd>
-                        <dt class="text-gray-600"><a href="{{ route('estimates.index', ['status' => 'awaiting']) }}" wire:navigate class="hover:underline">Awaiting customer</a></dt>
-                        <dd class="text-right font-semibold text-gray-900" data-estimates="awaiting">{{ $d->estimates['awaiting'] }}</dd>
-                        <dt class="text-gray-600">Accepted today</dt>
-                        <dd class="text-right font-semibold text-gray-900" data-estimates="accepted_today">{{ $d->estimates['accepted_today'] }}</dd>
+                        <dt class="text-slate-500">Sent today</dt>
+                        <dd class="text-right font-semibold text-slate-900" data-estimates="sent_today">{{ $d->estimates['sent_today'] }}</dd>
+                        <dt class="text-slate-500"><a href="{{ route('estimates.index', ['status' => 'awaiting']) }}" wire:navigate class="hover:underline">Awaiting customer</a></dt>
+                        <dd class="text-right font-semibold text-slate-900" data-estimates="awaiting">{{ $d->estimates['awaiting'] }}</dd>
+                        <dt class="text-slate-500">Accepted today</dt>
+                        <dd class="text-right font-semibold text-slate-900" data-estimates="accepted_today">{{ $d->estimates['accepted_today'] }}</dd>
                     </dl>
                 </section>
 
@@ -329,8 +329,8 @@
                     <h2 id="conversations-heading" class="{{ $heading }}">Conversations</h2>
                     <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="conversation-statuses">
                         @foreach (\App\Enums\ConversationStatus::cases() as $status)
-                            <dt class="text-gray-600">{{ $status === \App\Enums\ConversationStatus::Open ? 'Open' : $status->label() }}</dt>
-                            <dd class="text-right font-semibold text-gray-900" data-status="{{ $status->value }}">{{ $d->conversationStatuses[$status->value] ?? 0 }}</dd>
+                            <dt class="text-slate-500">{{ $status === \App\Enums\ConversationStatus::Open ? 'Open' : $status->label() }}</dt>
+                            <dd class="text-right font-semibold text-slate-900" data-status="{{ $status->value }}">{{ $d->conversationStatuses[$status->value] ?? 0 }}</dd>
                         @endforeach
                     </dl>
                 </section>
@@ -350,19 +350,19 @@
                         </p>
                     @endif
                     @if ($d->automationRuns->isEmpty())
-                        <p class="mt-3 text-sm text-gray-600">No automations have run yet.</p>
+                        <p class="mt-3 text-sm text-slate-500">No automations have run yet.</p>
                     @else
                         <ol role="list" class="mt-2 space-y-3" data-section="automation">
                             @foreach ($d->automationRuns as $run)
                                 <li wire:key="run-{{ $run->id }}" class="text-sm">
                                     <p class="flex flex-wrap items-center gap-2">
-                                        <time class="text-xs text-gray-500" datetime="{{ $run->created_at->toIso8601String() }}">{{ $organization->localTime($run->created_at)->format('g:i A') }}</time>
-                                        <span class="font-medium text-gray-900">{{ $run->automation?->name ?? 'Deleted automation' }}</span>
+                                        <time class="text-xs text-slate-500" datetime="{{ $run->created_at->toIso8601String() }}">{{ $organization->localTime($run->created_at)->format('g:i A') }}</time>
+                                        <span class="font-medium text-slate-900">{{ $run->automation?->name ?? 'Deleted automation' }}</span>
                                     </p>
                                     @if ($run->customer)
-                                        <p class="text-gray-700">{{ $run->customer->name }}</p>
+                                        <p class="text-slate-700">{{ $run->customer->name }}</p>
                                     @endif
-                                    <ul role="list" class="mt-0.5 text-gray-600">
+                                    <ul role="list" class="mt-0.5 text-slate-500">
                                         @forelse ($run->actionRuns as $actionRun)
                                             <li>
                                                 <span aria-hidden="true">{{ match ($actionRun->status->value) { 'completed' => '✓', 'failed' => '✗', 'skipped' => '–', default => '…' } }}</span>

@@ -1,4 +1,4 @@
-<x-settings.shell title="Email Settings" description="Configure the email address QuoteFollow will use when communicating with your customers.">
+<x-settings.shell title="Email" description="Configure the email address QuoteFollow will use when communicating with your customers.">
     @if (request()->query('from') === 'onboarding')
         <p><a href="{{ route('onboarding.show') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline" data-back-to-setup>← Back to setup</a></p>
     @endif

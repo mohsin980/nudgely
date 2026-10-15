@@ -1,6 +1,6 @@
 <div class="space-y-6">
     @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
-    @php($heading = 'text-sm font-semibold text-slate-500 font-semibold')
+    @php($heading = 'text-base font-semibold text-slate-900')
     @php($button = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
     @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 
