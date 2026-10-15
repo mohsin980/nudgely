@@ -1,4 +1,4 @@
-<x-settings.shell title="Email Settings" description="Configure the email address QuoteFollow will use when communicating with your customers.">
+<x-settings.shell title="Email" description="Configure the email address QuoteFollow will use when communicating with your customers.">
     @if (request()->query('from') === 'onboarding')
         <p><a href="{{ route('onboarding.show') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline" data-back-to-setup>← Back to setup</a></p>
     @endif
@@ -11,7 +11,7 @@
              x-init="setTimeout(() => show = false, 6000)"
              role="{{ $statusType === 'error' ? 'alert' : 'status' }}"
              @class([
-                 'flex items-start justify-between gap-4 rounded-md p-4 text-sm',
+                 'flex items-start justify-between gap-4 rounded-lg p-4 text-sm',
                  'bg-green-50 text-green-800' => $statusType === 'success',
                  'bg-red-50 text-red-800' => $statusType === 'error',
                  'bg-blue-50 text-blue-800' => $statusType === 'info',
@@ -26,24 +26,24 @@
     {{-- Section 1: current sending email(s) --}}
     <section aria-labelledby="connections-heading" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="connections-heading" class="text-sm font-semibold tracking-wide text-gray-500 uppercase">Current sending email</h2>
+            <h2 id="connections-heading" class="text-sm font-semibold text-slate-500">Current sending email</h2>
 
             @if ($this->connections->isNotEmpty() && ! $showForm)
-                <button type="button" wire:click="create" class="inline-flex items-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
+                <button type="button" wire:click="create" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
                     Add Business Email
                 </button>
             @endif
         </div>
 
         @if ($this->connections->isEmpty())
-            <div class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
-                <h3 class="text-base font-semibold text-gray-900">Connect your business email</h3>
-                <p class="mx-auto mt-2 max-w-md text-sm text-gray-600">
+            <div class="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
+                <h3 class="text-base font-semibold text-slate-900">Connect your business email</h3>
+                <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">
                     Add your business domain and sender address so QuoteFollow can eventually send automated follow-ups from your own email.
                 </p>
 
                 @unless ($showForm)
-                    <button type="button" wire:click="create" class="mt-6 inline-flex items-center rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
+                    <button type="button" wire:click="create" class="mt-6 inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
                         Add Business Email
                     </button>
                 @endunless
@@ -57,23 +57,23 @@
                         $registered = $connection->isRegisteredWithProvider();
                         $showingRecords = $registered && $showingDnsRecordsFor === $connection->id;
                     @endphp
-                    <li wire:key="connection-{{ $connection->id }}" class="rounded-lg border border-gray-200 bg-white shadow-sm">
+                    <li wire:key="connection-{{ $connection->id }}" class="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div class="p-5">
                             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 {{-- What this sender is: name, address, domain and whether it can be used. --}}
                                 <div class="min-w-0 flex-1">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <h3 class="min-w-0 break-words text-base font-semibold text-gray-900">{{ $connection->sender_name }}</h3>
+                                        <h3 class="min-w-0 break-words text-base font-semibold text-slate-900">{{ $connection->sender_name }}</h3>
                                         @if ($connection->is_default)
-                                            <span class="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">
+                                            <span class="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset">
                                                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.9L10 1.5z"/></svg>
                                                 Default sender
                                             </span>
                                         @endif
                                         <x-email-verification-badge :status="$connection->verification_status" />
                                     </div>
-                                    <p class="mt-1 break-all text-sm text-gray-800">{{ $connection->sender_email }}</p>
-                                    <p class="mt-0.5 text-sm text-gray-500">Domain: <span class="break-all font-medium text-gray-700">{{ $connection->domain }}</span></p>
+                                    <p class="mt-1 break-all text-sm text-slate-800">{{ $connection->sender_email }}</p>
+                                    <p class="mt-0.5 text-sm text-slate-500">Domain: <span class="break-all font-medium text-slate-700">{{ $connection->domain }}</span></p>
                                 </div>
 
                                 {{-- What you can do: Edit stays visible, the rest is one tap away. --}}
@@ -83,11 +83,11 @@
                                                 wire:click="openTestEmail({{ $connection->id }})"
                                                 @disabled(! $states['test']['allowed'])
                                                 @unless ($states['test']['allowed']) aria-describedby="test-reason-{{ $connection->id }}" @endunless
-                                                class="inline-flex flex-1 items-center justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
+                                                class="inline-flex flex-1 items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
                                             Send Test Email
                                         </button>
                                     @endif
-                                    <button type="button" wire:click="edit({{ $connection->id }})" class="inline-flex flex-1 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
+                                    <button type="button" wire:click="edit({{ $connection->id }})" class="inline-flex flex-1 items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
                                         Edit<span class="sr-only"> {{ $connection->sender_email }}</span>
                                     </button>
 
@@ -104,14 +104,14 @@
                             </div>
 
                             @if ($connection->isVerified() && ! $states['test']['allowed'])
-                                <p id="test-reason-{{ $connection->id }}" class="mt-3 text-sm text-gray-600">{{ $states['test']['reason'] }}</p>
+                                <p id="test-reason-{{ $connection->id }}" class="mt-3 text-sm text-slate-500">{{ $states['test']['reason'] }}</p>
                             @endif
                         </div>
 
                         @if ($connection->isVerified() && $testEmailConnectionId === $connection->id && $states['test']['allowed'])
-                            <form wire:submit="sendTestEmail" class="border-t border-gray-100 bg-gray-50 p-5" novalidate>
-                                <label for="testRecipient" class="block text-sm font-medium text-gray-900">Test Email Address</label>
-                                <p id="testRecipient-hint" class="text-sm text-gray-600">
+                            <form wire:submit="sendTestEmail" class="border-t border-slate-100 bg-slate-50 p-5" novalidate>
+                                <label for="testRecipient" class="block text-sm font-medium text-slate-900">Test Email Address</label>
+                                <p id="testRecipient-hint" class="text-sm text-slate-500">
                                     We'll send a short test message from {{ $connection->sender_name }} &lt;<span class="break-all">{{ $connection->sender_email }}</span>&gt;.
                                 </p>
                                 <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -124,20 +124,20 @@
                                                aria-describedby="testRecipient-hint @error('testRecipient') testRecipient-error @enderror"
                                                @error('testRecipient') aria-invalid="true" @enderror
                                                @class([
-                                                   'block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2',
+                                                   'block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2',
                                                    'border-red-400 focus:border-red-500 focus:ring-red-500' => $errors->has('testRecipient'),
-                                                   'border-gray-300 focus:border-violet-500 focus:ring-violet-500' => ! $errors->has('testRecipient'),
+                                                   'border-slate-300 focus:border-violet-500 focus:ring-violet-500' => ! $errors->has('testRecipient'),
                                                ])>
                                         @error('testRecipient')
                                             <p id="testRecipient-error" class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
                                     <div class="flex shrink-0 gap-2">
-                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
                                             <span wire:loading.remove wire:target="sendTestEmail">Send Test Email</span>
                                             <span wire:loading wire:target="sendTestEmail" role="status">Sending…</span>
                                         </button>
-                                        <button type="button" wire:click="cancelTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                        <button type="button" wire:click="cancelTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                             Cancel
                                         </button>
                                     </div>
@@ -147,10 +147,10 @@
 
                         @unless ($connection->isVerified())
                             {{-- Guided verification: what is wrong, the next step, and the one button that does it. --}}
-                            <div class="border-t border-gray-100 bg-gray-50 p-5">
+                            <div class="border-t border-slate-100 bg-slate-50 p-5">
                                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div class="min-w-0 text-sm">
-                                        <p class="font-semibold text-gray-900">
+                                        <p class="font-semibold text-slate-900">
                                             @if ($failed)
                                                 Your domain could not be verified.
                                             @elseif ($registered)
@@ -161,21 +161,21 @@
                                         </p>
                                         @if ($failed && $connection->verification_error)
                                             <p class="mt-1 text-red-700" role="alert">{{ $connection->verification_error }}</p>
-                                            <p class="mt-1 text-gray-600">Check the domain spelling and your DNS records, then try again. If it keeps failing, contact support.</p>
+                                            <p class="mt-1 text-slate-500">Check the domain spelling and your DNS records, then try again. If it keeps failing, contact support.</p>
                                         @elseif (! $registered)
-                                            <p class="mt-1 text-gray-600">Verify your domain to prove you own it. We'll show the DNS records to add at your DNS provider.</p>
+                                            <p class="mt-1 text-slate-500">Verify your domain to prove you own it. We'll show the DNS records to add at your DNS provider.</p>
                                         @else
-                                            <ol class="mt-2 list-decimal space-y-1 pl-5 text-gray-600">
+                                            <ol class="mt-2 list-decimal space-y-1 pl-5 text-slate-500">
                                                 <li>Add the DNS records below at your DNS provider.</li>
                                                 <li>Wait for DNS to update. This can take some time.</li>
-                                                <li>Select <span class="font-medium text-gray-900">Check Verification</span>. Your domain only shows as verified once we confirm it.</li>
+                                                <li>Select <span class="font-medium text-slate-900">Check Verification</span>. Your domain only shows as verified once we confirm it.</li>
                                             </ol>
                                         @endif
-                                        <p id="default-hint-{{ $connection->id }}" class="mt-2 text-gray-600">
+                                        <p id="default-hint-{{ $connection->id }}" class="mt-2 text-slate-500">
                                             Only verified emails can send email or become the default sender.
                                         </p>
                                         @unless ($this->verificationConfigured)
-                                            <p class="mt-2 rounded-md bg-amber-50 p-2 text-amber-800">Domain verification isn't available right now. Please contact support.</p>
+                                            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-amber-800">Domain verification isn't available right now. Please contact support.</p>
                                         @endunless
                                     </div>
 
@@ -185,7 +185,7 @@
                                                     wire:click="toggleDnsRecords({{ $connection->id }})"
                                                     aria-expanded="{{ $showingRecords ? 'true' : 'false' }}"
                                                     aria-controls="dns-records-{{ $connection->id }}"
-                                                    class="inline-flex flex-1 items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
+                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:flex-none">
                                                 {{ $showingRecords ? 'Hide DNS Records' : 'View DNS Records' }}
                                             </button>
                                             <button type="button"
@@ -193,7 +193,7 @@
                                                     wire:loading.attr="disabled"
                                                     wire:target="checkVerification({{ $connection->id }})"
                                                     @disabled(! $this->verificationConfigured)
-                                                    class="inline-flex flex-1 items-center justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none">
+                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none">
                                                 <span wire:loading.remove wire:target="checkVerification({{ $connection->id }})">Check Verification</span>
                                                 <span wire:loading wire:target="checkVerification({{ $connection->id }})" role="status">Checking…</span>
                                             </button>
@@ -203,7 +203,7 @@
                                                     wire:loading.attr="disabled"
                                                     wire:target="startVerification({{ $connection->id }})"
                                                     @disabled(! $this->verificationConfigured)
-                                                    class="inline-flex w-full items-center justify-center rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
+                                                    class="inline-flex w-full items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
                                                 <span wire:loading.remove wire:target="startVerification({{ $connection->id }})">{{ $failed ? 'Try Again' : 'Verify Domain' }}</span>
                                                 <span wire:loading wire:target="startVerification({{ $connection->id }})" role="status">Connecting…</span>
                                             </button>
@@ -215,26 +215,26 @@
                                     @php($records = $connection->dnsRecords())
                                     @php($hasPriority = collect($records)->contains(fn ($record) => $record->priority !== null))
 
-                                    <div id="dns-records-{{ $connection->id }}" class="mt-4 border-t border-gray-200 pt-4">
-                                        <h3 class="text-sm font-semibold text-gray-900">DNS records</h3>
-                                        <p class="mt-1 text-sm text-gray-600">
-                                            Add these DNS records at the DNS provider for <span class="font-medium text-gray-900">{{ $connection->domain }}</span>.
+                                    <div id="dns-records-{{ $connection->id }}" class="mt-4 border-t border-slate-200 pt-4">
+                                        <h3 class="text-sm font-semibold text-slate-900">DNS records</h3>
+                                        <p class="mt-1 text-sm text-slate-500">
+                                            Add these DNS records at the DNS provider for <span class="font-medium text-slate-900">{{ $connection->domain }}</span>.
                                             DNS changes can take some time to propagate.
                                         </p>
-                                        <p class="mt-1 text-xs text-gray-500">
+                                        <p class="mt-1 text-xs text-slate-500">
                                             Some DNS providers add your domain to the name automatically. If yours does, enter only the part before ".{{ $connection->domain }}".
                                         </p>
 
                                         @if ($records === [])
-                                            <p class="mt-3 text-sm text-gray-700">
+                                            <p class="mt-3 text-sm text-slate-700">
                                                 We couldn't load the DNS records.
                                                 <button type="button" wire:click="startVerification({{ $connection->id }})" class="font-medium text-violet-700 underline-offset-2 hover:underline">Try again</button>
                                             </p>
                                         @else
                                             {{-- Wide screens: table --}}
-                                            <div class="mt-3 hidden overflow-hidden rounded-md ring-1 ring-gray-200 sm:block">
+                                            <div class="mt-3 hidden overflow-hidden rounded-lg ring-1 ring-slate-200 sm:block">
                                                 <table class="w-full table-fixed text-left text-sm">
-                                                    <thead class="bg-white text-xs text-gray-500 uppercase">
+                                                    <thead class="bg-white text-xs text-slate-500">
                                                         <tr>
                                                             <th scope="col" class="w-20 px-3 py-2 font-medium">Type</th>
                                                             <th scope="col" class="px-3 py-2 font-medium">Name</th>
@@ -245,27 +245,27 @@
                                                             <th scope="col" class="w-28 px-3 py-2 font-medium">Status</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody class="divide-y divide-gray-200 bg-white">
+                                                    <tbody class="divide-y divide-slate-200 bg-white">
                                                         @foreach ($records as $record)
                                                             <tr class="align-top">
-                                                                <td class="px-3 py-3 font-mono text-gray-900">
+                                                                <td class="px-3 py-3 font-mono text-slate-900">
                                                                     {{ $record->type }}
-                                                                    <span class="block font-sans text-xs text-gray-500">{{ $record->purpose }}</span>
+                                                                    <span class="block font-sans text-xs text-slate-500">{{ $record->purpose }}</span>
                                                                 </td>
                                                                 <td class="px-3 py-3">
                                                                     <div class="flex items-start gap-2">
-                                                                        <span class="min-w-0 font-mono break-all text-gray-900">{{ $record->name }}</span>
+                                                                        <span class="min-w-0 font-mono break-all text-slate-900">{{ $record->name }}</span>
                                                                         <x-copy-button :value="$record->name" :label="'Copy '.$record->purpose.' name'" />
                                                                     </div>
                                                                 </td>
                                                                 <td class="px-3 py-3">
                                                                     <div class="flex items-start gap-2">
-                                                                        <span class="line-clamp-3 min-w-0 font-mono break-all text-gray-900" title="{{ $record->value }}">{{ $record->value }}</span>
+                                                                        <span class="line-clamp-3 min-w-0 font-mono break-all text-slate-900" title="{{ $record->value }}">{{ $record->value }}</span>
                                                                         <x-copy-button :value="$record->value" :label="'Copy '.$record->purpose.' value'" />
                                                                     </div>
                                                                 </td>
                                                                 @if ($hasPriority)
-                                                                    <td class="px-3 py-3 text-gray-900">{{ $record->priority ?? '—' }}</td>
+                                                                    <td class="px-3 py-3 text-slate-900">{{ $record->priority ?? '—' }}</td>
                                                                 @endif
                                                                 <td class="px-3 py-3"><x-dns-record-status :verified="$record->verified" /></td>
                                                             </tr>
@@ -277,23 +277,23 @@
                                             {{-- Small screens: stacked cards --}}
                                             <ul role="list" class="mt-3 space-y-3 sm:hidden">
                                                 @foreach ($records as $record)
-                                                    <li class="rounded-md bg-white p-3 text-sm ring-1 ring-gray-200">
+                                                    <li class="rounded-lg bg-white p-3 text-sm ring-1 ring-slate-200">
                                                         <div class="flex items-center justify-between gap-2">
-                                                            <span class="font-mono font-medium text-gray-900">{{ $record->type }} <span class="font-sans font-normal text-gray-500">· {{ $record->purpose }}</span></span>
+                                                            <span class="font-mono font-medium text-slate-900">{{ $record->type }} <span class="font-sans font-normal text-slate-500">· {{ $record->purpose }}</span></span>
                                                             <x-dns-record-status :verified="$record->verified" />
                                                         </div>
                                                         <dl class="mt-2 space-y-2">
                                                             <div>
-                                                                <dt class="text-xs text-gray-500">Name</dt>
+                                                                <dt class="text-xs text-slate-500">Name</dt>
                                                                 <dd class="flex items-start justify-between gap-2"><span class="min-w-0 font-mono break-all">{{ $record->name }}</span><x-copy-button :value="$record->name" :label="'Copy '.$record->purpose.' name'" /></dd>
                                                             </div>
                                                             <div>
-                                                                <dt class="text-xs text-gray-500">Value</dt>
+                                                                <dt class="text-xs text-slate-500">Value</dt>
                                                                 <dd class="flex items-start justify-between gap-2"><span class="line-clamp-4 min-w-0 font-mono break-all">{{ $record->value }}</span><x-copy-button :value="$record->value" :label="'Copy '.$record->purpose.' value'" /></dd>
                                                             </div>
                                                             @if ($record->priority !== null)
                                                                 <div>
-                                                                    <dt class="text-xs text-gray-500">Priority</dt>
+                                                                    <dt class="text-xs text-slate-500">Priority</dt>
                                                                     <dd>{{ $record->priority }}</dd>
                                                                 </div>
                                                             @endif
@@ -314,12 +314,12 @@
 
     {{-- Section 2: add / edit form --}}
     @if ($showForm)
-        <section aria-labelledby="form-heading" class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 id="form-heading" class="text-base font-semibold text-gray-900">
+        <section aria-labelledby="form-heading" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 id="form-heading" class="text-base font-semibold text-slate-900">
                 {{ $editingConnectionId ? 'Edit business email' : 'Add business email' }}
             </h2>
             @if ($editingConnectionId)
-                <p class="mt-1 text-sm text-gray-600">Changing the domain or sender email resets its verification status.</p>
+                <p class="mt-1 text-sm text-slate-500">Changing the domain or sender email resets its verification status.</p>
             @endif
 
             <form wire:submit="save" class="mt-6 space-y-5" novalidate>
@@ -329,7 +329,7 @@
                     ['senderEmail', 'Sender email', 'sales@example.com', 'email', 'email'],
                 ] as [$field, $label, $placeholder, $type, $autocomplete])
                     <div>
-                        <label for="{{ $field }}" class="block text-sm font-medium text-gray-900">{{ $label }}</label>
+                        <label for="{{ $field }}" class="block text-sm font-medium text-slate-900">{{ $label }}</label>
                         <input id="{{ $field }}"
                                type="{{ $type }}"
                                wire:model="{{ $field }}"
@@ -338,9 +338,9 @@
                                @if ($loop->first) autofocus @endif
                                @error($field) aria-invalid="true" aria-describedby="{{ $field }}-error" @enderror
                                @class([
-                                   'mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 sm:max-w-md',
+                                   'mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 sm:max-w-md',
                                    'border-red-400 focus:border-red-500 focus:ring-red-500' => $errors->has($field),
-                                   'border-gray-300 focus:border-violet-500 focus:ring-violet-500' => ! $errors->has($field),
+                                   'border-slate-300 focus:border-violet-500 focus:ring-violet-500' => ! $errors->has($field),
                                ])>
                         @error($field)
                             <p id="{{ $field }}-error" class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -349,11 +349,11 @@
                 @endforeach
 
                 <div class="flex flex-wrap gap-3 pt-2">
-                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="inline-flex items-center rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
                         <span wire:loading.remove wire:target="save">Save</span>
                         <span wire:loading wire:target="save">Saving…</span>
                     </button>
-                    <button type="button" wire:click="cancel" wire:loading.attr="disabled" wire:target="save" class="rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                    <button type="button" wire:click="cancel" wire:loading.attr="disabled" wire:target="save" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                         Cancel
                     </button>
                 </div>
@@ -369,22 +369,22 @@
              @keydown.escape.window="$wire.cancelDelete()">
             <div role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description"
                  class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-                <h2 id="delete-title" class="text-base font-semibold text-gray-900">Remove email connection</h2>
-                <div id="delete-description" class="mt-2 space-y-2 text-sm text-gray-600">
+                <h2 id="delete-title" class="text-base font-semibold text-slate-900">Remove email connection</h2>
+                <div id="delete-description" class="mt-2 space-y-2 text-sm text-slate-500">
                     <p>Are you sure you want to remove this email connection?</p>
-                    <p class="font-medium text-gray-900">{{ $pendingDeletion->sender_email }}</p>
+                    <p class="font-medium text-slate-900">{{ $pendingDeletion->sender_email }}</p>
                     @if ($pendingDeletion->is_default)
-                        <p class="rounded-md bg-amber-50 p-3 text-amber-800">
+                        <p class="rounded-lg bg-amber-50 p-3 text-amber-800">
                             This is your default sender. Until you set another verified connection as default, QuoteFollow will have no default sending email.
                         </p>
                     @endif
                 </div>
 
                 <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button type="button" wire:click="cancelDelete" class="rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                    <button type="button" wire:click="cancelDelete" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                         Cancel
                     </button>
-                    <button type="button" wire:click="delete" wire:loading.attr="disabled" wire:target="delete" class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-60">
+                    <button type="button" wire:click="delete" wire:loading.attr="disabled" wire:target="delete" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-60">
                         Remove
                     </button>
                 </div>

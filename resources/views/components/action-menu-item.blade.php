@@ -9,12 +9,12 @@
         @if ($disabled) aria-disabled="true" aria-describedby="{{ $itemId }}-reason" @endif
         {{ $bag->class([
             'block w-full px-4 py-2 text-left text-sm focus:outline-none focus-visible:bg-violet-50',
-            'cursor-not-allowed text-gray-400' => $disabled,
+            'cursor-not-allowed text-slate-400' => $disabled,
             'text-red-700 hover:bg-red-50' => ! $disabled && $danger,
-            'text-gray-700 hover:bg-gray-50' => ! $disabled && ! $danger,
+            'text-slate-700 hover:bg-slate-50' => ! $disabled && ! $danger,
         ]) }}>
     <span class="block font-medium">{{ $slot }}</span>
     @if ($disabled && $reason)
-        <span id="{{ $itemId }}-reason" class="mt-0.5 block text-xs font-normal text-gray-500">{{ $reason }}</span>
+        <span id="{{ $itemId }}-reason" class="mt-0.5 block text-xs font-normal text-slate-500">{{ $reason }}</span>
     @endif
 </button>

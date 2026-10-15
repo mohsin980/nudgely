@@ -30,7 +30,7 @@
         </div>
         @if ($withStatus ?? false)
             <div>
-                <label for="customer-status" class="block text-sm font-medium text-gray-700">Status</label>
+                <label for="customer-status" class="block text-sm font-medium text-slate-700">Status</label>
                 <select id="customer-status" wire:model="status" class="{{ $field }}">
                     @foreach (\App\Enums\CustomerStatus::cases() as $s)
                         <option value="{{ $s->value }}">{{ $s->label() }}</option>
@@ -42,7 +42,7 @@
     </div>
     <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
         <a href="{{ ($customerId ?? null) ? route('customers.show', $customerId) : route('customers.index') }}" wire:navigate class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Cancel</a>
-        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-50">
+        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">
             <span wire:loading.remove wire:target="save">{{ ($customerId ?? null) ? 'Save changes' : 'Add Customer' }}</span>
             <span wire:loading wire:target="save">Saving…</span>
         </button>

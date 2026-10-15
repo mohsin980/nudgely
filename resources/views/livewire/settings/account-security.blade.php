@@ -1,4 +1,4 @@
-@php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 @php($card = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6')
 <x-settings.shell title="Account & Security" description="Your sign-in details and where you're signed in.">
     @include('livewire.settings.partials.status')
@@ -20,7 +20,7 @@
             <div><label for="new-password" class="block text-sm font-medium text-slate-700">New password</label><input id="new-password" type="password" wire:model="newPassword" autocomplete="new-password" class="{{ $field }}">@error('newPassword') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
             <div><label for="new-password-confirmation" class="block text-sm font-medium text-slate-700">Confirm new password</label><input id="new-password-confirmation" type="password" wire:model="newPasswordConfirmation" autocomplete="new-password" class="{{ $field }}"></div>
         </div>
-        <div class="flex justify-end"><button type="submit" class="inline-flex items-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700">Change password</button></div>
+        <div class="flex justify-end"><button type="submit" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Change password</button></div>
     </form>
 
     <section aria-labelledby="sessions-heading" class="{{ $card }} space-y-3">
@@ -37,7 +37,7 @@
         </ul>
         <form wire:submit="logoutOtherSessions" class="flex flex-wrap items-end gap-3">
             <div><label for="sessions-password" class="block text-sm font-medium text-slate-700">Password</label><input id="sessions-password" type="password" wire:model="sessionsPassword" autocomplete="current-password" class="{{ $field }}"></div>
-            <button type="submit" class="rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Log out other sessions</button>
+            <button type="submit" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Log out other sessions</button>
         </form>
         @error('sessionsPassword') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
     </section>

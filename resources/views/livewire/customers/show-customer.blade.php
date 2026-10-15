@@ -1,43 +1,43 @@
 <div class="space-y-6">
-    @php($card = 'rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5')
-    @php($heading = 'text-sm font-semibold tracking-wide text-gray-500 uppercase')
-    @php($button = 'inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
-    @php($field = 'mt-1 block w-full rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-gray-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+    @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
+    @php($heading = 'text-base font-semibold text-slate-900')
+    @php($button = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+    @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 
     {{-- Header --}}
     <div class="space-y-3">
         <a href="{{ route('customers.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; Customers</a>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-                <h1 class="text-2xl font-semibold tracking-tight text-gray-900">{{ $this->customer->name }}@if ($this->customer->is_demo)<span class="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif</h1>
+                <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $this->customer->name }}@if ($this->customer->is_demo)<span class="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif</h1>
                 @if ($this->customer->is_demo)<p class="mt-1 text-sm text-amber-800" data-sample-note>Sample data: this customer never receives real emails and doesn't count toward your plan. You can delete it from setup.</p>@endif
-                <p class="break-words text-sm text-gray-600">
+                <p class="break-words text-sm text-slate-500">
                     <a href="mailto:{{ $this->customer->email }}" class="hover:underline">{{ $this->customer->email }}</a>
                     @if ($this->customer->phone) · {{ $this->customer->phone }} @endif
                     @if ($this->customer->company) · {{ $this->customer->company }} @endif
                 </p>
                 <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                    <span class="text-gray-600">Status:</span>
-                    <span @class(['rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset', 'bg-green-50 text-green-700 ring-green-600/20' => $this->customer->isActive(), 'bg-gray-100 text-gray-600 ring-gray-500/20' => ! $this->customer->isActive()])>{{ $this->customer->status->label() }}</span>
+                    <span class="text-slate-500">Status:</span>
+                    <span @class(['rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', 'bg-green-50 text-green-700 ring-green-600/20' => $this->customer->isActive(), 'bg-slate-100 text-slate-500 ring-gray-500/20' => ! $this->customer->isActive()])>{{ $this->customer->status->label() }}</span>
                     @if ($this->customer->hasOptedOutOfEmail())
-                        <span class="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset">Opted out of email</span>
+                        <span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset">Opted out of email</span>
                     @endif
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button type="button" wire:click="openEmailForm" class="{{ $button }} bg-violet-600 text-white ring-violet-600 hover:bg-violet-500">Send Email</button>
+                <button type="button" wire:click="openEmailForm" class="inline-flex items-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Send Email</button>
                 <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="{{ $button }}">Create Estimate</a>
                 <button type="button" wire:click="openScheduleForm" class="{{ $button }}">Schedule Follow-Up</button>
                 <a href="{{ route('customers.edit', $this->customer->id) }}" wire:navigate class="{{ $button }}">Edit</a>
             </div>
         </div>
         @if ($this->customer->notes)
-            <p class="rounded-md bg-gray-50 p-3 text-sm whitespace-pre-line text-gray-700"><span class="font-medium">Notes:</span> {{ $this->customer->notes }}</p>
+            <p class="rounded-lg bg-slate-50 p-3 text-sm whitespace-pre-line text-slate-700"><span class="font-medium">Notes:</span> {{ $this->customer->notes }}</p>
         @endif
     </div>
 
     @if ($statusMessage)
-        <div role="status" class="rounded-md bg-green-50 p-3 text-sm text-green-800">{{ $statusMessage }}</div>
+        <div role="status" class="rounded-lg bg-green-50 p-3 text-sm text-green-800">{{ $statusMessage }}</div>
     @endif
     @include('follow-ups.flash')
 
@@ -45,11 +45,11 @@
         <form wire:submit="sendEmail" class="{{ $card }} space-y-3" aria-label="New email">
             <h2 class="{{ $heading }}">New email to {{ $this->customer->email }}</h2>
             @error('email') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
-            <div><label for="new-email-subject" class="block text-sm font-medium text-gray-700">Subject</label><input id="new-email-subject" type="text" wire:model="emailSubject" maxlength="200" class="{{ $field }}">@error('emailSubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div><label for="new-email-body" class="block text-sm font-medium text-gray-700">Message</label><textarea id="new-email-body" wire:model="emailBody" rows="5" class="{{ $field }}"></textarea>@error('emailBody') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+            <div><label for="new-email-subject" class="block text-sm font-medium text-slate-700">Subject</label><input id="new-email-subject" type="text" wire:model="emailSubject" maxlength="200" class="{{ $field }}">@error('emailSubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+            <div><label for="new-email-body" class="block text-sm font-medium text-slate-700">Message</label><textarea id="new-email-body" wire:model="emailBody" rows="5" class="{{ $field }}"></textarea>@error('emailBody') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
             <div class="flex gap-2">
-                <button type="submit" wire:loading.attr="disabled" class="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"><span wire:loading.remove wire:target="sendEmail">Send</span><span wire:loading wire:target="sendEmail">Sending…</span></button>
-                <button type="button" wire:click="$set('showEmailForm', false)" class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:underline">Cancel</button>
+                <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"><span wire:loading.remove wire:target="sendEmail">Send</span><span wire:loading wire:target="sendEmail">Sending…</span></button>
+                <button type="button" wire:click="$set('showEmailForm', false)" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:underline">Cancel</button>
             </div>
         </form>
     @endif
@@ -64,20 +64,20 @@
             <section aria-labelledby="conversation-heading" class="{{ $card }}">
                 <h2 id="conversation-heading" class="{{ $heading }}">Conversation</h2>
                 @if ($this->conversations->isEmpty())
-                    <p class="mt-3 text-sm text-gray-600">No conversation yet.</p>
+                    <p class="mt-3 text-sm text-slate-500">No conversation yet.</p>
                 @else
-                    <ul role="list" class="mt-2 divide-y divide-gray-100">
+                    <ul role="list" class="mt-2 divide-y divide-slate-100">
                         @foreach ($this->conversations as $conversation)
                             <li wire:key="conversation-{{ $conversation->id }}">
-                                <a href="{{ route('inbox.show', $conversation->id) }}" wire:navigate class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                <a href="{{ route('inbox.show', $conversation->id) }}" wire:navigate class="-mx-2 block rounded-lg px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                     <p class="flex flex-wrap items-center gap-2">
-                                        <span class="font-medium text-gray-900">{{ $conversation->subject ?? '(no subject)' }}</span>
+                                        <span class="font-medium text-slate-900">{{ $conversation->subject ?? '(no subject)' }}</span>
                                         <x-conversation-status-badge :status="$conversation->status" />
                                         @if ($conversation->latest_intent) <x-intent-badge :intent="$conversation->latest_intent" /> @endif
                                         @if ($conversation->unread_count) <span class="text-xs font-semibold text-violet-700">● {{ $conversation->unread_count }} unread</span> @endif
                                     </p>
                                     @if ($conversation->latestMessage?->excerpt)
-                                        <p class="truncate text-sm text-gray-600">{{ $conversation->latestMessage->direction->value === 'inbound' ? 'Customer' : 'You' }}: {{ \Illuminate\Support\Str::limit(trim(strtok($conversation->latestMessage->excerpt, "\n")), 120) }}</p>
+                                        <p class="truncate text-sm text-slate-500">{{ $conversation->latestMessage->direction->value === 'inbound' ? 'Customer' : 'You' }}: {{ \Illuminate\Support\Str::limit(trim(strtok($conversation->latestMessage->excerpt, "\n")), 120) }}</p>
                                     @endif
                                 </a>
                             </li>
@@ -93,18 +93,18 @@
                     <a href="{{ route('estimates.create', ['customer' => $this->customer->id]) }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">Create Estimate</a>
                 </div>
                 @if ($this->estimates->isEmpty())
-                    <p class="mt-3 text-sm text-gray-600">{{ "This customer doesn't have any estimates yet." }}</p>
+                    <p class="mt-3 text-sm text-slate-500">{{ "This customer doesn't have any estimates yet." }}</p>
                 @else
-                    <ul role="list" class="mt-2 divide-y divide-gray-100" data-section="estimates">
+                    <ul role="list" class="mt-2 divide-y divide-slate-100" data-section="estimates">
                         @foreach ($this->estimates as $estimate)
                             <li wire:key="estimate-{{ $estimate->id }}">
-                                <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
                                     <span class="min-w-0">
-                                        <span class="block font-medium text-gray-900">{{ $estimate->displayNumber() }}</span>
-                                        <span class="block truncate text-sm text-gray-600">{{ $estimate->title }}</span>
+                                        <span class="block font-medium text-slate-900">{{ $estimate->displayNumber() }}</span>
+                                        <span class="block truncate text-sm text-slate-500">{{ $estimate->title }}</span>
                                     </span>
                                     <span class="flex shrink-0 flex-col items-end gap-1">
-                                        <span class="text-sm font-semibold text-gray-900">{{ $estimate->money('total') }}</span>
+                                        <span class="text-sm font-semibold text-slate-900">{{ $estimate->money('total') }}</span>
                                         <x-estimate-status-badge :status="$estimate->status" />
                                     </span>
                                 </a>
@@ -117,7 +117,7 @@
             {{-- Activity --}}
             <section aria-labelledby="activity-heading" class="{{ $card }}">
                 <h2 id="activity-heading" class="{{ $heading }}">Activity</h2>
-                <ol role="list" class="mt-2 divide-y divide-gray-100" data-section="timeline">
+                <ol role="list" class="mt-2 divide-y divide-slate-100" data-section="timeline">
                     @foreach ($this->timeline as $entry)
                         @include('livewire.partials.timeline-entry')
                     @endforeach
@@ -135,9 +135,9 @@
             <section aria-labelledby="upcoming-heading" class="{{ $card }}">
                 <h2 id="upcoming-heading" class="{{ $heading }}">Upcoming follow-ups</h2>
                 @if ($upcoming->isEmpty())
-                    <p class="mt-3 text-sm text-gray-600">No follow-ups scheduled.</p>
+                    <p class="mt-3 text-sm text-slate-500">No follow-ups scheduled.</p>
                 @else
-                    <ul role="list" class="-mx-4 mt-1 divide-y divide-gray-100 sm:-mx-5">
+                    <ul role="list" class="-mx-4 mt-1 divide-y divide-slate-100 sm:-mx-5">
                         @foreach ($upcoming as $followUp)
                             @include('follow-ups.item', ['showCustomer' => false, 'compact' => true])
                         @endforeach
@@ -148,15 +148,15 @@
             <section aria-labelledby="history-heading" class="{{ $card }}">
                 <h2 id="history-heading" class="{{ $heading }}">Follow-up history</h2>
                 @if ($history->isEmpty())
-                    <p class="mt-3 text-sm text-gray-600">No past follow-ups.</p>
+                    <p class="mt-3 text-sm text-slate-500">No past follow-ups.</p>
                 @else
-                    <ol role="list" class="mt-2 divide-y divide-gray-100 text-sm">
+                    <ol role="list" class="mt-2 divide-y divide-slate-100 text-sm">
                         @foreach ($history as $followUp)
                             <li wire:key="history-{{ $followUp->id }}" class="flex items-start justify-between gap-2 py-2">
                                 <div class="min-w-0">
-                                    <p class="text-gray-900">“{{ $followUp->reason() }}”</p>
-                                    <p class="text-gray-600"><x-follow-up-due :at="$followUp->created_at" :organization="$organization" /> · {{ $followUp->type->label() }}</p>
-                                    <p class="text-gray-600">{{ $followUp->skip_reason?->label() ?? ($followUp->cancelled_reason ? 'Cancelled: '.$followUp->cancelled_reason->label() : ($followUp->outcome ?? $followUp->completion_notes)) }}</p>
+                                    <p class="text-slate-900">“{{ $followUp->reason() }}”</p>
+                                    <p class="text-slate-500"><x-follow-up-due :at="$followUp->created_at" :organization="$organization" /> · {{ $followUp->type->label() }}</p>
+                                    <p class="text-slate-500">{{ $followUp->skip_reason?->label() ?? ($followUp->cancelled_reason ? 'Cancelled: '.$followUp->cancelled_reason->label() : ($followUp->outcome ?? $followUp->completion_notes)) }}</p>
                                 </div>
                                 <x-automation-status-badge :status="$followUp->status" />
                             </li>
@@ -169,9 +169,9 @@
             <section aria-labelledby="tasks-heading" class="{{ $card }}">
                 <h2 id="tasks-heading" class="{{ $heading }}">Tasks</h2>
                 @if ($this->tasks->isEmpty())
-                    <p class="mt-3 text-sm text-gray-600">No tasks for this customer.</p>
+                    <p class="mt-3 text-sm text-slate-500">No tasks for this customer.</p>
                 @else
-                    <ul role="list" class="mt-2 divide-y divide-gray-100 text-sm" data-section="tasks">
+                    <ul role="list" class="mt-2 divide-y divide-slate-100 text-sm" data-section="tasks">
                         @foreach ($this->tasks as $task)
                             @include('livewire.partials.task-row')
                         @endforeach

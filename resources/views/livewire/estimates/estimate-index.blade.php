@@ -5,14 +5,14 @@
             <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Estimates</h1>
             <p class="mt-1 text-sm text-slate-500">{{ trans_choice(':count estimate|:count estimates', $estimates->total()) }}{{ $filtering ? ' match your filters' : '' }}</p>
         </div>
-        <a href="{{ route('estimates.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">Create Estimate</a>
+        <a href="{{ route('estimates.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Create Estimate</a>
     </div>
 
     @if (! $hasAnyEstimate)
         <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
             <p class="text-base font-semibold text-slate-900">No estimates yet.</p>
             <p class="mt-1 text-sm text-slate-500">Create an estimate, send it, and QuoteFollow will help you follow up.</p>
-            <a href="{{ route('estimates.create') }}" wire:navigate class="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700">Create Estimate</a>
+            <a href="{{ route('estimates.create') }}" wire:navigate class="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Create Estimate</a>
         </div>
     @else
         <section aria-label="Search and filters" class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">

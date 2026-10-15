@@ -135,7 +135,7 @@
             <p class="text-sm font-semibold whitespace-nowrap text-slate-900 sm:hidden">Total {{ $this->money($totals->total) }}</p>
             <div class="flex gap-2">
                 <button type="submit" wire:loading.attr="disabled" class="rounded-xl bg-white px-4 py-2.5 whitespace-nowrap text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 disabled:opacity-50">Save Draft</button>
-                <button type="button" wire:click="saveAndSend" wire:loading.attr="disabled" class="rounded-xl bg-emerald-600 px-4 py-2.5 whitespace-nowrap text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50"><span wire:loading.remove wire:target="saveAndSend">Save &amp; Send</span><span wire:loading wire:target="saveAndSend">Sending…</span></button>
+                <button type="button" wire:click="saveAndSend" wire:loading.attr="disabled" class="rounded-xl bg-violet-600 px-4 py-2.5 whitespace-nowrap text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 disabled:opacity-50"><span wire:loading.remove wire:target="saveAndSend">Save &amp; Send</span><span wire:loading wire:target="saveAndSend">Sending…</span></button>
             </div>
         </div>
     </form>

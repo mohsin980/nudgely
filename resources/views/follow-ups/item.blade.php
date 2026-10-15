@@ -48,7 +48,7 @@
         @if ($open)
             <div @class(['flex flex-wrap gap-2', 'sm:justify-end' => ! ($compact ?? false)])>
                 @if ($ready)
-                    <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-2xl bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">Send Follow-Up</button>
+                    <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-2xl bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50">Send Follow-Up</button>
                 @endif
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'complete')" class="rounded-2xl bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Complete</button>
                 <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'reschedule')" class="rounded-2xl bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Reschedule</button>
@@ -95,7 +95,7 @@
             @endif
 
             <div class="flex gap-2">
-                <button type="submit" class="rounded-2xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">
+                <button type="submit" class="rounded-2xl bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-violet-700">
                     {{ ['complete' => 'Mark completed', 'reschedule' => 'Save new time', 'cancel' => 'Cancel follow-up', 'assign' => 'Save assignee'][$followUpForm] }}
                 </button>
                 <button type="button" wire:click="closeFollowUpForm" class="rounded-2xl px-3 py-1.5 text-sm font-medium text-slate-700 hover:underline">Close</button>

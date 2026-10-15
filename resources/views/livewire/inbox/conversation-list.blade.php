@@ -68,7 +68,7 @@
                                             <x-priority-badge :priority="$priority" />
                                         @endif
                                         @if ($conversation->needs_attention)
-                                            <span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Needs attention</span>
+                                            <span class="inline-flex items-center rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Needs attention</span>
                                         @endif
                                     </p>
                                 </div>
