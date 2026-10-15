@@ -4,7 +4,7 @@
         <thead>
             <tr class="text-left text-slate-500">
                 <th scope="col" class="py-2 pr-4 text-sm font-medium">Notification</th>
-                @foreach ($channels as $channel)<th scope="col" class="px-4 py-2 text-center text-sm font-medium">{{ $channel->label() }}</th>@endforeach
+                @foreach ($channels as $channel)<th scope="col" class="px-4 py-2 text-center text-sm font-medium whitespace-nowrap">{{ $channel->label() }}</th>@endforeach
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
