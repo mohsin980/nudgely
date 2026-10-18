@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\EmailProvider;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
@@ -50,7 +49,6 @@ class Message extends Model
         return [
             'direction' => MessageDirection::class,
             'channel' => MessageChannel::class,
-            'provider' => EmailProvider::class,
             'status' => MessageStatus::class,
             'metadata' => 'array',
             'sent_at' => 'datetime',

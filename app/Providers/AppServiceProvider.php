@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Billing\PlanCatalog;
 use App\Contracts\Email\EmailProviderInterface;
+use App\Contracts\WhatsApp\WhatsAppApiInterface;
 use App\Enums\Platform\PlatformPermission;
 use App\Enums\Team\Permission;
 use App\Http\Middleware\DisableUnusedFilamentRoutes;
@@ -22,6 +23,7 @@ use App\Services\Billing\BillingProviderManager;
 use App\Services\Email\EmailProviderManager;
 use App\Services\Email\Events\PostmarkDeliveryEvents;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
+use App\Services\WhatsApp\MetaWhatsAppClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobExceptionOccurred;
@@ -49,6 +51,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PostmarkDeliveryEvents::class, fn () => new PostmarkDeliveryEvents(config('email.providers.postmark', [])));
         $this->app->bind(EmailProviderInterface::class, fn ($app) => $app->make(EmailProviderManager::class)->driver());
         $this->app->singleton(InboundEmailProviderManager::class);
+        $this->app->bind(WhatsAppApiInterface::class, fn () => new MetaWhatsAppClient(
+            config('whatsapp.graph'),
+            ['app_id' => config('whatsapp.app_id'), 'app_secret' => config('whatsapp.app_secret')],
+        ));
         $this->app->singleton(ReplyClassifierManager::class);
         $this->app->singleton(BillingProviderManager::class);
         // Plans are read from config/billing.php once and validated (a bad plan fails loudly).

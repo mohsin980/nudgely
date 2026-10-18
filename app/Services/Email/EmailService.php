@@ -404,7 +404,7 @@ class EmailService
             'organization_id' => $message->organization_id,
             'conversation_id' => $message->conversation_id,
             'message_id' => $message->id,
-            'provider' => $message->provider?->value,
+            'provider' => $message->provider,
             'status' => $message->status?->value,
             'correlation_id' => $message->correlation_id,
         ] + $extra);

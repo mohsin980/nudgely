@@ -162,7 +162,7 @@ class DeliveryEventProcessor
             'organization_id' => $message->organization_id,
             'message_id' => $message->id,
             'conversation_id' => $message->conversation_id,
-            'provider' => $message->provider->value,
+            'provider' => $message->provider,
             'provider_message_id' => $message->provider_message_id,
             'webhook_event_id' => $event->id,
             'status' => $target->value,

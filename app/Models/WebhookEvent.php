@@ -15,6 +15,8 @@ class WebhookEvent extends Model
 
     public const TYPE_DELIVERY_EVENT = 'delivery_event';
 
+    public const TYPE_WHATSAPP = 'whatsapp';
+
     protected $guarded = ['*'];
 
     /**

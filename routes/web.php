@@ -6,9 +6,11 @@ use App\Http\Controllers\Billing\PaymentMethodController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Settings\LogoController;
+use App\Http\Controllers\Settings\WhatsAppSettingsController;
 use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
+use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Livewire\Automations\AutomationForm;
 use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Automations\AutomationLogs;
@@ -91,6 +93,9 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
         ->name('email');
     Route::get('/notifications', NotificationSettings::class)->name('notifications');
 
+    Route::get('/whatsapp', [WhatsAppSettingsController::class, 'show'])->middleware('can:manage-email')->name('whatsapp');
+    Route::post('/whatsapp/connect', [WhatsAppSettingsController::class, 'connect'])->middleware('can:manage-email')->name('whatsapp.connect');
+
     Route::get('/team', TeamMembers::class)->middleware('can:manage-team')->name('team');
     Route::get('/roles', RolesPermissions::class)->name('roles');
 
@@ -154,6 +159,14 @@ Route::post('/webhooks/stripe', StripeWebhookController::class)->middleware('thr
 Route::get('/health/ready', [HealthController::class, 'ready'])
     ->middleware('throttle:60,1')
     ->name('health.ready');
+
+// Meta WhatsApp: GET verifies the endpoint, POST receives signed events. Both are off until WhatsApp is configured.
+Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])
+    ->middleware('throttle:email-webhooks')
+    ->name('webhooks.whatsapp.verify');
+Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])
+    ->middleware('throttle:email-webhooks')
+    ->name('webhooks.whatsapp.receive');
 
 Route::post('/webhooks/email/inbound/{provider}', InboundEmailWebhookController::class)
     ->whereAlpha('provider')

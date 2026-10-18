@@ -169,5 +169,11 @@ Artisan::command('webhooks:check', function () {
 
     $this->line('Both URLs take Basic auth in the form https://USERNAME:PASSWORD@host/... using the values in your environment.');
 
+    // WhatsApp is optional: a missing setting is reported, but it does not fail the check for email.
+    $this->table(['Endpoint', 'Credential', 'URL to set in the Meta app'], [
+        ['WhatsApp events', $configured(config('whatsapp.app_secret')), url('/webhooks/whatsapp')],
+        ['WhatsApp verify token', $configured(config('whatsapp.verify_token')), '(must match WHATSAPP_VERIFY_TOKEN)'],
+    ]);
+
     return filled($postmark['events_webhook_secret'] ?? null) && filled($postmark['inbound_webhook_secret'] ?? null) ? 0 : 1;
-})->purpose('Show whether the Postmark webhook credentials are set, without printing them');
+})->purpose('Show whether the Postmark and WhatsApp webhook credentials are set, without printing them');
