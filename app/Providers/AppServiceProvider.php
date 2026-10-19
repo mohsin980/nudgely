@@ -9,6 +9,7 @@ use App\Enums\Platform\PlatformPermission;
 use App\Enums\Team\Permission;
 use App\Http\Middleware\DisableUnusedFilamentRoutes;
 use App\Listeners\LogQueueLifecycle;
+use App\Listeners\LogScheduledTasks;
 use App\Models\Organization;
 use App\Models\PlanSetting;
 use App\Models\PlatformAuditLog;
@@ -25,6 +26,9 @@ use App\Services\Email\Events\PostmarkDeliveryEvents;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use App\Services\WhatsApp\MetaWhatsAppClient;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobFailed;
@@ -75,6 +79,11 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(JobExceptionOccurred::class, [$queueLog, 'exceptionOccurred']);
         Event::listen(JobFailed::class, [$queueLog, 'failed']);
         Event::listen(JobTimedOut::class, [$queueLog, 'timedOut']);
+
+        $scheduleLog = app(LogScheduledTasks::class);
+        Event::listen(ScheduledTaskStarting::class, [$scheduleLog, 'starting']);
+        Event::listen(ScheduledTaskFinished::class, [$scheduleLog, 'finished']);
+        Event::listen(ScheduledTaskFailed::class, [$scheduleLog, 'failed']);
 
         // Production never shows stack traces, whatever APP_DEBUG says (a leaked .env must not leak internals).
         if ($this->app->isProduction() && config('app.debug')) {

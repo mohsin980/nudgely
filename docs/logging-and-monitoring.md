@@ -25,6 +25,9 @@ searches keep working; filter on `event`.
 | `job.retry_scheduled` | warning | An attempt failed and will be retried; exception class and scrubbed message |
 | `job.failed` | error | A job gave up (retries exhausted); the permanent failure |
 | `job.timed_out` | error | A worker killed a job that ran too long |
+| `scheduler.task_started` | debug | A scheduled task began (`task`) |
+| `scheduler.task_completed` | debug | A scheduled task finished successfully; `duration_ms`, `exit_code` |
+| `scheduler.task_failed` | error | A scheduled task threw, or exited with a non-zero code |
 | `email.queued` | info | An email was accepted into the app's queue |
 | `email.sending` | info | A worker is calling the provider; `attempt` |
 | `email.sent` | info | The provider **accepted** the message (not delivered); `duration_ms` |
@@ -147,7 +150,8 @@ happen and is worth investigating.
 Limits:
 - Queue health is not checked. A reachable database does not mean jobs are being processed. Watch
   `reliability:report` and the `job.*` events instead.
-- The scheduler is not checked. Watch for `follow-ups:process-due` and recovery commands running (see
+- The scheduler is not checked by the probe. Task starts, completions and failures are logged (`scheduler.*`), but
+  a task that never runs logs nothing. Alert on a missing `scheduler.task_completed` (see section 9 and
   `docs/queue-reliability.md`).
 - Email provider and Stripe reachability are not checked on every probe, because that would cost provider calls.
 - There is no authenticated diagnostic endpoint. None is needed for the current deployment; add one only behind
