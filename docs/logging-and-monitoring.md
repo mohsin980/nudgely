@@ -43,6 +43,11 @@ searches keep working; filter on `event`.
 | `billing.sync.failed` / `billing.sync.rejected` | warning | Subscription synchronisation problems |
 | `billing.checkout.started` / `billing.checkout.rejected` / `billing.subscription.started` | info / warning | Checkout and subscription lifecycle |
 | `health.database_unavailable` | warning | The readiness check could not reach the database |
+| `webhook.received` / `webhook.processed` (provider `whatsapp`) | info | A WhatsApp webhook was stored, and later processed (`outcome`, `attempt`, `correlation_id`) |
+| `whatsapp.duplicate_message` | info | A WhatsApp message was already stored and was not stored again |
+| `whatsapp.send_rejected` | warning | Meta rejected an outbound WhatsApp message permanently (not retried; `retryable` false) |
+| `whatsapp.signup_failed` | warning | Embedded Signup could not finish; `reason` is the sanitized Meta error (HTTP status and code only) |
+| `whatsapp.connected` | info | A business connected its WhatsApp number (organization ID only) |
 
 Example (fictional values):
 
@@ -117,6 +122,11 @@ delivery event. `email.failed` gives the reason code. "Accepted" is not "deliver
 attempt count and exception class. `php artisan webhooks:failed` lists failed events with their reason; after fixing the
 cause, `php artisan webhooks:replay <id>` processes one again. Replay refuses events whose payload was redacted by
 retention.
+
+**A WhatsApp message or webhook.** `webhook.processed` with `provider: whatsapp` confirms a delivery was applied;
+`webhook.failed` gives the attempt count. A `whatsapp.send_rejected` means Meta refused the message (check the
+number, the 24-hour window or the template) and it will not be retried. Logs never contain phone numbers, message
+text or access tokens; match the `webhook_event_id` or `organization_id` instead.
 
 **A billing webhook or sync.** Search for `billing.webhook.*` and `billing.sync.*`. A duplicate is expected
 (Stripe retries); a `billing.webhook.failed` means Stripe will retry, and the event is recorded so it is not lost.
@@ -193,7 +203,7 @@ channel (`LOG_STACK=stderr`) and let the platform rotate.
 - Redaction is pattern-based (section 4).
 - The `/health/ready` probe does not cover queues, scheduler, or providers (section 8).
 - Metrics are not exported. Counts are available from `reliability:report` and by searching `event` in logs.
-- Not every older log call has an `event` key yet. The automation, Stripe, billing-sync and webhook calls do; a few
+- Not every older log call has an `event` key yet. The automation, Stripe, billing-sync, webhook and WhatsApp calls do; a few
   other service logs (for example team, onboarding and settings) do not. Adding keys to them is mechanical.
 - Web error pages are rendered for production 500s only. Other status pages are Laravel's defaults.
 - The queue listener logs debug-level start and completion for every job. At high volume, set `LOG_LEVEL=info`.

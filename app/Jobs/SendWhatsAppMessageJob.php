@@ -67,7 +67,7 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 throw $e;
             }
 
-            Log::warning('whatsapp.send_rejected', ['message_id' => $message->id, 'organization_id' => $message->organization_id, 'reason' => $e->getMessage()]);
+            Log::warning('whatsapp.send_rejected', ['event' => 'whatsapp.send_rejected', 'message_id' => $message->id, 'organization_id' => $message->organization_id, 'attempt' => $this->attempts(), 'retryable' => false, 'reason' => $e->getMessage()]);
             $this->fail($message, 'WhatsApp did not accept this message. Check the number and try again.');
 
             return;

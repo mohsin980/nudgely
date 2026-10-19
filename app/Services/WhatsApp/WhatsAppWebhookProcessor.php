@@ -47,7 +47,7 @@ class WhatsAppWebhookProcessor
             $routed = DB::transaction(fn () => $this->handle($event));
         } catch (Throwable $e) {
             $event->refresh()->markAttemptFailed('Processing attempt failed; it will be retried.');
-            Log::error('webhook.failed', ['event' => 'webhook.failed', 'webhook_event_id' => $event->id, 'provider' => 'whatsapp', 'exception' => $e::class]);
+            Log::error('webhook.failed', ['event' => 'webhook.failed', 'webhook_event_id' => $event->id, 'provider' => 'whatsapp', 'attempt' => $event->attempt_count, 'retryable' => true, 'exception' => $e::class]);
 
             throw $e;
         }
@@ -60,6 +60,16 @@ class WhatsAppWebhookProcessor
         }
 
         $event->markProcessed();
+
+        Log::info('webhook.processed', [
+            'event' => 'webhook.processed',
+            'provider' => 'whatsapp',
+            'webhook_event_id' => $event->id,
+            'organization_id' => $event->organization_id,
+            'outcome' => self::OUTCOME_PROCESSED,
+            'attempt' => $event->attempt_count,
+            'correlation_id' => $event->correlation_id,
+        ]);
 
         return self::OUTCOME_PROCESSED;
     }
@@ -154,7 +164,7 @@ class WhatsAppWebhookProcessor
                 $conversation?->recordActivity($receivedAt);
             });
         } catch (UniqueConstraintViolationException) {
-            Log::info('whatsapp.duplicate_message', ['organization_id' => $connection->organization_id, 'webhook_event_id' => $event->id]);
+            Log::info('whatsapp.duplicate_message', ['event' => 'whatsapp.duplicate_message', 'organization_id' => $connection->organization_id, 'webhook_event_id' => $event->id]);
         }
     }
 

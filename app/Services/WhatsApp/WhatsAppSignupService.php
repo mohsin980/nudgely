@@ -38,7 +38,7 @@ class WhatsAppSignupService
             $this->api->subscribeApp($wabaId, $token);
             $number = $this->api->phoneNumber($phoneNumberId, $token);
         } catch (WhatsAppApiException $e) {
-            Log::warning('whatsapp.signup_failed', ['organization_id' => $organization->id, 'reason' => $e->getMessage()]);
+            Log::warning('whatsapp.signup_failed', ['event' => 'whatsapp.signup_failed', 'organization_id' => $organization->id, 'reason' => $e->getMessage()]);
 
             throw WhatsAppException::signupFailed();
         }
@@ -55,7 +55,7 @@ class WhatsAppSignupService
             'connected_at' => now(),
         ])->save();
 
-        Log::info('whatsapp.connected', ['organization_id' => $organization->id]);
+        Log::info('whatsapp.connected', ['event' => 'whatsapp.connected', 'organization_id' => $organization->id]);
 
         return $connection;
     }
