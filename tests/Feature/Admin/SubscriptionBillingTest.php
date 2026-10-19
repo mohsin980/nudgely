@@ -16,7 +16,7 @@ use App\Services\Platform\SubscriptionRefresh;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\Fakes\FakeStripe;
 
@@ -224,7 +224,7 @@ test('invoices come live from Stripe, are labelled as such, and are never stored
         'id' => 'in_124', 'number' => 'INV-0002', 'created' => 1762600000, 'total' => 2900, 'currency' => 'usd', 'status' => 'open',
     ]];
     $this->actingAs(billingAdmin(PlatformRole::BillingAdmin));
-    $tables = DB::select('show tables');
+    $tables = Schema::getTableListing();
 
     Livewire::test(ViewSubscription::class, ['record' => $paid['subscription']->id])
         ->assertSee('Not loaded yet.')
@@ -232,7 +232,7 @@ test('invoices come live from Stripe, are labelled as such, and are never stored
         ->assertSee('Loaded from Stripe')
         ->assertSee('INV-0001')->assertSee('$29.00')->assertSee('Paid')->assertSee('Open')->assertSee('in_123')->assertSee('as Stripe reports them');
 
-    expect(DB::select('show tables'))->toEqual($tables);
+    expect(Schema::getTableListing())->toEqual($tables);
 });
 
 test('when Stripe is unreachable the invoice area says so instead of showing an empty history', function () {

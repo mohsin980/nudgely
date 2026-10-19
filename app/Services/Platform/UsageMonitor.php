@@ -102,7 +102,7 @@ class UsageMonitor
     public function list(array $filters, ?string $search, string $sort, string $direction, int $page, int $perPage): LengthAwarePaginator
     {
         $base = Organization::query()
-            ->when(filled($search), fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim((string) $search)).'%')
+            ->when(filled($search), fn ($q) => $q->where(fn ($w) => $w->whereRaw('lower(name) like ?', ['%'.mb_strtolower(str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim((string) $search))).'%'])
                 ->when(ctype_digit(trim((string) $search)), fn ($w) => $w->orWhere('id', (int) trim((string) $search)))));
 
         $plan = $filters['plan'] ?? null;

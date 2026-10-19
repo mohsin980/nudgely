@@ -162,10 +162,11 @@ test('the database refuses impossible states such as accepted without accepted_a
 });
 
 test('money is stored as numeric, not floating point', function () {
-    $types = collect(DB::select(<<<'SQL'
+    $schema = DB::getDriverName() === 'pgsql' ? 'current_schema()' : 'database()';
+    $types = collect(DB::select(<<<SQL
         select data_type as type_name, numeric_precision as precision_value, numeric_scale as scale_value
         from information_schema.columns
-        where table_schema = database()
+        where table_schema = {$schema}
           and table_name in ('estimates', 'estimate_items')
           and column_name in ('subtotal', 'discount_amount', 'tax_amount', 'total', 'unit_price', 'amount')
     SQL))
