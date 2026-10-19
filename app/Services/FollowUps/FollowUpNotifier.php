@@ -76,11 +76,18 @@ class FollowUpNotifier
      */
     public function resolve(FollowUp $followUp): int
     {
-        return DB::table('notifications')
+        $query = DB::table('notifications')
             ->where('type', FollowUpNotification::class)
-            ->whereNull('read_at')
-            ->where('data->follow_up_id', (string) $followUp->id)
-            ->update(['read_at' => now(), 'updated_at' => now()]);
+            ->whereNull('read_at');
+
+        // notifications.data is text. PostgreSQL needs an explicit jsonb cast before it reads a field; MySQL reads it directly.
+        if (DB::getDriverName() === 'pgsql') {
+            $query->whereRaw("(data::jsonb)->>'follow_up_id' = ?", [(string) $followUp->id]);
+        } else {
+            $query->where('data->follow_up_id', (string) $followUp->id);
+        }
+
+        return $query->update(['read_at' => now(), 'updated_at' => now()]);
     }
 
     /**

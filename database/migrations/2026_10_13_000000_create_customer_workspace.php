@@ -48,11 +48,7 @@ return new class extends Migration
         });
 
         // Search: one lowercased text column, indexed with trigrams for "contains" searches.
-        DB::statement(<<<'SQL'
-            alter table customers add column search_text text generated always as (
-                lower(concat(coalesce(first_name, ''), ' ', coalesce(last_name, ''), ' ', name, ' ', email, ' ', coalesce(phone_digits, ''), ' ', coalesce(company, '')))
-            ) stored
-        SQL);
+        DB::statement('alter table customers add column search_text text generated always as ('.$this->searchTextExpression().') stored');
 
         // Trigram index for "contains" search: PostgreSQL only. MySQL scans one organization's rows instead.
         if (DB::getDriverName() === 'pgsql' && $this->trigramsAvailable()) {
@@ -144,6 +140,19 @@ return new class extends Migration
             $table->dropIndex(['organization_id', 'last_activity_at']);
             $table->dropColumn(['first_name', 'last_name', 'phone', 'phone_digits', 'company', 'notes', 'status', 'last_activity_at']);
         });
+    }
+
+    /**
+     * PostgreSQL rejects concat() in a generated column (it is not immutable), so it uses the || operator there.
+     * MySQL's || means logical OR, so it keeps concat(). Both skip NULL parts the same way.
+     */
+    private function searchTextExpression(): string
+    {
+        $parts = ["coalesce(first_name, '')", "coalesce(last_name, '')", "coalesce(name, '')", "coalesce(email, '')", "coalesce(phone_digits, '')", "coalesce(company, '')"];
+
+        return DB::getDriverName() === 'pgsql'
+            ? 'lower('.implode(" || ' ' || ", $parts).')'
+            : 'lower(concat('.implode(", ' ', ", $parts).'))';
     }
 
     /**
