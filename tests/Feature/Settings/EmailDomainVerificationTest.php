@@ -241,7 +241,7 @@ class EmailDomainVerificationTest extends TestCase
 
         $this->settings()
             ->call('startVerification', $connection->id)
-            ->assertSet('statusMessage', 'Domain verification isn\'t available right now. Please contact support.');
+            ->assertSet('statusMessage', 'Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.');
 
         Http::assertNothingSent();
         $this->assertNull($connection->fresh()->provider_domain_id);

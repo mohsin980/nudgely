@@ -175,7 +175,7 @@
                                             Only verified emails can send email or become the default sender.
                                         </p>
                                         @unless ($this->verificationConfigured)
-                                            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-amber-800">Domain verification isn't available right now. Please contact support.</p>
+                                            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-amber-800">Domain verification isn't connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.</p>
                                         @endunless
                                     </div>
 

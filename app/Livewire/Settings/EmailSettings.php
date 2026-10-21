@@ -119,7 +119,7 @@ class EmailSettings extends Component
     {
         return match (true) {
             ! $connection->isVerified() => ['allowed' => false, 'reason' => 'Verify this domain first.'],
-            ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending is not set up on this server yet. Contact support.'],
+            ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark server token.'],
             default => ['allowed' => true, 'reason' => null],
         };
     }
@@ -285,7 +285,7 @@ class EmailSettings extends Component
         $this->authorize('verify', $connection);
 
         if (! $this->verificationConfigured) {
-            $this->notify('Domain verification isn\'t available right now. Please contact support.', 'error');
+            $this->notify('Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.', 'error');
 
             return;
         }
@@ -315,7 +315,7 @@ class EmailSettings extends Component
         $this->authorize('verify', $connection);
 
         if (! $this->verificationConfigured) {
-            $this->notify('Domain verification isn\'t available right now. Please contact support.', 'error');
+            $this->notify('Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.', 'error');
 
             return;
         }
