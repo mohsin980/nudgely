@@ -1,0 +1,10 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+/* Scan the admin panel's own views and classes so their Tailwind utilities are generated. */
+@source '../../../../app/Filament';
+@source '../../../../resources/views/filament';
+
+/* Same typeface as the customer app, so the two products look like one product. */
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+}

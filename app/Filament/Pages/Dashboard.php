@@ -23,8 +23,16 @@ class Dashboard extends BaseDashboard
         return PlatformPermission::ViewDashboard;
     }
 
+    /**
+     * One column: each metric group takes the full width, so the rows line up on wide screens.
+     */
+    public function getColumns(): int|array
+    {
+        return 1;
+    }
+
     public function getSubheading(): string|Htmlable|null
     {
-        return config('admin.brand').' platform administration. Modules are added here as they are built.';
+        return 'Platform health at a glance: customers, users, subscriptions and recent activity.';
     }
 }

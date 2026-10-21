@@ -12,12 +12,14 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
+use Filament\Support\Enums\Width;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -31,6 +33,10 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->authGuard('web')
             ->brandName(config('admin.brand'))
+            ->brandLogo(fn () => view('filament.admin.brand'))
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            ->maxContentWidth(Width::Full)
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => Blade::render('@fonts'))
             ->favicon(asset('favicon.svg'))
             ->defaultAvatarProvider(InitialsAvatarProvider::class)
             ->colors([
@@ -51,9 +57,6 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            ->widgets([
-                AccountWidget::class,
-            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

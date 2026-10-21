@@ -11,6 +11,9 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class UserStats extends StatsOverviewWidget
 {
+    protected int|string|array $columnSpan = 'full';
+    protected int|array|null $columns = 2;
+
     use ReportsPlatformMetrics;
     use RequiresPlatformPermissionForWidget;
 
