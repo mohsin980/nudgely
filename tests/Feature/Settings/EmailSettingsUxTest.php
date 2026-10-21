@@ -153,7 +153,7 @@ class EmailSettingsUxTest extends TestCase
 
         $this->settings()
             ->assertSet('actionStates.'.$verified->id.'.test.allowed', false)
-            ->assertSee('Email sending is not set up on this server yet.')
+            ->assertSee('connected on this server yet.')
             ->call('openTestEmail', $verified->id)
             ->assertSet('testEmailConnectionId', null)
             ->assertSet('statusType', 'error');
@@ -168,7 +168,7 @@ class EmailSettingsUxTest extends TestCase
         $pending = $this->sender(EmailVerificationStatus::Pending);
 
         $this->settings()
-            ->assertSee("Domain verification isn't available right now. Please contact support.", false)
+            ->assertSee("Domain verification isn't connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.", false)
             ->call('startVerification', $pending->id)->assertSet('statusType', 'error')
             ->call('checkVerification', $pending->id)->assertSet('statusType', 'error');
 

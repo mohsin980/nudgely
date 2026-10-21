@@ -40,7 +40,7 @@ class EmailProviderManagerTest extends TestCase
             $this->fail('Expected exception.');
         } catch (EmailProviderException $e) {
             $this->assertSame(EmailProviderException::NOT_CONFIGURED, $e->reason);
-            $this->assertSame('Domain verification isn\'t available right now. Please contact support.', $e->userMessage());
+            $this->assertSame('Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.', $e->userMessage());
         }
     }
 
