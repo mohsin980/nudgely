@@ -2,15 +2,15 @@
 <div class="overflow-x-auto">
     <table class="min-w-full text-[15px]" data-matrix="{{ $model }}">
         <thead>
-            <tr class="text-left text-slate-500">
-                <th scope="col" class="py-2 pr-4 text-sm font-medium">Notification</th>
-                @foreach ($channels as $channel)<th scope="col" class="px-4 py-2 text-center text-sm font-medium whitespace-nowrap">{{ $channel->label() }}</th>@endforeach
+            <tr class="text-left">
+                <th scope="col" class="py-2 pr-4 text-xs font-semibold tracking-wider text-slate-500 uppercase">Notification</th>
+                @foreach ($channels as $channel)<th scope="col" class="px-4 py-2 text-center text-xs font-semibold tracking-wider whitespace-nowrap text-slate-500 uppercase">{{ $channel->label() }}</th>@endforeach
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
             @foreach ($types as $type)
-                <tr>
-                    <th scope="row" class="py-3 pr-4 text-left font-normal text-slate-900">{{ $type->label() }}</th>
+                <tr class="transition-colors hover:bg-slate-50/70">
+                    <th scope="row" class="py-3.5 pr-4 text-left font-normal text-slate-900">{{ $type->label() }}</th>
                     @foreach ($channels as $channel)
                         <td class="px-4 py-3 text-center">
                             <label class="group relative inline-flex cursor-pointer items-center justify-center">
