@@ -27,7 +27,7 @@
         <div class="space-y-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
             @foreach ($menu as $group)
                 <div>
-                    <p class="flex items-center gap-2 px-3 pt-1 pb-2 text-sm font-semibold text-slate-500">
+                    <p class="flex items-center gap-2 px-3 pt-1 pb-1.5 text-xs font-semibold tracking-wider whitespace-nowrap text-slate-400 uppercase">
                         <x-ui-icon :name="$group['icon']" class="size-4 text-slate-400" />
                         {{ $group['label'] }}
                     </p>
@@ -50,12 +50,12 @@
     </nav>
 
     <div class="min-w-0 space-y-6">
-        <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{{ $title }}</h1>
+        <header class="border-b border-slate-200 pb-5">
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $title }}</h1>
             @if ($description)
-                <p class="mt-1 text-[15px] text-slate-500">{{ $description }}</p>
+                <p class="mt-1 text-sm text-slate-500">{{ $description }}</p>
             @endif
-        </div>
+        </header>
         {{ $slot }}
     </div>
 </div>

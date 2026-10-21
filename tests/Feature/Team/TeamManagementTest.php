@@ -190,11 +190,13 @@ test('18. staff do the everyday work and can only view automations', function ()
         expect($this->staff->can($permission->value))->toBe($permission === Permission::ViewAutomations, $permission->value);
     }
 
-    foreach (['/dashboard', '/customers', '/conversations', '/estimates', '/estimates/create', '/follow-ups', '/automations', '/settings/notifications', '/settings/security', '/settings/roles'] as $url) {
+    foreach (['/dashboard', '/customers', '/conversations', '/estimates', '/estimates/create', '/follow-ups', '/automations', '/settings/notifications', '/settings/security'] as $url) {
         $this->actingAs($this->staff)->get($url)->assertOk();
     }
 
     $this->actingAs($this->staff)->get('/automations/create')->assertForbidden();
+    // The permission table is for team managers only.
+    $this->actingAs($this->staff)->get('/settings/roles')->assertForbidden();
 });
 
 test('19. unauthorized actions are rejected on the server, not just hidden', function () {

@@ -22,7 +22,7 @@ final class SettingsNavigation
                 ['Business Profile', 'settings.business', Permission::ManageBusinessProfile],
                 ['Business Preferences', 'settings.preferences', Permission::ManageBusinessProfile],
                 ['Team Members', 'settings.team', Permission::ManageTeam],
-                ['Roles & Permissions', 'settings.roles', null],
+                ['Roles & Permissions', 'settings.roles', Permission::ManageTeam],
             ]],
             'Customers & messages' => ['icon' => 'chat', 'items' => [
                 ['Email', 'settings.email', Permission::ManageEmail],

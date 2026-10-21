@@ -92,7 +92,8 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
     Route::get('/notifications', NotificationSettings::class)->name('notifications');
 
     Route::get('/team', TeamMembers::class)->middleware('can:manage-team')->name('team');
-    Route::get('/roles', RolesPermissions::class)->name('roles');
+    // The permission table describes owner-only rules, so only people who manage the team see it.
+    Route::get('/roles', RolesPermissions::class)->middleware('can:manage-team')->name('roles');
 
     Route::get('/estimates', EstimateDefaults::class)->middleware('can:manage-business-defaults')->name('estimates');
     Route::get('/follow-ups', FollowUpDefaults::class)->middleware('can:manage-business-defaults')->name('follow-ups');
