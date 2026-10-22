@@ -3,13 +3,17 @@
 namespace App\Services\Email;
 
 use App\Enums\EmailProvider;
+use App\Enums\Team\NotificationType;
 use App\Exceptions\Email\EmailProviderException;
 use App\Models\EmailConnection;
+use App\Models\Organization;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use App\Services\Email\Data\SmtpSettings;
 use App\Services\Email\OAuth\OAuthMailClient;
 use App\Services\Email\Providers\SmtpEmailProvider;
+use App\Services\Team\TeamDirectory;
+use App\Services\Team\TeamNotifier;
 use Illuminate\Support\Str;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
@@ -33,7 +37,7 @@ class AccountEmailSender
     public function send(EmailConnection $connection, OutboundEmail $email): EmailSendResult
     {
         return match ($connection->provider) {
-            EmailProvider::Smtp => $this->smtp->send($this->smtpSettings($connection), $email),
+            EmailProvider::Smtp => $this->smtpSend($connection, $email),
             EmailProvider::Gmail, EmailProvider::Microsoft => $this->oauthSend($connection, $email),
             default => throw EmailProviderException::notConfigured("Account sender [{$connection->provider->value}] is not available."),
         };
@@ -65,6 +69,22 @@ class AccountEmailSender
     }
 
     /**
+     * @throws EmailProviderException
+     */
+    private function smtpSend(EmailConnection $connection, OutboundEmail $email): EmailSendResult
+    {
+        try {
+            return $this->smtp->send($this->smtpSettings($connection), $email);
+        } catch (EmailProviderException $e) {
+            if ($e->reason === EmailProviderException::REAUTH_REQUIRED) {
+                $this->markReauthRequired($connection);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
      * Exchanges the stored refresh token for an access token. Microsoft rotates refresh tokens, so a new one is kept.
      *
      * @throws EmailProviderException
@@ -86,12 +106,35 @@ class AccountEmailSender
         return $tokens['access_token'];
     }
 
+    /**
+     * Flags the account once. Later failures for the same account change nothing and send no second notice.
+     */
     private function markReauthRequired(EmailConnection $connection): void
     {
+        if ($connection->connection_status !== EmailConnection::STATUS_ACTIVE) {
+            return;
+        }
+
         $connection->forceFill([
             'connection_status' => EmailConnection::STATUS_REAUTH_REQUIRED,
             'status_message' => 'Access was revoked or expired. Reconnect this account in Email settings.',
         ])->save();
+
+        // Resolved here, not in the constructor: TeamNotifier depends on EmailService, which depends on this class.
+        $organization = Organization::query()->find($connection->organization_id);
+
+        if ($organization !== null) {
+            app(TeamNotifier::class)->notify(
+                $organization,
+                NotificationType::EmailAccountNeedsReconnect,
+                app(TeamDirectory::class)->leaders($organization->id),
+                "{$connection->sender_email} needs to be reconnected, so automated emails from it are paused. Reconnect it in Email settings.",
+                route('settings.email'),
+                "email-reconnect:{$connection->id}",
+                null,
+                ['connection_id' => $connection->id],
+            );
+        }
     }
 
     private function mime(OutboundEmail $email): string

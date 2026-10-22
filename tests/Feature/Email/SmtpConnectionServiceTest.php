@@ -176,3 +176,22 @@ test('a disconnected account cannot send', function () {
     expect(fn () => app(EmailService::class)->assertCanSendFrom($connection->refresh(), $owner->organization_id))
         ->toThrow(EmailSendingNotAllowedException::class, 'disconnected');
 });
+
+test('an SMTP password that the provider rejects flags the account and tells the owner, once', function () {
+    $owner = User::factory()->owner()->create();
+    bindSmtpTransport();
+    $connection = app(SmtpConnectionService::class)->connect($owner, $owner->organization, smtpInput());
+
+    bindSmtpTransport('Expected response code 235 but got code "535", with message "535 Username and Password not accepted"');
+
+    foreach (range(1, 2) as $attempt) {
+        try {
+            app(AccountEmailSender::class)->send($connection->refresh(), new OutboundEmail(1, $connection->sender_email, 'Acme', 'c@example.org', null, 'Hi', 'Hi', null));
+        } catch (EmailProviderException) {
+            // Expected: the provider refuses the password.
+        }
+    }
+
+    expect($connection->refresh()->connection_status)->toBe(EmailConnection::STATUS_REAUTH_REQUIRED)
+        ->and($owner->notifications()->get()->filter(fn ($n) => ($n->data['kind'] ?? null) === 'email_account_needs_reconnect'))->toHaveCount(1);
+});

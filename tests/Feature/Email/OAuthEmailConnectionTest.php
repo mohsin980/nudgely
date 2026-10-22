@@ -247,3 +247,27 @@ test('a missing OAuth client on the server says so, and starts no flow', functio
         ->assertRedirect(route('settings.email'))
         ->assertSessionHas('error');
 });
+
+test('a revoked account tells the owner once, even when several queued messages fail after it', function () {
+    fakeGoogle();
+    $owner = User::factory()->owner()->create();
+    $flow = startOAuth($owner, 'gmail');
+    callbackFor($owner, 'gmail', $flow['state']);
+    $connection = EmailConnection::query()->sole();
+
+    Http::swap(new Factory);
+    Http::fake(['oauth2.googleapis.com/token' => Http::response(['error' => 'invalid_grant'], 400)]);
+
+    foreach (range(1, 3) as $attempt) {
+        try {
+            app(AccountEmailSender::class)->send($connection->refresh(), new OutboundEmail(1, $connection->sender_email, 'Acme', "c{$attempt}@example.org", null, 'Hi', 'Hi', null));
+        } catch (EmailProviderException) {
+            // Each message fails; only the first failure should notify.
+        }
+    }
+
+    $notices = $owner->notifications()->get()->filter(fn ($n) => ($n->data['kind'] ?? null) === 'email_account_needs_reconnect');
+    expect($notices)->toHaveCount(1)
+        ->and($notices->first()->data['message'])->toContain('owner@gmail.com')
+        ->and($connection->refresh()->connection_status)->toBe(EmailConnection::STATUS_REAUTH_REQUIRED);
+});

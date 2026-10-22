@@ -124,7 +124,7 @@ class SmtpEmailProvider
 
         return match (true) {
             (bool) preg_match('/\b535\b|authentication|auth(orization)? failed|credentials/i', $e->getMessage()) => new EmailProviderException(
-                "SMTP authentication failed ({$detail}).", EmailProviderException::REJECTED,
+                "SMTP authentication failed ({$detail}).", EmailProviderException::REAUTH_REQUIRED,
                 'The username or password was not accepted. Check them, or create an app password if your provider requires one.'),
             (bool) preg_match('/tls|ssl|certificate|starttls|handshake/i', $e->getMessage()) => new EmailProviderException(
                 "SMTP encryption could not be established ({$detail}).", EmailProviderException::REJECTED,

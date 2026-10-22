@@ -101,7 +101,7 @@ test('authentication failures are refused, with a message that does not repeat t
         $provider->test(smtpSettings());
         $this->fail('Authentication failure must be reported.');
     } catch (EmailProviderException $e) {
-        expect($e->reason)->toBe(EmailProviderException::REJECTED)
+        expect($e->reason)->toBe(EmailProviderException::REAUTH_REQUIRED)
             ->and($e->isTransient())->toBeFalse()
             ->and($e->userMessage())->toContain('username or password')
             ->and($e->userMessage())->not->toContain('535')

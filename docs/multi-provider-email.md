@@ -1,6 +1,6 @@
 # Multi-provider email (Task 17)
 
-Status: in progress. This file records the audit, the design and what is blocked on external setup.
+Status: implemented and tested with faked provider responses. Live Google and Microsoft flows still need the external app registrations in section 4; they have not been exercised against the real providers.
 
 ## 1. Audit (what the repository does today)
 
@@ -46,16 +46,54 @@ Status: in progress. This file records the audit, the design and what is blocked
 
 | Phase | Work | Status |
 |---|---|---|
-| 1 | Audit and this plan | done |
-| 2 | Provider families, enum, migration, encrypted credentials | step A |
-| 3 | Gmail OAuth connect, token refresh, send | step B |
-| 4 | Microsoft OAuth connect, token refresh, send | step B |
-| 5 | Custom SMTP: validation, test connection, send | step A |
-| 6 | Settings UI: three options, status, reconnect, disconnect confirmation | step C |
-| 7 | Tenant isolation and security tests | throughout |
-| 8 | Reauth notification to owner; reliability tests | step D |
-| 9 | Full test run | step D |
-| 10 | Documentation and deployment notes | step D |
+| 1 | Audit and this plan | done (section 1) |
+| 2 | Provider families, enum, migration, encrypted credentials | done |
+| 3 | Gmail connect (OAuth, PKCE, state), token refresh, send | done, faked provider responses only |
+| 4 | Microsoft connect (Outlook.com, Hotmail, Microsoft 365), refresh rotation, Graph send | done, faked provider responses only |
+| 5 | Custom SMTP: validation, safe test before saving, STARTTLS required, send | done |
+| 6 | Settings page: three options, status, reconnect, make default, disconnect confirmation | done |
+| 7 | Tenant isolation and security tests | done (owner-only, cross-business refusal, forged and reused state, secrets never serialized) |
+| 8 | Reauth-required status, one owner notification per account, bounded retries | done |
+| 9 | Test runs | see section 6 |
+| 10 | This documentation | done |
+
+## 3a. Behaviour
+
+**Connecting.** The owner clicks *Connect Google* or *Connect Microsoft*. The browser goes to the provider's consent screen. The provider returns a code to `/settings/email/{gmail|microsoft}/callback`. The server checks the one-time state (bound to the provider, the business and the signed-in user, valid for 10 minutes), exchanges the code with the PKCE verifier, reads the account address, and saves the connection. Denial, a forged or reused state, a different user's flow, or an unverified address saves nothing.
+
+**Connecting SMTP.** The owner fills in host, port, encryption, login and sender name. The settings are tested first (connect and sign in). Only a successful test saves the connection. The password is encrypted at rest and never displayed again.
+
+**Sending.** Each queued message uses its connection's own credentials. The sender address is the connected account's address. The same claim, retry and failure rules as Postmark apply.
+
+**Status after a send.** A message becomes *sent* only when the provider accepts the request. Nothing marks it *delivered* for these providers, because they send no delivery webhooks.
+
+**Access revoked or password rejected.** The connection moves to *reauth required*, the message fails permanently (no retry loop), and the owner and managers get one in-app notice (`email_account_needs_reconnect`). Further failures for the same account do not notify again. Reconnecting restores *active*.
+
+**Disconnecting.** Confirmation is required. For the default sender the dialog warns that automated quotes and follow-ups will stop. Disconnecting removes the stored secret and keeps the record. A disconnected account cannot send.
+
+**Retries.** Transient provider errors (timeouts, 429, 5xx, unreachable servers) retry under the existing job policy. Rejections and revoked access do not retry. Unknown outcomes after a request left are not resent.
+
+## 3b. Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client. Leave empty to hide *Connect Google*. |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Microsoft Entra application. Leave empty to hide *Connect Microsoft*. |
+| `MICROSOFT_TENANT` | Defaults to `common` (personal and work accounts). |
+| `EMAIL_OAUTH_TIMEOUT` | Seconds for provider calls. Default 15. |
+| `QUOTE_FLOW_SMTP_ALLOW_PRIVATE_HOSTS` | Default `false`. Only for a local development relay. Enables private addresses and unencrypted SMTP. Never enable in production. |
+
+Redirect URIs, which must match exactly in both consoles:
+- `https://<app-domain>/settings/email/gmail/callback`
+- `https://<app-domain>/settings/email/microsoft/callback`
+
+## 3c. Token storage and rotation
+
+- Refresh tokens and SMTP passwords are stored in `email_connections.credentials` with Laravel's `encrypted` cast, which uses `APP_KEY`. The model hides the column from serialization.
+- Access tokens are not stored. They are requested from the refresh token each time they are needed.
+- Microsoft rotates refresh tokens. A rotated token is saved on the next use.
+- Rotating `APP_KEY` makes stored credentials unreadable. Plan a re-encryption step before rotating it, or have businesses reconnect.
+- To revoke all account access, disconnect them in Settings or revoke the app in the provider's account settings.
 
 ## 4. External setup required (not available in this environment)
 
@@ -76,7 +114,34 @@ These cannot be done from the repository. Without them the OAuth flows cannot be
 **SMTP**
 - Nothing server-side. Customers supply host, port and credentials. Gmail and Outlook SMTP need an app password where 2-step verification is on.
 
-## 5. Known limits (to be confirmed)
+## 5. Known limits
+
+- The Gmail API scope is restricted. Production use for arbitrary Gmail users needs Google's verification and a security assessment. Until then only test users can connect.
+- Gmail and Microsoft sending counts against the sender's own sending limits.
+- Microsoft `sendMail` returns no message ID. The record stores a local ID. Bounces and delivery updates are not available from Gmail, Microsoft or SMTP.
+- SMTP senders must send as the login address. Aliases are not supported yet.
+- The SMTP private-address check runs before connecting. A DNS name that changes its address between the check and the connection is not re-checked.
+- A transient failure after the provider accepted a message (for example a 5xx returned after acceptance) can cause a resend. The same rule exists for Postmark.
+- None of these flows has been run against live Google, Microsoft or customer SMTP servers in this repository.
+
+## 5a. Deployment and rollback
+
+1. Create the Google and Microsoft app registrations (section 4) and set the variables in section 3b.
+2. Deploy with `php artisan migrate`. The migration only adds nullable and defaulted columns; existing Postmark connections keep working.
+3. Run `php artisan config:cache` after the variables are set, and restart queue workers so they read the new config.
+4. Check *Email settings* as an owner: connect a test account, send one test email, disconnect it.
+5. **Rollback:** unset the OAuth variables to hide the new options (existing Postmark sending is unaffected). To remove the schema, run `php artisan migrate:rollback --step=1`. Rolling back drops stored credentials, so disconnect accounts first if they must be kept.
+
+## 5b. Queue and worker requirements
+
+- Sends run through `SendEmailJob` on the existing queue. Workers need outbound HTTPS to Google and Microsoft endpoints and outbound SMTP ports (587 and 465) to customer mail servers.
+- Retry and failure rules are unchanged (see section 3a).
+
+## 5c. Known test coverage
+
+- SMTP: validation, safe error categories, refusal of private addresses and unencrypted SMTP, password never shown, owner-only, reconnect updates the same record.
+- OAuth: PKCE and scopes, success, denial, forged, reused and foreign state, unverified address, refresh and send, revoked access, Microsoft rotation, notice sent once.
+- Settings UI: options shown or hidden by configuration, SMTP connect and failure, disconnect confirmation, reauth status, staff and cross-business refusal.
 - Gmail sending counts against the sender's Gmail sending limits; Google restricts API use for consumer accounts.
 - Microsoft `sendMail` returns no message ID, so the stored provider message ID is empty for these sends. Bounce and delivery updates are not available from these providers.
 - SMTP and account senders cannot receive delivery webhooks; their messages stay `sent` (accepted), never `delivered`.
