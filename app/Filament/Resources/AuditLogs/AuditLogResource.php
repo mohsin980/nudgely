@@ -38,7 +38,7 @@ class AuditLogResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'System';
+    protected static string|\UnitEnum|null $navigationGroup = 'Security & Activity';
 
     protected static ?string $modelLabel = 'audit event';
 
