@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Organizations\Schemas;
 
+use App\Enums\EmailProvider;
+use App\Enums\EmailVerificationStatus;
 use App\Enums\Platform\PlatformPermission;
+use App\Models\EmailConnection;
 use App\Models\Organization;
 use App\Services\Billing\EntitlementService;
 use App\Support\Admin\AdminAccess;
@@ -50,6 +53,34 @@ final class OrganizationInfolist
                         ->state(fn (Organization $record) => $record->currentSubscription?->current_period_end)->dateTime()->placeholder('—'),
                     TextEntry::make('cancels')->label('Cancels at period end')
                         ->state(fn (Organization $record) => $record->currentSubscription === null ? '—' : ($record->currentSubscription->cancel_at_period_end ? 'Yes' : 'No')),
+                ]),
+
+            Section::make('Email sending')
+                ->description('Whether the business can send email. Sender addresses, tokens and credentials are never shown here.')
+                ->visible(fn () => $can(PlatformPermission::ViewOrganizations))
+                ->schema([
+                    RepeatableEntry::make('emailConnections')->hiddenLabel()
+                        ->placeholder('No sending account has been set up.')
+                        ->schema([
+                            TextEntry::make('provider')->label('Provider')
+                                ->formatStateUsing(fn (EmailProvider $state) => match ($state) {
+                                    EmailProvider::Gmail => 'Gmail',
+                                    EmailProvider::Microsoft => 'Outlook or Hotmail',
+                                    EmailProvider::Smtp => 'Custom SMTP',
+                                    default => 'Business domain ('.ucfirst($state->value).')',
+                                }),
+                            TextEntry::make('domain')->label('Sender domain'),
+                            TextEntry::make('verification_status')->label('Verification')->badge()
+                                ->formatStateUsing(fn (EmailVerificationStatus $state) => $state->label()),
+                            TextEntry::make('connection_status')->label('Connection')->badge()
+                                ->formatStateUsing(fn (string $state) => match ($state) {
+                                    EmailConnection::STATUS_ACTIVE => 'Active',
+                                    EmailConnection::STATUS_REAUTH_REQUIRED => 'Needs reconnecting',
+                                    EmailConnection::STATUS_DISCONNECTED => 'Disconnected',
+                                    default => ucfirst($state),
+                                })
+                                ->color(fn (string $state) => $state === EmailConnection::STATUS_ACTIVE ? 'success' : 'warning'),
+                        ]),
                 ]),
 
             Section::make('Usage')

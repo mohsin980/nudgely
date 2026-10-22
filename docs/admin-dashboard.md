@@ -56,3 +56,18 @@ MRR is a recurring-run-rate estimate. It is **not** lifetime revenue, payment vo
 ## Navigation
 
 Links to organization, subscription and usage pages are the panel's sidebar items. Those modules do not exist yet; when a resource or page is added it uses `RequiresPlatformPermission`, so it appears in the sidebar only for administrators allowed to use it.
+
+## Operational and activity widgets
+
+Each figure below is read from persisted rows, and each widget is shown only to administrators with its permission.
+
+| Widget | Permission | Source |
+| --- | --- | --- |
+| New businesses per month (last six months) | `view_organizations` | `organizations.created_at`, one count per month |
+| Recent organization signups (newest 8) | `view_organizations` | `organizations`, linked to the detail page |
+| Operations (last 30 days): emails sent, failed emails | `view_usage` | `messages`, outbound only. *Sent* counts `sent` and `delivered`; *failed* counts `failed`. No content, recipients or errors. |
+| Recent payment failures (newest 8) | `view_subscriptions` | `subscriptions` with the provider's stored status `past_due` or `unpaid`. No card or invoice data. |
+| Integration readiness | `view_dashboard` | Presence of configuration only (Postmark token, Google and Microsoft client IDs, Stripe secret and webhook secret). **Configured means the credentials are set, not that a live connection test passed.** Values are never shown. |
+| Recent admin activity (newest 8) | `view_audit_logs` | `platform_audit_logs`: who did what and the outcome. |
+
+Not shown: subscription growth over time and revenue trend. The data exists, but these were not built in this change. The customer-facing activity feed is not used here, because it is not an administrator audit trail.

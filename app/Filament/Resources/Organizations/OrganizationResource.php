@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Organizations;
 
 use App\Billing\PlanCatalog;
 use App\Enums\Billing\SubscriptionStatus;
+use App\Enums\OrganizationRole;
 use App\Enums\Platform\OrganizationStatus;
 use App\Enums\Platform\PlatformPermission;
 use App\Filament\Concerns\RequiresPlatformPermission;
@@ -13,11 +14,14 @@ use App\Filament\Resources\Organizations\RelationManagers\UsersRelationManager;
 use App\Filament\Resources\Organizations\Schemas\OrganizationInfolist;
 use App\Models\Organization;
 use App\Models\Subscription;
+use Carbon\CarbonImmutable;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -72,10 +76,16 @@ class OrganizationResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100])
             ->defaultPaginationPageOption(25)
-            ->searchPlaceholder('Search name or ID')
+            ->searchPlaceholder('Search business, owner email or ID')
             ->columns([
                 TextColumn::make('id')->label('ID')->sortable()->searchable(query: fn (Builder $query, string $search) => ctype_digit($search) ? $query->orWhere('organizations.id', (int) $search) : $query),
-                TextColumn::make('name')->label('Business')->sortable()->searchable(),
+                // Business name, or the email of the business owner (the owner is the one account created with the business).
+                TextColumn::make('name')->label('Business')->sortable()
+                    ->searchable(query: fn (Builder $query, string $search) => $query->where(fn (Builder $q) => $q
+                        ->whereLike('organizations.name', '%'.$search.'%')
+                        ->orWhereHas('users', fn (Builder $users) => $users
+                            ->where('role', OrganizationRole::Owner->value)
+                            ->whereLike('email', '%'.$search.'%')))),
                 TextColumn::make('status')->label('Status')->badge()
                     ->state(fn (Organization $record) => $record->status()->label())
                     ->color(fn (Organization $record) => $record->status()->color()),
@@ -110,6 +120,11 @@ class OrganizationResource extends Resource
                     ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null)
                         ? $query->whereHas('subscriptions', fn (Builder $subs) => $subs->current()->where('plan', $data['value']))
                         : $query),
+                Filter::make('signed_up')->label('Signup date')
+                    ->schema([DatePicker::make('from'), DatePicker::make('until')])
+                    ->query(fn (Builder $query, array $data) => $query
+                        ->when($data['from'] ?? null, fn (Builder $q, $date) => $q->where('organizations.created_at', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $q, $date) => $q->where('organizations.created_at', '<', CarbonImmutable::parse($date)->addDay()))),
             ])
             ->recordActions([
                 ViewAction::make(),

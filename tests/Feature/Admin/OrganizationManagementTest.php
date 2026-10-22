@@ -7,6 +7,7 @@ use App\Filament\Resources\Organizations\Pages\ListOrganizations;
 use App\Filament\Resources\Organizations\Pages\ViewOrganization;
 use App\Filament\Resources\Organizations\RelationManagers\UsersRelationManager;
 use App\Models\Customer;
+use App\Models\EmailConnection;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\PlatformAuditLog;
@@ -103,6 +104,40 @@ test('filters narrow by plan, subscription status and suspension', function () {
         ->filterTable('status', 'active')->assertCanNotSeeTableRecords([$suspended])->assertCanSeeTableRecords([$none]);
 });
 
+test('search also finds a business by its owner email', function () {
+    $this->actingAs(platformAdmin(PlatformRole::SupportAdmin, ['organization_id' => null]));
+    $zenith = orgWithPlan('Zenith Roofing');
+    User::factory()->owner()->for($zenith)->create(['email' => 'boss@zenith-roofing.test']);
+    $acme = orgWithPlan('Acme Plumbing');
+    User::factory()->owner()->for($acme)->create(['email' => 'owner@acme.test']);
+
+    Livewire::test(ListOrganizations::class)
+        ->searchTable('zenith-roofing')
+        ->assertCanSeeTableRecords([$zenith])->assertCanNotSeeTableRecords([$acme]);
+});
+
+test('search does not match a staff member email, only the owner', function () {
+    $this->actingAs(platformAdmin(PlatformRole::SupportAdmin, ['organization_id' => null]));
+    $acme = orgWithPlan('Acme Plumbing');
+    User::factory()->owner()->for($acme)->create(['email' => 'owner@acme.test']);
+    User::factory()->staff()->for($acme)->create(['email' => 'hidden.staff@acme.test']);
+
+    Livewire::test(ListOrganizations::class)
+        ->searchTable('hidden.staff')
+        ->assertCanNotSeeTableRecords([$acme]);
+});
+
+test('the signup date filter keeps only businesses that signed up in the chosen period', function () {
+    $this->actingAs(platformAdmin(PlatformRole::SupportAdmin, ['organization_id' => null]));
+    $recent = orgWithPlan('Recent Co');
+    $old = orgWithPlan('Old Co');
+    $old->forceFill(['created_at' => now()->subDays(90)])->save();
+
+    Livewire::test(ListOrganizations::class)
+        ->filterTable('signed_up', ['from' => now()->subDays(30)->toDateString()])
+        ->assertCanSeeTableRecords([$recent])->assertCanNotSeeTableRecords([$old]);
+});
+
 test('listing queries stay constant as organizations grow', function () {
     $this->actingAs(platformAdmin(PlatformRole::SupportAdmin, ['organization_id' => null]));
 
@@ -125,6 +160,30 @@ test('listing queries stay constant as organizations grow', function () {
 });
 
 // Details
+
+test('the detail page shows email sending status but never the sender address or credentials', function () {
+    $this->actingAs(platformAdmin(PlatformRole::SupportAdmin, ['organization_id' => null]));
+    $org = orgWithPlan('Mailer Co');
+    $connection = EmailConnection::factory()->for($org)->verified()->create([
+        'domain' => 'mailer-co.test', 'sender_email' => 'secret.sender@mailer-co.test',
+    ]);
+    $connection->forceFill(['credentials' => ['refresh_token' => 'RT-SECRET-VALUE-123']])->save();
+
+    Livewire::test(ViewOrganization::class, ['record' => $org->id])
+        ->assertSee('Email sending')
+        ->assertSee('mailer-co.test')
+        ->assertSee('Verified')
+        ->assertDontSee('secret.sender@mailer-co.test')
+        ->assertDontSee('RT-SECRET-VALUE-123');
+});
+
+test('the detail page says when no sending account is set up', function () {
+    $this->actingAs(platformAdmin(PlatformRole::SupportAdmin, ['organization_id' => null]));
+    $org = orgWithPlan('No Mail Co');
+
+    Livewire::test(ViewOrganization::class, ['record' => $org->id])
+        ->assertSee('No sending account has been set up.');
+});
 
 test('details show business, subscription, usage and users but no credentials or content', function () {
     $admin = platformAdmin(PlatformRole::SuperAdmin, ['organization_id' => null]);
