@@ -38,7 +38,7 @@ web path to it. There is no registration page, form or API for administrators (`
 
 | File | What it does |
 |---|---|
-| `app/Providers/Filament/AdminPanelProvider.php` | Panel id `admin`, path `/admin`, `web` guard (same `users` table and session as the customer app), Filament login, violet theme, navigation groups (Platform, Customers, Billing, Access, System) |
+| `app/Providers/Filament/AdminPanelProvider.php` | Panel id `admin`, path `/admin`, `web` guard (same `users` table and session as the customer app), Filament login, violet theme, navigation groups in sidebar order: Customers, Billing, Access (reserved for Roles & Permissions), Security & Activity (audit events) |
 | `config/admin.php` | `brand` (`ADMIN_PANEL_BRAND`, default `QuoteFlow AI`): the panel title |
 | `app/Models/User.php` | Implements `FilamentUser`; `canAccessPanel()` = admin panel + active account + platform admin + `access_admin_panel` |
 | `app/Models/PlatformAdmin.php` | The grant. Mass assignment is blocked on purpose |

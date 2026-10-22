@@ -38,12 +38,12 @@ class AdminPanelProvider extends PanelProvider
                 'success' => Color::Green,
                 'warning' => Color::Amber,
             ])
+            // Order is the sidebar order. Groups with no visible pages are hidden by Filament.
             ->navigationGroups([
-                NavigationGroup::make('Platform'),
                 NavigationGroup::make('Customers'),
                 NavigationGroup::make('Billing'),
-                NavigationGroup::make('Access'),
-                NavigationGroup::make('System'),
+                NavigationGroup::make('Access'), // reserved for Roles & Permissions
+                NavigationGroup::make('Security & Activity'),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

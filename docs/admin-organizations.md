@@ -39,3 +39,11 @@ Business facts, subscription, usage against plan limits, members, and platform h
 - Background work for a suspended organization (scheduled follow-ups, automations, outgoing email) is not paused yet. Add a suspended check where those jobs pick organizations before relying on suspension to stop outbound messages.
 - Billing is not touched: a suspended business with a paid subscription is still billed until it is cancelled through the (future) billing module.
 - Permanent deletion needs a separate, approved retention workflow and is deliberately not offered.
+
+## Search, filters and email status (added with the dashboard redesign)
+
+- **Search** matches the business name, the email of its owner (the account with the owner role), or the exact organization ID. Staff email addresses are not searched.
+- **Signup date** filter: businesses created between two dates, inclusive.
+- **Email sending** section on the detail page: provider, sender domain, verification status and connection status (active, needs reconnecting, or disconnected). Sender addresses, refresh tokens and SMTP passwords are never shown. A business with no sending account shows "No sending account has been set up."
+
+Not built: impersonation of a business user (nothing exists to restrict or audit), a global search bar, and a notifications menu.
