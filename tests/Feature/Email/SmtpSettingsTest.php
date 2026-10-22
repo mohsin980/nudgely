@@ -1,9 +1,9 @@
 <?php
 
-uses(TestCase::class);
-
 use App\Services\Email\Data\SmtpSettings;
 use Tests\TestCase;
+
+uses(TestCase::class);
 
 function validSmtpInput(array $overrides = []): array
 {

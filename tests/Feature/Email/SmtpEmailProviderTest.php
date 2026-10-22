@@ -1,7 +1,5 @@
 <?php
 
-uses(TestCase::class);
-
 use App\Exceptions\Email\EmailProviderException;
 use App\Services\Email\Data\OutboundEmail;
 use App\Services\Email\Data\SmtpSettings;
@@ -10,6 +8,8 @@ use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use Tests\TestCase;
+
+uses(TestCase::class);
 
 /**
  * A transport that never touches the network: start() can be made to fail, and sent messages are recorded.

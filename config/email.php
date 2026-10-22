@@ -48,6 +48,21 @@ return [
     |
     */
 
+    'oauth' => [
+        // Google: Web application client in Google Cloud. Scopes are limited to sending and the account's email address.
+        'google' => [
+            'client_id' => env('GOOGLE_CLIENT_ID'),
+            'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        ],
+        // Microsoft: Entra app registration for personal and work accounts. 'common' accepts both.
+        'microsoft' => [
+            'client_id' => env('MICROSOFT_CLIENT_ID'),
+            'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+            'tenant' => env('MICROSOFT_TENANT', 'common'),
+        ],
+        'timeout' => (int) env('EMAIL_OAUTH_TIMEOUT', 15),
+    ],
+
     'smtp' => [
         'allow_private_hosts' => (bool) env('QUOTE_FLOW_SMTP_ALLOW_PRIVATE_HOSTS', false),
     ],
