@@ -1,15 +1,18 @@
 <?php
 
 use App\Enums\EmailProvider;
+use App\Enums\MessageStatus;
 use App\Exceptions\Email\EmailProviderException;
 use App\Models\EmailConnection;
 use App\Models\User;
 use App\Services\Email\AccountEmailSender;
 use App\Services\Email\Data\OutboundEmail;
+use App\Services\Email\EmailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
@@ -188,6 +191,25 @@ test('a Gmail send uses a fresh access token and returns the Gmail message ID', 
             && str_contains($mime, 'customer@example.org');
     });
 });
+
+test('a Gmail send the provider cannot take right now is requeued for the job to retry, not marked failed', function (int $status) {
+    fakeGoogle();
+    Queue::fake();
+    $owner = User::factory()->owner()->create();
+    $flow = startOAuth($owner, 'gmail');
+    callbackFor($owner, 'gmail', $flow['state']);
+    EmailConnection::query()->sole()->markAsDefault();
+    $message = app(EmailService::class)->send($owner->organization, 'customer@example.org', 'Your estimate', '<p>Hi</p>', 'Hi');
+
+    Http::swap(new Factory);
+    Http::fake([
+        'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.access', 'expires_in' => 3600]),
+        'gmail.googleapis.com/*' => Http::response([], $status),
+    ]);
+
+    expect(fn () => app(EmailService::class)->deliver($message))->toThrow(EmailProviderException::class);
+    expect($message->refresh()->status)->toBe(MessageStatus::Queued);
+})->with([429, 503]);
 
 test('a revoked Google grant is reported as reconnect-required, not retried, and the business is told', function () {
     fakeGoogle();

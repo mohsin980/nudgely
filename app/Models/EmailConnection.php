@@ -132,11 +132,12 @@ class EmailConnection extends Model
     }
 
     /**
-     * Only verified connections may be used as the organization's default sender.
+     * Only verified, connected senders may be the organization's default. A mailbox that needs reconnecting or was
+     * disconnected would fail every automated send from the business.
      */
     public function canBecomeDefault(): bool
     {
-        return $this->isVerified();
+        return $this->isVerified() && $this->connection_status === self::STATUS_ACTIVE;
     }
 
     /**
