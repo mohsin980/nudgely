@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Enums\EmailProvider;
 use App\Enums\MessageStatus;
+use App\Enums\Team\Permission;
 use App\Exceptions\Email\EmailProviderException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Models\EmailConnection;
@@ -11,12 +12,14 @@ use App\Models\Organization;
 use App\Services\Email\EmailDomainService;
 use App\Services\Email\EmailProviderManager;
 use App\Services\Email\EmailService;
+use App\Services\Email\SmtpConnectionService;
 use App\Validation\EmailConnectionRules;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -55,6 +58,25 @@ class EmailSettings extends Component
 
     public string $statusType = 'success';
 
+    public bool $showSmtpForm = false;
+
+    public string $smtpHost = '';
+
+    public string $smtpPort = '587';
+
+    public string $smtpEncryption = 'tls';
+
+    public string $smtpUsername = '';
+
+    public string $smtpPassword = '';
+
+    public string $smtpSenderName = '';
+
+    #[Locked]
+    public ?int $disconnectingId = null;
+
+    public const SMTP_CONNECTS_PER_HOUR = 10;
+
     public function mount(): void
     {
         $this->authorize('viewAny', EmailConnection::class);
@@ -80,6 +102,28 @@ class EmailSettings extends Component
             ->oldest()
             ->oldest('id')
             ->get();
+    }
+
+    /**
+     * Domain-verified sender addresses (the business's own domain, verified with DNS records).
+     *
+     * @return Collection<int, EmailConnection>
+     */
+    #[Computed]
+    public function domainConnections(): Collection
+    {
+        return $this->connections->reject(fn (EmailConnection $connection) => $connection->provider->isAccountBased())->values();
+    }
+
+    /**
+     * Connected mailboxes: Gmail, Outlook/Hotmail and custom SMTP. These need no DNS records.
+     *
+     * @return Collection<int, EmailConnection>
+     */
+    #[Computed]
+    public function accountConnections(): Collection
+    {
+        return $this->connections->filter(fn (EmailConnection $connection) => $connection->provider->isAccountBased())->values();
     }
 
     /**
@@ -413,6 +457,115 @@ class EmailSettings extends Component
     public function dismissStatus(): void
     {
         $this->statusMessage = null;
+    }
+
+    public function openSmtpForm(): void
+    {
+        $this->authorizeManageEmail();
+
+        $this->resetErrorBag();
+        $this->showSmtpForm = true;
+        $this->smtpPassword = '';
+    }
+
+    public function cancelSmtpForm(): void
+    {
+        $this->showSmtpForm = false;
+        $this->smtpPassword = '';
+        $this->resetErrorBag();
+    }
+
+    /**
+     * Tests the settings, then saves them. The password is never shown again after this request.
+     */
+    public function connectSmtp(SmtpConnectionService $smtp): void
+    {
+        $this->authorizeManageEmail();
+
+        $limiterKey = 'smtp-connect:'.$this->organization->id;
+
+        if (RateLimiter::tooManyAttempts($limiterKey, self::SMTP_CONNECTS_PER_HOUR)) {
+            $this->notify('Too many connection tests this hour. Wait a while and try again.', 'error');
+
+            return;
+        }
+
+        RateLimiter::hit($limiterKey, 3600);
+
+        try {
+            $connection = $smtp->connect(Auth::user(), $this->organization, [
+                'host' => $this->smtpHost,
+                'port' => $this->smtpPort,
+                'encryption' => $this->smtpEncryption,
+                'username' => $this->smtpUsername,
+                'password' => $this->smtpPassword,
+                'sender_name' => $this->smtpSenderName,
+            ]);
+        } catch (ValidationException $e) {
+            $this->addError('smtp', $e->validator->errors()->first() ?: 'Check the settings and try again.');
+
+            return;
+        } catch (EmailProviderException $e) {
+            $this->addError('smtp', $e->userMessage());
+
+            return;
+        }
+
+        $this->cancelSmtpForm();
+        $this->smtpHost = $this->smtpUsername = $this->smtpSenderName = '';
+        $this->notify('Connected '.$connection->sender_email.'. Your test passed.');
+    }
+
+    /**
+     * Asks for confirmation first. A default sender is used for automated emails, so the warning says so.
+     */
+    public function beginDisconnect(int $connectionId): void
+    {
+        $this->authorizeManageEmail();
+        $this->findAccountConnection($connectionId);
+
+        $this->disconnectingId = $connectionId;
+    }
+
+    public function cancelDisconnect(): void
+    {
+        $this->disconnectingId = null;
+    }
+
+    /**
+     * Stops the account sending. Its stored credentials are removed; the row is kept so the history still reads.
+     */
+    public function confirmDisconnect(): void
+    {
+        $this->authorizeManageEmail();
+
+        $connection = $this->findAccountConnection($this->disconnectingId);
+
+        $connection->forceFill([
+            'connection_status' => EmailConnection::STATUS_DISCONNECTED,
+            'status_message' => 'Disconnected. Reconnect to send from this address again.',
+            'credentials' => null,
+            'is_default' => false,
+        ])->save();
+
+        Log::info('email.account_disconnected', ['event' => 'email.account_disconnected', 'organization_id' => $this->organization->id, 'connection_id' => $connection->id, 'provider' => $connection->provider->value]);
+
+        $this->disconnectingId = null;
+        $this->notify($connection->sender_email.' is disconnected.');
+    }
+
+    private function authorizeManageEmail(): void
+    {
+        abort_unless(Auth::user()?->hasPermission(Permission::ManageEmail), 403);
+    }
+
+    private function findAccountConnection(?int $connectionId): EmailConnection
+    {
+        $connection = $connectionId === null ? null : $this->organization->emailConnections()->find($connectionId);
+
+        abort_if($connection === null || ! $connection->provider->isAccountBased(), 404);
+
+        return $connection;
     }
 
     /**
