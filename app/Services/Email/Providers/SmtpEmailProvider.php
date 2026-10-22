@@ -8,6 +8,7 @@ use App\Services\Email\Data\OutboundEmail;
 use App\Services\Email\Data\SmtpSettings;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
+use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 
@@ -67,13 +68,16 @@ class SmtpEmailProvider
     {
         $this->assertAllowedHost($settings->host, $settings->encryption);
 
+        // The timeout belongs to the socket stream, so it is set before the transport is built.
+        $stream = new SocketStream;
+        $stream->setTimeout(self::TIMEOUT_SECONDS);
+
         // ssl: TLS from the first byte. tls: plain start, then STARTTLS, which is required (credentials are never sent unencrypted).
-        $transport = new EsmtpTransport($settings->host, $settings->port, $settings->encryption === SmtpSettings::ENCRYPTION_SSL);
+        $transport = new EsmtpTransport($settings->host, $settings->port, $settings->encryption === SmtpSettings::ENCRYPTION_SSL, stream: $stream);
         $transport->setUsername($settings->username);
         $transport->setPassword($settings->password);
         $transport->setAutoTls($settings->encryption !== SmtpSettings::ENCRYPTION_NONE);
         $transport->setRequireTls($settings->encryption === SmtpSettings::ENCRYPTION_TLS);
-        $transport->setTimeout(self::TIMEOUT_SECONDS);
 
         return $transport;
     }

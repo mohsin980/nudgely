@@ -79,6 +79,22 @@ function outboundEmail(): OutboundEmail
     );
 }
 
+test('the real transport is built for each encryption mode, so its setup cannot break unnoticed', function (string $encryption) {
+    config(['email.smtp.allow_private_hosts' => true]);
+    // Exposes the real transport() method; the other tests replace it with a fake, which hid a broken call to it.
+    $provider = new class extends SmtpEmailProvider
+    {
+        public function build(SmtpSettings $settings): EsmtpTransport
+        {
+            return $this->transport($settings);
+        }
+    };
+
+    $transport = $provider->build(new SmtpSettings('smtp.example.com', 587, 'owner@example.com', 'app-password', $encryption));
+
+    expect($transport)->toBeInstanceOf(EsmtpTransport::class);
+})->with(['tls', 'ssl']);
+
 test('a successful test connects and disconnects without sending anything', function () {
     fakeSmtpProvider()->test(smtpSettings());
 
