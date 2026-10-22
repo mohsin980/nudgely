@@ -12,6 +12,7 @@ use App\Models\Organization;
 use App\Services\Email\EmailDomainService;
 use App\Services\Email\EmailProviderManager;
 use App\Services\Email\EmailService;
+use App\Services\Email\OAuth\OAuthMailClient;
 use App\Services\Email\SmtpConnectionService;
 use App\Validation\EmailConnectionRules;
 use Illuminate\Database\Eloquent\Collection;
@@ -163,7 +164,8 @@ class EmailSettings extends Component
     {
         return match (true) {
             ! $connection->isVerified() => ['allowed' => false, 'reason' => 'Verify this domain first.'],
-            ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark server token.'],
+            // Mailboxes send with their own credentials, so the server's Postmark token is not needed for them.
+            ! $connection->provider->isAccountBased() && ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark server token.'],
             default => ['allowed' => true, 'reason' => null],
         };
     }
@@ -173,6 +175,7 @@ class EmailSettings extends Component
     {
         return match (true) {
             $connection->is_default => ['allowed' => false, 'reason' => 'This is already the default sender.'],
+            $connection->connection_status !== EmailConnection::STATUS_ACTIVE => ['allowed' => false, 'reason' => 'Reconnect this account before making it the default sender.'],
             ! $connection->canBecomeDefault() => ['allowed' => false, 'reason' => 'Verify this domain first. Only verified senders can be the default.'],
             default => ['allowed' => true, 'reason' => null],
         };
@@ -278,7 +281,7 @@ class EmailSettings extends Component
         $this->confirmingDeletionId = null;
     }
 
-    public function delete(): void
+    public function delete(OAuthMailClient $oauth): void
     {
         $connection = $this->findConnection($this->confirmingDeletionId);
         $this->authorize('delete', $connection);
@@ -290,6 +293,8 @@ class EmailSettings extends Component
 
             return;
         }
+
+        $this->revokeAccess($connection, $oauth);
 
         // The default is a flag on the row itself, so deleting it simply leaves no default.
         $this->domains()->deleteConnection($connection);
@@ -307,6 +312,13 @@ class EmailSettings extends Component
     {
         $connection = $this->findConnection($connectionId);
         $this->authorize('setDefault', $connection);
+
+        // Checked on the server too: a stale page or a crafted request must not make a disconnected account the default.
+        if ($connection->connection_status !== EmailConnection::STATUS_ACTIVE) {
+            $this->notify('Reconnect this account before making it the default sender.', 'error');
+
+            return;
+        }
 
         if (! $connection->canBecomeDefault()) {
             $this->notify('Only verified email connections can be set as the default sender.', 'error');
@@ -482,6 +494,10 @@ class EmailSettings extends Component
     {
         $this->authorizeManageEmail();
 
+        // The password leaves component state on every outcome, so a failed attempt does not keep it in the page.
+        $password = $this->smtpPassword;
+        $this->smtpPassword = '';
+
         $limiterKey = 'smtp-connect:'.$this->organization->id;
 
         if (RateLimiter::tooManyAttempts($limiterKey, self::SMTP_CONNECTS_PER_HOUR)) {
@@ -498,7 +514,7 @@ class EmailSettings extends Component
                 'port' => $this->smtpPort,
                 'encryption' => $this->smtpEncryption,
                 'username' => $this->smtpUsername,
-                'password' => $this->smtpPassword,
+                'password' => $password,
                 'sender_name' => $this->smtpSenderName,
             ]);
         } catch (ValidationException $e) {
@@ -535,11 +551,12 @@ class EmailSettings extends Component
     /**
      * Stops the account sending. Its stored credentials are removed; the row is kept so the history still reads.
      */
-    public function confirmDisconnect(): void
+    public function confirmDisconnect(OAuthMailClient $oauth): void
     {
         $this->authorizeManageEmail();
 
         $connection = $this->findAccountConnection($this->disconnectingId);
+        $revoked = $this->revokeAccess($connection, $oauth);
 
         $connection->forceFill([
             'connection_status' => EmailConnection::STATUS_DISCONNECTED,
@@ -548,10 +565,38 @@ class EmailSettings extends Component
             'is_default' => false,
         ])->save();
 
-        Log::info('email.account_disconnected', ['event' => 'email.account_disconnected', 'organization_id' => $this->organization->id, 'connection_id' => $connection->id, 'provider' => $connection->provider->value]);
+        Log::info('email.account_disconnected', ['event' => 'email.account_disconnected', 'organization_id' => $this->organization->id, 'connection_id' => $connection->id, 'provider' => $connection->provider->value, 'access_revoked' => $revoked]);
 
         $this->disconnectingId = null;
-        $this->notify($connection->sender_email.' is disconnected.');
+        $this->notify($connection->sender_email.' is disconnected.'.$this->manualRevokeNote($connection, $revoked));
+    }
+
+    /**
+     * Revokes the stored grant at the provider where that is possible. The stored secret is removed either way.
+     */
+    private function revokeAccess(EmailConnection $connection, OAuthMailClient $oauth): bool
+    {
+        $refreshToken = $connection->credentials['refresh_token'] ?? null;
+
+        if (! $connection->provider->isAccountBased() || ! is_string($refreshToken) || $refreshToken === '') {
+            return false;
+        }
+
+        return $oauth->revoke($connection->provider, $refreshToken);
+    }
+
+    /**
+     * Only mailbox senders that still hold a grant need a manual step. Microsoft has no revocation here, so it always does.
+     */
+    private function manualRevokeNote(EmailConnection $connection, bool $revoked): string
+    {
+        if ($revoked || $connection->provider === EmailProvider::Smtp) {
+            return '';
+        }
+
+        return $connection->provider === EmailProvider::Microsoft
+            ? ' To finish, remove QuoteFlow from your Microsoft account\'s app access.'
+            : ' Google could not be reached to revoke access. To finish, remove QuoteFlow from your Google account\'s third-party access.';
     }
 
     private function authorizeManageEmail(): void

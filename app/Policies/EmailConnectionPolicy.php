@@ -21,9 +21,13 @@ class EmailConnectionPolicy
         return $user->hasPermission(Permission::ManageEmail);
     }
 
+    /**
+     * Only domain senders have an editable address. A connected mailbox sends as the account that signed in, so its
+     * address cannot be changed; reconnect the account instead.
+     */
     public function update(User $user, EmailConnection $connection): bool
     {
-        return $this->managesConnection($user, $connection);
+        return ! $connection->provider->isAccountBased() && $this->managesConnection($user, $connection);
     }
 
     public function delete(User $user, EmailConnection $connection): bool

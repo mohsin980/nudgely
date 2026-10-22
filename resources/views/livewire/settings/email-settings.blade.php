@@ -66,7 +66,7 @@
             <form wire:submit="connectSmtp" class="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="smtp-heading">
                 <div>
                     <h3 id="smtp-heading" class="text-base font-semibold text-slate-900">Mail server settings</h3>
-                    <p class="mt-1 text-sm text-slate-500">We test these settings before saving. For Gmail or Outlook SMTP, use an app password if two-step verification is on.</p>
+                    <p class="mt-1 text-sm text-slate-500">We test these settings before saving. For Gmail with two-step verification on, use a Google app password, or use Connect Google instead. For Outlook.com or Hotmail, use Connect Microsoft.</p>
                 </div>
 
                 @error('smtp')

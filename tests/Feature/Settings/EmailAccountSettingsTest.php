@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Email\Data\SmtpSettings;
 use App\Services\Email\Providers\SmtpEmailProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
@@ -147,6 +148,7 @@ test('disconnecting asks first, and warns when the account is the default sender
 });
 
 test('confirming a disconnect stops sending, removes the stored secret and keeps the record', function () {
+    Http::fake(['oauth2.googleapis.com/revoke' => Http::response('', 200)]);
     $owner = User::factory()->owner()->create();
     $connection = accountConnection($owner, default: true);
 
@@ -193,4 +195,122 @@ test('staff cannot change account connections, and another business cannot disco
         ->assertSet('disconnectingId', null);
 
     expect($connection->refresh()->connection_status)->toBe(EmailConnection::STATUS_ACTIVE);
+});
+
+test('a connected mailbox address cannot be edited, so it cannot be pointed at another address', function () {
+    $owner = User::factory()->owner()->create();
+    $connection = accountConnection($owner);
+    $component = Livewire::actingAs($owner)->test(EmailSettings::class);
+
+    try {
+        $component->call('edit', $connection->id);
+    } catch (Throwable) {
+        // The policy refuses with 403; the harness cannot parse that response.
+    }
+
+    expect($component->get('editingConnectionId'))->toBeNull()
+        ->and($connection->refresh()->sender_email)->toBe('owner@gmail.com');
+});
+
+test('a connected mailbox can send its test email without the server Postmark token', function () {
+    config(['email.providers.postmark.server_token' => null]);
+    Http::fake([
+        'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.access-token', 'expires_in' => 3600]),
+        'gmail.googleapis.com/*' => Http::response(['id' => '18f-gmail-message']),
+    ]);
+    $owner = User::factory()->owner()->create(['email' => 'owner@gmail.com']);
+    $connection = accountConnection($owner);
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('openTestEmail', $connection->id)
+        ->assertSet('testEmailConnectionId', $connection->id)
+        ->call('sendTestEmail')
+        ->assertSet('statusMessage', 'Test email sent to owner@gmail.com.');
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'gmail.googleapis.com'));
+});
+
+test('disconnecting a Google account revokes its access at Google', function () {
+    Http::fake(['oauth2.googleapis.com/revoke' => Http::response('', 200)]);
+    $owner = User::factory()->owner()->create();
+    $connection = accountConnection($owner);
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('beginDisconnect', $connection->id)
+        ->call('confirmDisconnect')
+        ->assertSee('owner@gmail.com is disconnected.');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://oauth2.googleapis.com/revoke'
+        && $request['token'] === '1//secret-refresh-token');
+    expect($connection->refresh()->credentials)->toBeNull();
+});
+
+test('deleting a Google account revokes its access too', function () {
+    Http::fake(['oauth2.googleapis.com/revoke' => Http::response('', 200)]);
+    $owner = User::factory()->owner()->create();
+    $connection = accountConnection($owner);
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('confirmDelete', $connection->id)
+        ->call('delete');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://oauth2.googleapis.com/revoke');
+    expect(EmailConnection::query()->whereKey($connection->id)->exists())->toBeFalse();
+});
+
+test('a Google revoke failure still disconnects the account, and says what the business must do', function () {
+    Http::fake(['oauth2.googleapis.com/revoke' => Http::response('', 503)]);
+    $owner = User::factory()->owner()->create();
+    $connection = accountConnection($owner);
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('beginDisconnect', $connection->id)
+        ->call('confirmDisconnect')
+        ->assertSee('Google could not be reached to revoke access');
+
+    $connection->refresh();
+    expect($connection->connection_status)->toBe(EmailConnection::STATUS_DISCONNECTED)
+        ->and($connection->credentials)->toBeNull();
+});
+
+test('a Microsoft account is disconnected locally, and the page explains the manual step', function () {
+    Http::fake();
+    $owner = User::factory()->owner()->create();
+    $connection = accountConnection($owner, 'microsoft');
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('beginDisconnect', $connection->id)
+        ->call('confirmDisconnect')
+        ->assertSee('remove QuoteFlow from your Microsoft account');
+
+    Http::assertNothingSent();
+    expect($connection->refresh()->credentials)->toBeNull();
+});
+
+test('a mailbox that needs reconnecting cannot be made the default sender, even by a direct request', function () {
+    $owner = User::factory()->owner()->create();
+    $connection = accountConnection($owner, status: 'reauth_required');
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('setDefault', $connection->id)
+        ->assertSet('statusType', 'error')
+        ->assertSet('statusMessage', 'Reconnect this account before making it the default sender.');
+
+    expect($connection->refresh()->is_default)->toBeFalse();
+});
+
+test('a failed SMTP attempt clears the password from the page, so it is not kept or rendered', function () {
+    smtpUiTransport('Expected response code 235 but got code "535"');
+    $owner = User::factory()->owner()->create();
+
+    Livewire::actingAs($owner)->test(EmailSettings::class)
+        ->call('openSmtpForm')
+        ->set('smtpHost', 'smtp.example.com')
+        ->set('smtpUsername', 'owner@example.com')
+        ->set('smtpPassword', 'wrong-password-value')
+        ->set('smtpSenderName', 'Acme')
+        ->call('connectSmtp')
+        ->assertHasErrors(['smtp'])
+        ->assertSet('smtpPassword', '')
+        ->assertDontSee('wrong-password-value');
 });

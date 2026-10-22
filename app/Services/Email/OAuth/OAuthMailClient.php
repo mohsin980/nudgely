@@ -24,6 +24,8 @@ class OAuthMailClient
 
     private const GOOGLE_USERINFO = 'https://openidconnect.googleapis.com/v1/userinfo';
 
+    private const GOOGLE_REVOKE = 'https://oauth2.googleapis.com/revoke';
+
     private const GMAIL_SEND = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 
     private const GRAPH = 'https://graph.microsoft.com/v1.0';
@@ -88,6 +90,24 @@ class OAuthMailClient
         ], onRejected: fn (Response $response) => $this->isGrantRevoked($response)
             ? EmailProviderException::reauthRequired('The stored refresh token was revoked or expired.')
             : EmailProviderException::rejected('The provider refused to refresh the access token.'));
+    }
+
+    /**
+     * Asks Google to revoke the grant, so the app can no longer send from the account. Returns false when Google
+     * refused or could not be reached. Microsoft offers no revocation for this sign-in, so it always returns false
+     * and the business removes the app from its Microsoft account instead. Never throws.
+     */
+    public function revoke(EmailProvider $provider, string $refreshToken): bool
+    {
+        if ($provider !== EmailProvider::Gmail) {
+            return false;
+        }
+
+        try {
+            return Http::asForm()->timeout($this->timeout())->post(self::GOOGLE_REVOKE, ['token' => $refreshToken])->successful();
+        } catch (ConnectionException) {
+            return false;
+        }
     }
 
     /**

@@ -69,7 +69,7 @@ Status: implemented and tested with faked provider responses. Live Google and Mi
 
 **Access revoked or password rejected.** The connection moves to *reauth required*, the message fails permanently (no retry loop), and the owner and managers get one in-app notice (`email_account_needs_reconnect`). Further failures for the same account do not notify again. Reconnecting restores *active*.
 
-**Disconnecting.** Confirmation is required. For the default sender the dialog warns that automated quotes and follow-ups will stop. Disconnecting removes the stored secret and keeps the record. A disconnected account cannot send.
+**Disconnecting.** Confirmation is required. For the default sender the dialog warns that automated quotes and follow-ups will stop. Disconnecting removes the stored secret and keeps the record. For Gmail, the grant is also revoked at Google; if Google cannot be reached, the page says so. For Microsoft, the page asks the business to remove QuoteFlow from its Microsoft account's app access. Deleting a Gmail account revokes it the same way. A disconnected account cannot send.
 
 **Retries.** Transient provider errors (timeouts, 429, 5xx, unreachable servers) retry under the existing job policy. Rejections and revoked access do not retry. Unknown outcomes after a request left are not resent.
 
@@ -93,7 +93,7 @@ Redirect URIs, which must match exactly in both consoles:
 - Access tokens are not stored. They are requested from the refresh token each time they are needed.
 - Microsoft rotates refresh tokens. A rotated token is saved on the next use.
 - Rotating `APP_KEY` makes stored credentials unreadable. Plan a re-encryption step before rotating it, or have businesses reconnect.
-- To revoke all account access, disconnect them in Settings or revoke the app in the provider's account settings.
+- Disconnecting or deleting a Gmail account revokes its grant at Google. Microsoft offers no revocation for this sign-in, so the business removes QuoteFlow from its Microsoft account's app access. SMTP has no grant to revoke, so change or remove the app password at the mail provider.
 
 ## 4. External setup required (not available in this environment)
 
@@ -101,7 +101,7 @@ These cannot be done from the repository. Without them the OAuth flows cannot be
 
 **Google**
 - A Google Cloud project with the Gmail API enabled.
-- An OAuth client (Web application) with the redirect URI `https://<app-domain>/settings/email/google/callback`.
+- An OAuth client (Web application) with the redirect URI `https://<app-domain>/settings/email/gmail/callback`.
 - OAuth consent screen: scopes `openid`, `email`, `https://www.googleapis.com/auth/gmail.send`. Gmail send is a *restricted* scope: production use needs Google's verification and a security assessment. Until then only test users can connect.
 - Environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
 
@@ -112,12 +112,14 @@ These cannot be done from the repository. Without them the OAuth flows cannot be
 - Environment: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT` (default `common`).
 
 **SMTP**
-- Nothing server-side. Customers supply host, port and credentials. Gmail and Outlook SMTP need an app password where 2-step verification is on.
+- Nothing server-side. Customers supply host, port and credentials. Gmail SMTP needs a Google app password when 2-step verification is on; Connect Google is the safer option. For Outlook.com or Hotmail, prefer Connect Microsoft. SMTP sign-in for personal Microsoft accounts is not verified in this repository.
 
 ## 5. Known limits
 
 - The Gmail API scope is restricted. Production use for arbitrary Gmail users needs Google's verification and a security assessment. Until then only test users can connect.
 - Gmail and Microsoft sending counts against the sender's own sending limits.
+- Microsoft has no revocation step in this flow. Disconnecting leaves the grant in place until the business removes the app in its Microsoft account.
+- `encryption = none` is accepted only when `QUOTE_FLOW_SMTP_ALLOW_PRIVATE_HOSTS` is on, so that flag also permits unencrypted SMTP. Keep it off in production.
 - Microsoft `sendMail` returns no message ID. The record stores a local ID. Bounces and delivery updates are not available from Gmail, Microsoft or SMTP.
 - SMTP senders must send as the login address. Aliases are not supported yet.
 - The SMTP private-address check runs before connecting. A DNS name that changes its address between the check and the connection is not re-checked.
