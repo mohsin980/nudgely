@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Billing\PaymentMethodController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Settings\EmailOAuthController;
 use App\Http\Controllers\Settings\LogoController;
 use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
@@ -90,6 +91,12 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');
     Route::get('/notifications', NotificationSettings::class)->name('notifications');
+
+    // Connect Google / Microsoft: the provider sends the business back with a code (see EmailOAuthController).
+    Route::get('/email/{provider}/connect', [EmailOAuthController::class, 'redirect'])
+        ->middleware(['can:manage-email', 'throttle:10,1'])->name('email.oauth.redirect');
+    Route::get('/email/{provider}/callback', [EmailOAuthController::class, 'callback'])
+        ->middleware(['can:manage-email', 'throttle:10,1'])->name('email.oauth.callback');
 
     Route::get('/team', TeamMembers::class)->middleware('can:manage-team')->name('team');
     // The permission table describes owner-only rules, so only people who manage the team see it.

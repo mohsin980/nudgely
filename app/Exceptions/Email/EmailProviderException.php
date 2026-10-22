@@ -27,6 +27,8 @@ class EmailProviderException extends RuntimeException
 
     public const UNEXPECTED_RESPONSE = 'unexpected_response';
 
+    public const REAUTH_REQUIRED = 'reauth_required';
+
     public function __construct(
         string $message,
         public readonly string $reason,
@@ -107,6 +109,15 @@ class EmailProviderException extends RuntimeException
     {
         return new self($detail, self::OUTCOME_UNKNOWN,
             'The email provider did not confirm delivery. It was not resent, to avoid sending it twice.');
+    }
+
+    /**
+     * The business revoked access, or the stored login expired. Retrying cannot help until the business reconnects.
+     */
+    public static function reauthRequired(string $detail): self
+    {
+        return new self($detail, self::REAUTH_REQUIRED,
+            'This email account was disconnected or its permission expired. Reconnect it in Email settings to keep sending.');
     }
 
     /**
