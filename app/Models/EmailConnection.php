@@ -31,6 +31,15 @@ class EmailConnection extends Model
      *
      * @var array<string, mixed>
      */
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_REAUTH_REQUIRED = 'reauth_required';
+
+    public const STATUS_DISCONNECTED = 'disconnected';
+
+    /** Secrets for account-based senders. Never serialized, so they cannot reach an API response or a view by accident. */
+    protected $hidden = ['credentials'];
+
     protected $attributes = [
         'verification_status' => 'pending',
         'is_default' => false,
@@ -49,6 +58,8 @@ class EmailConnection extends Model
             'is_default' => 'boolean',
             'verified_at' => 'datetime',
             'dns_records' => 'array',
+            'credentials' => 'encrypted:array',
+            'last_tested_at' => 'datetime',
         ];
     }
 

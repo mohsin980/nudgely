@@ -44,6 +44,7 @@ class EmailService
     public function __construct(
         private readonly EmailProviderManager $providers,
         private readonly ReplyRouteService $replyRoutes,
+        private readonly AccountEmailSender $accounts,
     ) {}
 
     /**
@@ -174,7 +175,8 @@ class EmailService
                 throw EmailSendingNotAllowedException::senderMismatch();
             }
 
-            $provider = $this->providers->for($connection->provider);
+            // Domain-verified providers are resolved by name; account senders use the connection's own credentials.
+            $provider = $connection->provider->isAccountBased() ? null : $this->providers->for($connection->provider);
         } catch (EmailSendingNotAllowedException $e) {
             return $this->markFailed($message, EmailSendResult::failed('not_allowed', $e->getMessage()));
         } catch (Throwable $e) {
@@ -187,7 +189,7 @@ class EmailService
         $this->log('email.sending', $message, ['attempt' => $message->send_attempts]);
 
         try {
-            $result = $provider->send(new OutboundEmail(
+            $outbound = new OutboundEmail(
                 organizationId: $message->organization_id,
                 fromEmail: $connection->sender_email,
                 fromName: $connection->sender_name,
@@ -198,7 +200,9 @@ class EmailService
                 htmlBody: $message->body_html,
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
-            ));
+            );
+
+            $result = $provider !== null ? $provider->send($outbound) : $this->accounts->send($connection, $outbound);
         } catch (EmailProviderException $e) {
             // A provider that answered with a known temporary error did not accept the email.
             if ($e->isTransient() && $retryTransientFailures) {
@@ -297,6 +301,10 @@ class EmailService
 
         if (! $connection->isVerified()) {
             throw EmailSendingNotAllowedException::notVerified();
+        }
+
+        if ($connection->connection_status !== EmailConnection::STATUS_ACTIVE) {
+            throw EmailSendingNotAllowedException::connectionUnavailable();
         }
 
         if (blank($connection->sender_email) || Str::afterLast($connection->sender_email, '@') !== $connection->domain) {

@@ -39,6 +39,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Account-based senders (a business's own mailbox)
+    |--------------------------------------------------------------------------
+    |
+    | Gmail and Microsoft connect through OAuth; SMTP uses the business's own server and password. Credentials
+    | are stored encrypted per connection. Private-network SMTP hosts are refused unless allowed here, which is
+    | only for local development relays.
+    |
+    */
+
+    'smtp' => [
+        'allow_private_hosts' => (bool) env('QUOTE_FLOW_SMTP_ALLOW_PRIVATE_HOSTS', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Inbound Replies
     |--------------------------------------------------------------------------
     |
