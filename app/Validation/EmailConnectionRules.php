@@ -19,7 +19,7 @@ class EmailConnectionRules
     public static function rules(?string $domain): array
     {
         return [
-            'provider' => ['required', Rule::enum(EmailProvider::class)->only(array_map(fn (EmailProvider $p) => $p->value, EmailProvider::domainVerified()))],
+            'provider' => ['required', Rule::enum(EmailProvider::class)->only(EmailProvider::domainVerified())],
             'domain' => ['required', 'string', 'max:253', new DomainName],
             'sender_email' => ['required', 'string', 'max:254', 'email:rfc', new SenderEmailMatchesDomain($domain)],
             'sender_name' => ['required', 'string', 'max:255'],
