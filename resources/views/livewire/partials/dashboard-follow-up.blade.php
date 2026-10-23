@@ -1,4 +1,4 @@
-{{-- One follow-up row on the dashboard. Expects $followUp, $organization and $overdue. --}}
+{{-- One follow-up row on the dashboard. Expects $followUp, $organization and $overdue; $showDate adds the day (for upcoming items). --}}
 <li wire:key="dashboard-follow-up-{{ $followUp->id }}" class="flex items-center justify-between gap-3 py-2.5 text-sm">
     <div class="min-w-0">
         <p class="flex flex-wrap items-center gap-x-2">
@@ -7,7 +7,7 @@
                     <span class="sr-only">Overdue, was due</span>
                     <x-follow-up-due :at="$followUp->due_at" :organization="$organization" />
                 @else
-                    <time datetime="{{ $organization->localTime($followUp->due_at)->toIso8601String() }}">{{ $organization->localTime($followUp->due_at)->format('g:i A') }}</time>
+                    <time datetime="{{ $organization->localTime($followUp->due_at)->toIso8601String() }}">{{ $organization->localTime($followUp->due_at)->format(($showDate ?? false) ? 'M j, g:i A' : 'g:i A') }}</time>
                 @endif
             </span>
             <span class="font-semibold text-slate-900">{{ $followUp->customer?->name }}</span>

@@ -2,10 +2,13 @@
 
 namespace App\Services\Dashboard;
 
+use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
 use App\Enums\FollowUpStatus;
 use App\Enums\MessageDirection;
+use App\Enums\MessageStatus;
 use App\Enums\TaskStatus;
+use App\Models\Automation;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
 use App\Models\Estimate;
@@ -14,6 +17,8 @@ use App\Models\Message;
 use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -30,7 +35,10 @@ use Illuminate\Support\Str;
  */
 class DashboardService
 {
-    public function __construct(private readonly AttentionPriorityRules $priorities) {}
+    public function __construct(
+        private readonly AttentionPriorityRules $priorities,
+        private readonly EntitlementService $entitlements,
+    ) {}
 
     /**
      * Everything the dashboard shows.
@@ -47,6 +55,9 @@ class DashboardService
         $overdue = $this->overdueFollowUps($organization, $start);
         $today = $this->todaysFollowUps($organization, $start, $end);
         $tasks = $this->openTasks($organization, $end);
+        $pipeline = $this->estimatePipeline($organization, $end->subDays(30));
+        $health = $this->automationHealth($organization);
+        $upcoming = $this->upcomingFollowUps($organization, $end);
 
         return new DashboardSnapshot(
             localNow: $organization->localNow(),
@@ -77,6 +88,13 @@ class DashboardService
             automationFailures: $this->automationFailures($organization),
             notifications: $user->unreadNotifications()->limit((int) config('dashboard.limits.notifications'))->get(['id', 'data', 'created_at']),
             unreadNotifications: $user->unreadNotifications()->count(),
+            estimatePipeline: $pipeline,
+            automationHealth: $health,
+            alerts: $this->alerts($user, $organization, $followUpCounts['overdue'], $statusCounts['waiting'], $health, $this->expiringEstimateCount($organization), $this->failedEmailCount($organization)),
+            upcomingFollowUps: $upcoming['items'],
+            upcomingCount: $upcoming['count'],
+            recentEstimates: $this->recentEstimates($organization),
+            planUsage: $this->planUsage($organization),
         );
     }
 
@@ -197,6 +215,98 @@ class DashboardService
             ->first();
 
         return array_map('intval', (array) $row);
+    }
+
+    /**
+     * The estimate pipeline. Cancelled estimates (superseded revisions) are left out.
+     *
+     * "Outstanding" is awaiting the customer (sent or viewed). Values are the estimates' totals: potential value,
+     * not collected revenue. Accepted value counts estimates accepted since $acceptedSince.
+     *
+     * @return array{sent_7d: int, sent_prev_7d: int, sent_trend: ?int, draft: int, sent: int, viewed: int, accepted: int, declined: int, expired: int, outstanding_count: int, outstanding_cents: int, accepted_recent_count: int, accepted_recent_cents: int}
+     */
+    public function estimatePipeline(Organization $organization, CarbonImmutable $acceptedSince): array
+    {
+        $row = Estimate::query()
+            ->where('organization_id', $organization->id)
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw("count(case when status = 'draft' then 1 end) as draft")
+            ->selectRaw("count(case when status = 'sent' then 1 end) as sent")
+            ->selectRaw("count(case when status = 'viewed' then 1 end) as viewed")
+            ->selectRaw("count(case when status = 'accepted' then 1 end) as accepted")
+            ->selectRaw("count(case when status = 'declined' then 1 end) as declined")
+            ->selectRaw("count(case when status = 'expired' then 1 end) as expired")
+            ->selectRaw("count(case when status in ('sent', 'viewed') then 1 end) as outstanding_count")
+            ->selectRaw("coalesce(sum(case when status in ('sent', 'viewed') then total end), 0) as outstanding_total")
+            ->selectRaw('count(case when sent_at >= ? then 1 end) as sent_7d', [now()->subDays(7)])
+            ->selectRaw('count(case when sent_at >= ? and sent_at < ? then 1 end) as sent_prev_7d', [now()->subDays(14), now()->subDays(7)])
+            ->selectRaw("count(case when status = 'accepted' and accepted_at >= ? then 1 end) as accepted_recent_count", [$acceptedSince])
+            ->selectRaw("coalesce(sum(case when status = 'accepted' and accepted_at >= ? then total end), 0) as accepted_recent_total", [$acceptedSince])
+            ->toBase()
+            ->first();
+
+        return [
+            'draft' => (int) $row->draft,
+            'sent' => (int) $row->sent,
+            'viewed' => (int) $row->viewed,
+            'accepted' => (int) $row->accepted,
+            'declined' => (int) $row->declined,
+            'expired' => (int) $row->expired,
+            'outstanding_count' => (int) $row->outstanding_count,
+            'outstanding_cents' => Money::parse((string) $row->outstanding_total),
+            'sent_7d' => (int) $row->sent_7d,
+            'sent_prev_7d' => (int) $row->sent_prev_7d,
+            'sent_trend' => (int) $row->sent_prev_7d > 0 ? (int) round(((int) $row->sent_7d - (int) $row->sent_prev_7d) / (int) $row->sent_prev_7d * 100) : null,
+            'accepted_recent_count' => (int) $row->accepted_recent_count,
+            'accepted_recent_cents' => Money::parse((string) $row->accepted_recent_total),
+        ];
+    }
+
+    /**
+     * Whether automated follow-ups are working, from execution results and sending readiness. An enabled automation
+     * is not counted as healthy on its own.
+     *
+     * @return array{active: int, paused: int, scheduled_follow_ups: int, completed_7d: int, failed_7d: int, email_ready: bool, status: string}
+     */
+    public function automationHealth(Organization $organization): array
+    {
+        $automations = DB::table('automations')->where('organization_id', $organization->id)
+            ->selectRaw("count(case when status = 'active' then 1 end) as active")
+            ->selectRaw("count(case when status = 'paused' then 1 end) as paused")
+            ->first();
+
+        $runs = AutomationRun::query()
+            ->where('organization_id', $organization->id)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->selectRaw("count(case when status = 'completed' then 1 end) as completed")
+            ->selectRaw("count(case when status = 'failed' then 1 end) as failed")
+            ->toBase()
+            ->first();
+
+        $emailReady = $organization->emailConnections()->default()->verified()
+            ->where('connection_status', 'active')->exists();
+
+        $active = (int) $automations->active;
+        $completed = (int) $runs->completed;
+        $failed = (int) $runs->failed;
+
+        $status = match (true) {
+            ! $emailReady => 'email_not_ready',
+            $failed > 0 => 'failing',
+            $active > 0 && $completed === 0 => 'no_recent_runs',
+            $active > 0 => 'healthy',
+            default => 'idle',
+        };
+
+        return [
+            'active' => $active,
+            'paused' => (int) $automations->paused,
+            'scheduled_follow_ups' => $this->openFollowUps($organization)->count(),
+            'completed_7d' => $completed,
+            'failed_7d' => $failed,
+            'email_ready' => $emailReady,
+            'status' => $status,
+        ];
     }
 
     /**
@@ -384,7 +494,7 @@ class DashboardService
             ->whereNotNull('conversation_id')
             ->whereNotNull('received_at')
             ->with([
-                'conversation:id,customer_id',
+                'conversation:id,customer_id,status,needs_attention,latest_intent',
                 'conversation.customer:id,name',
                 'latestClassification:message_classifications.id,message_classifications.message_id,intent,confidence',
             ])
@@ -429,6 +539,145 @@ class DashboardService
     /**
      * @return Builder<FollowUp>
      */
+    /**
+     * Open follow-ups after today and within the next seven days: the list and the total.
+     *
+     * @return array{items: Collection<int, FollowUp>, count: int}
+     */
+    public function upcomingFollowUps(Organization $organization, CarbonImmutable $endOfToday): array
+    {
+        $window = $this->openFollowUps($organization)
+            ->where('due_at', '>', $endOfToday)
+            ->where('due_at', '<=', $endOfToday->addDays(7));
+
+        return [
+            'count' => (clone $window)->count(),
+            'items' => $window->orderBy('due_at')->limit((int) config('dashboard.limits.follow_ups'))->get(),
+        ];
+    }
+
+    /**
+     * Sent or viewed estimates whose "valid until" date falls in the next three days (the organization's calendar).
+     */
+    public function expiringEstimateCount(Organization $organization): int
+    {
+        $today = $organization->localNow();
+
+        return Estimate::query()
+            ->where('organization_id', $organization->id)
+            ->whereIn('status', ['sent', 'viewed'])
+            ->whereBetween('valid_until', [$today->toDateString(), $today->addDays(3)->toDateString()])
+            ->count();
+    }
+
+    /**
+     * Outbound emails that failed in the last seven days. Retries are one message, so none is counted twice.
+     */
+    public function failedEmailCount(Organization $organization): int
+    {
+        return Message::query()
+            ->where('organization_id', $organization->id)
+            ->where('direction', MessageDirection::Outbound)
+            ->where('status', MessageStatus::Failed)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
+    }
+
+    /**
+     * The newest estimates, excluding superseded (cancelled) revisions.
+     *
+     * @return Collection<int, Estimate>
+     */
+    public function recentEstimates(Organization $organization): Collection
+    {
+        return Estimate::query()
+            ->where('organization_id', $organization->id)
+            ->where('status', '!=', 'cancelled')
+            ->with('customer:id,name')
+            ->latest('created_at')->latest('id')
+            ->limit(5)
+            ->get(['id', 'organization_id', 'customer_id', 'estimate_number', 'revision', 'status', 'title', 'total', 'currency', 'created_at']);
+    }
+
+    /**
+     * The plan name and how much of each limit is used. The overall percentage is the fullest limited measure, and
+     * is null when no measure here has a limit.
+     *
+     * @return array{plan: string, percent: ?int, rows: list<array{label: string, used: int, limit: ?int}>}
+     */
+    public function planUsage(Organization $organization): array
+    {
+        $summary = $this->entitlements->summary($organization);
+        $rows = [];
+        $fullest = null;
+
+        foreach ([LimitKey::Customers, LimitKey::Estimates, LimitKey::TeamMembers, LimitKey::Automations] as $key) {
+            $row = $summary[$key->value];
+            $rows[] = ['label' => $row['label'], 'used' => (int) $row['used'], 'limit' => $row['limit'] === null ? null : (int) $row['limit']];
+
+            if ($row['limit'] !== null && $row['limit'] > 0) {
+                $fullest = max($fullest ?? 0, $row['used'] / $row['limit']);
+            }
+        }
+
+        return [
+            'plan' => $this->entitlements->plan($organization)->name,
+            'percent' => $fullest === null ? null : (int) min(100, round($fullest * 100)),
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Grouped problems that need the owner. Each row has a count and, only when the user may use the destination, a
+     * link. Customer replies and overdue follow-ups come first.
+     *
+     * @param  array<string, mixed>  $health
+     * @return Collection<int, array{key: string, icon: string, tone: string, title: string, description: string, count: int, action: ?string, url: ?string}>
+     */
+    public function alerts(User $user, Organization $organization, int $overdue, int $waiting, array $health, int $expiring, int $failedEmails): Collection
+    {
+        $rows = collect();
+
+        if ($waiting > 0) {
+            $rows->push(['key' => 'replies', 'icon' => 'chat', 'tone' => 'violet', 'title' => 'Customer replied: needs your response', 'count' => $waiting,
+                'description' => trans_choice(':count customer has replied and is waiting for a response.|:count customers have replied and are waiting for a response.', $waiting),
+                'action' => 'View messages', 'url' => route('inbox.index', ['filter' => 'waiting'])]);
+        }
+
+        if ($overdue > 0) {
+            $rows->push(['key' => 'overdue', 'icon' => 'clock', 'tone' => 'red', 'title' => 'Overdue follow-ups', 'count' => $overdue,
+                'description' => trans_choice(':count follow-up is past due and still open.|:count follow-ups are past due and still open.', $overdue),
+                'action' => 'View follow-ups', 'url' => route('follow-ups.index', ['filter' => 'overdue'])]);
+        }
+
+        if ($failedEmails > 0) {
+            $rows->push(['key' => 'failed_emails', 'icon' => 'exclamation', 'tone' => 'red', 'title' => 'Emails failed to send', 'count' => $failedEmails,
+                'description' => trans_choice(':count email failed to send in the last 7 days.|:count emails failed to send in the last 7 days.', $failedEmails),
+                'action' => 'View messages', 'url' => route('inbox.index')]);
+        }
+
+        if (! $health['email_ready']) {
+            $rows->push(['key' => 'email', 'icon' => 'envelope', 'tone' => 'sky', 'title' => 'Email sending needs attention', 'count' => 1,
+                'description' => 'No verified, connected sending email is set as the default, so follow-ups cannot be sent.',
+                'action' => $user->can('manage-email') ? 'Fix now' : null, 'url' => $user->can('manage-email') ? route('settings.email') : null]);
+        }
+
+        if ($health['failed_7d'] > 0) {
+            $canView = $user->can('viewAny', Automation::class);
+            $rows->push(['key' => 'automation', 'icon' => 'bolt', 'tone' => 'red', 'title' => 'Automation needs attention', 'count' => $health['failed_7d'],
+                'description' => trans_choice(':count automation execution failed in the last 7 days.|:count automation executions failed in the last 7 days.', $health['failed_7d']),
+                'action' => $canView ? 'View automations' : null, 'url' => $canView ? route('automations.index') : null]);
+        }
+
+        if ($expiring > 0) {
+            $rows->push(['key' => 'expiring', 'icon' => 'document', 'tone' => 'amber', 'title' => 'Estimates expiring soon', 'count' => $expiring,
+                'description' => trans_choice(':count estimate expires within 3 days.|:count estimates expire within 3 days.', $expiring),
+                'action' => 'View estimates', 'url' => route('estimates.index', ['status' => 'awaiting'])]);
+        }
+
+        return $rows;
+    }
+
     private function openFollowUps(Organization $organization): Builder
     {
         return FollowUp::query()
