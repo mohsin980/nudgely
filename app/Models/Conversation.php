@@ -125,6 +125,20 @@ class Conversation extends Model
     }
 
     /**
+     * The same rule as waitingForBusinessSql(), for a conversation that is already loaded.
+     */
+    public function isWaitingForBusiness(): bool
+    {
+        if (in_array($this->status, [ConversationStatus::Closed, ConversationStatus::WaitingCustomer], true)) {
+            return false;
+        }
+
+        return $this->status === ConversationStatus::WaitingBusiness
+            || (bool) $this->needs_attention
+            || in_array($this->latest_intent, AttentionPriorityRules::ACTION_INTENTS, true);
+    }
+
+    /**
      * @param  Builder<Conversation>  $query
      */
     public function scopeWaitingForBusiness(Builder $query): void
