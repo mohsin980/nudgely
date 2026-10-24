@@ -89,7 +89,7 @@ class AccountEmailSender
      *
      * @throws EmailProviderException
      */
-    private function accessToken(EmailConnection $connection): string
+    public function accessToken(EmailConnection $connection): string
     {
         $refreshToken = $connection->credentials['refresh_token'] ?? null;
 
@@ -109,7 +109,7 @@ class AccountEmailSender
     /**
      * Flags the account once. Later failures for the same account change nothing and send no second notice.
      */
-    private function markReauthRequired(EmailConnection $connection): void
+    public function markReauthRequired(EmailConnection $connection): void
     {
         if ($connection->connection_status !== EmailConnection::STATUS_ACTIVE) {
             return;
@@ -164,11 +164,19 @@ class AccountEmailSender
     {
         $html = $email->htmlBody !== null && $email->htmlBody !== '';
 
+        // Graph only takes custom headers that start with "x-"; others (e.g. List-Unsubscribe) are left out.
+        $custom = collect($email->headers)
+            ->filter(fn (string $value, string $name) => str_starts_with(strtolower($name), 'x-'))
+            ->map(fn (string $value, string $name) => ['name' => $name, 'value' => $value])
+            ->values()
+            ->all();
+
         return array_filter([
             'subject' => $email->subject,
             'body' => ['contentType' => $html ? 'HTML' : 'Text', 'content' => $html ? $email->htmlBody : (string) $email->textBody],
             'toRecipients' => [['emailAddress' => array_filter(['address' => $email->toEmail, 'name' => $email->toName])]],
             'replyTo' => $email->replyTo !== null ? [['emailAddress' => ['address' => $email->replyTo]]] : null,
+            'internetMessageHeaders' => $custom ?: null,
         ]);
     }
 

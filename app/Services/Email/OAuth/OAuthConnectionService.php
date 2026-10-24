@@ -55,6 +55,8 @@ class OAuthConnectionService
                 'verification_status' => EmailVerificationStatus::Verified,
                 'verified_at' => now(),
                 'credentials' => ['refresh_token' => $tokens['refresh_token']],
+                // Bounce notices can only be found when the business granted read access to its mailbox.
+                'bounce_scan_enabled' => $this->grantsMailboxRead($provider, $tokens['scope']),
                 'connection_status' => EmailConnection::STATUS_ACTIVE,
                 'status_message' => null,
                 'last_tested_at' => now(),
@@ -64,5 +66,16 @@ class OAuthConnectionService
 
             return $connection;
         });
+    }
+
+    private function grantsMailboxRead(EmailProvider $provider, ?string $scope): bool
+    {
+        $granted = (string) $scope;
+
+        return match ($provider) {
+            EmailProvider::Gmail => str_contains($granted, 'gmail.readonly'),
+            EmailProvider::Microsoft => stripos($granted, 'Mail.Read') !== false,
+            default => false,
+        };
     }
 }

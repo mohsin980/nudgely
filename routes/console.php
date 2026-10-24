@@ -4,11 +4,13 @@ use App\Enums\Billing\WebhookEventStatus;
 use App\Exceptions\Webhooks\WebhookReplayException;
 use App\Jobs\Billing\CheckGracePeriodsJob;
 use App\Jobs\Billing\ExpireTrialsJob;
+use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\WebhookEvent;
 use App\Services\Automation\AutomationEngine;
 use App\Services\Billing\BillingLifecycle;
 use App\Services\Billing\BillingService;
+use App\Services\Email\Bounces\MailboxBounceScanner;
 use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
 use App\Services\FollowUps\FollowUpProcessor;
@@ -17,6 +19,7 @@ use App\Services\Reliability\OperationsReport;
 use App\Services\Webhooks\WebhookReplayService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -61,6 +64,21 @@ Artisan::command('email:recover-stuck-sends', function (EmailService $emails) {
     $this->info($emails->recoverStuckSends((int) config('reliability.email.stuck_sending_minutes')).' stuck email(s) marked failed. None were resent.');
 })->purpose('Mark emails left "sending" by a crashed worker as failed, without resending them');
 
+Artisan::command('email:scan-bounces', function (MailboxBounceScanner $scanner) {
+    $examined = 0;
+
+    foreach (EmailConnection::query()->where('bounce_scan_enabled', true)->where('connection_status', EmailConnection::STATUS_ACTIVE)->orderBy('id')->get() as $connection) {
+        try {
+            $examined += $scanner->scan($connection);
+        } catch (Throwable $e) {
+            // One mailbox failing must not stop the others; the connection's status says what to do.
+            Log::warning('email.bounce_scan_failed', ['event' => 'email.bounce_scan_failed', 'connection_id' => $connection->id, 'exception' => $e::class]);
+        }
+    }
+
+    $this->info("{$examined} mailbox message(s) checked for bounce notices.");
+})->purpose('Find bounce notices in connected Gmail and Outlook mailboxes, and stop emailing addresses that bounced');
+
 Artisan::command('automations:recover-stalled', function (AutomationEngine $engine) {
     $this->info($engine->recoverStalled((int) config('reliability.automation.stalled_after_minutes')).' stalled automation step(s) queued again.');
 })->purpose('Queue again automation steps and runs that nothing is working on');
@@ -83,6 +101,7 @@ Schedule::command('estimates:expire')->hourly()->withoutOverlapping()->onOneServ
 Schedule::command('automations:resume-waiting')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('automations:recover-stalled')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('email:recover-stuck-sends')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+Schedule::command('email:scan-bounces')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('billing:sync-subscriptions')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('billing:send-trial-reminders')->dailyAt('09:00')->withoutOverlapping()->onOneServer();
 Schedule::command('retention:prune')->dailyAt('03:30')->withoutOverlapping()->onOneServer();

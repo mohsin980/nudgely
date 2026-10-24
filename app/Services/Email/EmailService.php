@@ -19,6 +19,7 @@ use App\Models\Message;
 use App\Models\Organization;
 use App\Services\Billing\EntitlementService;
 use App\Services\Customers\EmailPreferenceService;
+use App\Services\Email\Bounces\BounceTokens;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use App\Support\CorrelationId;
@@ -207,6 +208,7 @@ class EmailService
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
                 headers: $this->outboundHeaders($message),
+                bounceAddress: $this->bounceAddressFor($message, $connection),
             );
 
             $result = $provider !== null ? $provider->send($outbound) : $this->accounts->send($connection, $outbound);
@@ -298,18 +300,33 @@ class EmailService
     }
 
     /**
-     * Threading and unsubscribe headers for a message. Microsoft Graph accepts neither threading headers nor the
-     * unsubscribe headers (it only takes "x-" custom headers), so those sends rely on the footer and on their own thread.
+     * Where SMTP bounce notices for this message are sent. Only SMTP lets us choose it; the other providers report bounces themselves.
+     */
+    private function bounceAddressFor(Message $message, EmailConnection $connection): ?string
+    {
+        $domain = config('email.inbound.reply_domain');
+
+        if ($connection->provider !== EmailProvider::Smtp || blank($domain)) {
+            return null;
+        }
+
+        return 'bounce+'.BounceTokens::forMessage($message->id).'@'.strtolower((string) $domain);
+    }
+
+    /**
+     * Headers for a message. Every message names itself, so a bounce notice that copies it back can be matched to it.
+     * Threading and unsubscribe headers are added where the provider accepts them: Microsoft Graph takes neither
+     * (it only takes "x-" custom headers), so those sends rely on the footer and on their own thread.
      *
      * @return array<string, string>
      */
     private function outboundHeaders(Message $message): array
     {
-        if ($message->provider === EmailProvider::Microsoft) {
-            return [];
-        }
+        $headers = [BounceTokens::HEADER => BounceTokens::forMessage($message->id)];
 
-        $headers = [];
+        if ($message->provider === EmailProvider::Microsoft) {
+            return $headers;
+        }
 
         if ($message->in_reply_to !== null) {
             $headers['In-Reply-To'] = $message->in_reply_to;
