@@ -11,6 +11,7 @@ final readonly class OutboundEmail
 {
     /**
      * @param  array<string, string>  $metadata  Small, non-sensitive identifiers (e.g. message ID) passed to the provider.
+     * @param  array<string, string>  $headers  Extra message headers (e.g. List-Unsubscribe), name => value.
      */
     public function __construct(
         public int $organizationId,
@@ -23,6 +24,7 @@ final readonly class OutboundEmail
         public ?string $htmlBody,
         public ?string $replyTo = null,
         public array $metadata = [],
+        public array $headers = [],
     ) {
         if (blank($textBody) && blank($htmlBody)) {
             throw new InvalidArgumentException('An outbound email needs a text or HTML body.');

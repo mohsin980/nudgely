@@ -288,7 +288,7 @@ test('the business can reply by email through EmailService, from the verified se
     expect($email)
         ->from_address->toBe('sales@example.com')
         ->to_address->toBe('john@example.com')
-        ->body_text->toBe('Your estimate is ready.')
+        ->body_text->toStartWith('Your estimate is ready.')
         ->conversation_id->toBe($this->conversation->id)
         ->and($email->metadata['sent_by'])->toBe((string) $this->admin->id)
         ->and($this->conversation->fresh()->status)->toBe(ConversationStatus::WaitingCustomer);
@@ -514,7 +514,7 @@ test('end to end: conversation, reply, AI classification, dashboard and automati
 
     // Business sends "Your estimate is ready."
     $page->set('composerOpen', true)->set('replyBody', 'Your estimate is ready.')->call('sendReply')->assertHasNoErrors();
-    expect(Message::where('body_text', 'Your estimate is ready.')->sole()->from_address)->toBe('sales@example.com');
+    expect(Message::where('body_text', 'like', 'Your estimate is ready.%')->sole()->from_address)->toBe('sales@example.com');
 
     // An active automation reacts to the next classified reply (run by the engine, not the UI).
     $automation = Automation::factory()->active()->create(['organization_id' => $this->organization->id, 'name' => 'Customer Ready to Book', 'trigger_type' => 'customer_reply_classified']);

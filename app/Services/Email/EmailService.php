@@ -4,6 +4,7 @@ namespace App\Services\Email;
 
 use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
+use App\Enums\EmailProvider;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
@@ -17,6 +18,7 @@ use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Services\Billing\EntitlementService;
+use App\Services\Customers\EmailPreferenceService;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use App\Support\CorrelationId;
@@ -97,6 +99,8 @@ class EmailService
         }
 
         $connection = $this->defaultConnection($organization);
+
+        [$html, $text] = $this->withUnsubscribeFooter($organization, $customer, $html, $text);
 
         $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text, $metadata) {
             $message = $this->createMessage(
@@ -200,6 +204,7 @@ class EmailService
                 htmlBody: $message->body_html,
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
+                headers: $this->unsubscribeHeaders($message),
             );
 
             $result = $provider !== null ? $provider->send($outbound) : $this->accounts->send($connection, $outbound);
@@ -235,6 +240,49 @@ class EmailService
         ]);
 
         return $result;
+    }
+
+    /**
+     * Every email to a customer carries a way to stop them: a footer link everywhere, and the List-Unsubscribe
+     * headers (including one-click, RFC 8058) where the provider allows custom headers.
+     *
+     * @return array{0: ?string, 1: ?string} The HTML and text bodies with the footer added.
+     */
+    private function withUnsubscribeFooter(Organization $organization, Customer $customer, ?string $html, ?string $text): array
+    {
+        $url = app(EmailPreferenceService::class)->unsubscribeUrl($customer);
+        $line = "Don't want emails from {$organization->name}?";
+
+        return [
+            $html === null ? null : $html.'<p style="margin-top:24px;font-size:12px;color:#64748b">'.e($line).' <a href="'.e($url).'">Unsubscribe</a></p>',
+            $text === null ? null : rtrim($text)."\n\n--\n{$line} Unsubscribe: {$url}",
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function unsubscribeHeaders(Message $message): array
+    {
+        // Only email to a conversation's customer; invitations, team notices and test emails have no unsubscribe.
+        if ($message->conversation_id === null) {
+            return [];
+        }
+
+        $customer = Customer::query()
+            ->where('organization_id', $message->organization_id)
+            ->whereIn('id', fn ($query) => $query->select('customer_id')->from('conversations')->where('id', $message->conversation_id))
+            ->first();
+
+        // Microsoft Graph only accepts custom headers that start with "x-", so those sends rely on the footer link.
+        if ($customer === null || $message->provider === EmailProvider::Microsoft) {
+            return [];
+        }
+
+        return [
+            'List-Unsubscribe' => '<'.app(EmailPreferenceService::class)->unsubscribeUrl($customer).'>',
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+        ];
     }
 
     /**
