@@ -20,7 +20,10 @@
                     <span class="text-slate-500">Status:</span>
                     <span @class(['rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', 'bg-green-50 text-green-700 ring-green-600/20' => $this->customer->isActive(), 'bg-slate-100 text-slate-500 ring-gray-500/20' => ! $this->customer->isActive()])>{{ $this->customer->status->label() }}</span>
                     @if ($this->customer->hasOptedOutOfEmail())
-                        <span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset">Opted out of email</span>
+                        <span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset" data-opt-out>Opted out of email{{ $this->customer->email_opted_out_source === 'link' ? ' (unsubscribed from a link)' : '' }}</span>
+                        <button type="button" wire:click="allowEmailing" wire:confirm="Only email this customer if they asked you to. Allow email again?" class="text-xs font-medium text-violet-700 hover:underline">Allow email again</button>
+                    @else
+                        <button type="button" wire:click="stopEmailing" wire:confirm="Stop all email to this customer, including automated follow-ups?" class="text-xs font-medium text-slate-500 hover:underline">Stop emailing</button>
                     @endif
                 </p>
             </div>

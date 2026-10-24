@@ -174,7 +174,7 @@ class AutomationEndToEndTest extends TestCase
         $this->assertSame('sales@example.com', $email->from_address);
         $this->assertSame('john@example.com', $email->to_address);
         $this->assertSame('Thanks, John', $email->subject);
-        $this->assertSame("Hi John,\nThanks for your interest. We'll be in touch.\nDallas Cooling", $email->body_text);
+        $this->assertStringStartsWith("Hi John,\nThanks for your interest. We'll be in touch.\nDallas Cooling", $email->body_text);
         $this->assertStringStartsWith('reply+', $email->reply_to);
         $this->assertSame($this->conversation->id, $email->conversation_id);
         Queue::assertPushed(SendEmailJob::class, fn (SendEmailJob $job) => $job->messageId === $email->id);

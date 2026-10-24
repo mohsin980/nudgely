@@ -41,8 +41,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Suspended and removed members are signed out on their next request.
         $middleware->web(append: [EnsureActiveMember::class, SecurityHeaders::class]);
 
-        // Provider webhooks authenticate themselves and carry no CSRF token.
-        $middleware->validateCsrfTokens(except: ['webhooks/*']);
+        // Provider webhooks authenticate themselves and carry no CSRF token. Unsubscribe links are signed and are
+        // also called by mail providers' one-click unsubscribe (RFC 8058), which cannot send a token.
+        $middleware->validateCsrfTokens(except: ['webhooks/*', 'unsubscribe/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -150,6 +150,10 @@ class AccountEmailSender
             $message->replyTo($email->replyTo);
         }
 
+        foreach ($email->headers as $name => $value) {
+            $message->getHeaders()->addTextHeader($name, $value);
+        }
+
         return $message->toString();
     }
 

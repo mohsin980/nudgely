@@ -49,6 +49,10 @@ class SmtpEmailProvider
             $message->replyTo($email->replyTo);
         }
 
+        foreach ($email->headers as $name => $value) {
+            $message->getHeaders()->addTextHeader($name, $value);
+        }
+
         $transport = $this->transport($settings);
 
         try {

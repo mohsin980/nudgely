@@ -7,6 +7,7 @@ use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Settings\EmailOAuthController;
 use App\Http\Controllers\Settings\LogoController;
+use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
@@ -148,6 +149,13 @@ Route::prefix('estimate/view/{token}')->name('estimates.public.')->where(['token
     Route::get('/', [PublicEstimateController::class, 'show'])->name('show');
     Route::post('/accept', [PublicEstimateController::class, 'accept'])->name('accept');
     Route::post('/decline', [PublicEstimateController::class, 'decline'])->name('decline');
+});
+
+// A customer's unsubscribe link from our emails: the signature is the only credential. GET only shows the page
+// (mail scanners open links); the POST, from the page or a mail app's one-click button, does the unsubscribing.
+Route::middleware(['signed', 'throttle:unsubscribe'])->prefix('unsubscribe/{customer}')->where(['customer' => '[0-9]+'])->name('unsubscribe.')->group(function () {
+    Route::get('/', [UnsubscribeController::class, 'show'])->name('show');
+    Route::post('/', [UnsubscribeController::class, 'store'])->name('store');
 });
 
 // Old addresses (e.g. links stored in notifications) keep working.

@@ -116,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('email-webhooks', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
         // Customer estimate links: generous for people, slow for anyone guessing tokens.
         RateLimiter::for('public-estimates', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        RateLimiter::for('unsubscribe', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         // Anything that makes the payment provider do work for a business.
         RateLimiter::for('billing', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));

@@ -12,6 +12,7 @@ use App\Models\FollowUp;
 use App\Models\Task;
 use App\Services\Conversations\ConversationService;
 use App\Services\Conversations\TimelineService;
+use App\Services\Customers\EmailPreferenceService;
 use App\Services\Tasks\TaskService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -170,6 +171,27 @@ class ShowCustomer extends Component
         }
 
         $this->redirectRoute('inbox.show', $conversation->id, navigate: true);
+    }
+
+    public function stopEmailing(EmailPreferenceService $preferences): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $preferences->optOut($this->customer, EmailPreferenceService::SOURCE_STAFF);
+        $this->customerChanged();
+    }
+
+    public function allowEmailing(EmailPreferenceService $preferences): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $preferences->optIn(Auth::user(), $this->customer);
+        $this->customerChanged();
+    }
+
+    private function customerChanged(): void
+    {
+        unset($this->customer, $this->followUps, $this->timeline);
     }
 
     public function completeTask(int $taskId, TaskService $tasks): void
