@@ -279,7 +279,12 @@ test('a missing sending email shows as an action with a link only for people who
 
     $staff = User::factory()->staff()->for($this->organization)->create();
     $alert = snapshot($staff)->alerts->firstWhere('key', 'email');
-    expect($alert['url'])->toBeNull()->and($alert['action'])->toBeNull();
+    expect($alert['url'])->toBeNull()->and($alert['action'])->toBeNull()
+        ->and($alert['hint'])->toBe('Ask the business owner to connect and verify a sending email.');
+
+    // Someone who cannot fix it is told who can, instead of seeing a problem with no way forward.
+    dashboard($staff)->assertSee('Email sending needs attention')->assertSee('Ask the business owner to connect and verify a sending email.')->assertDontSee('Fix now');
+    expect(snapshot($this->admin)->alerts->firstWhere('key', 'email')['hint'])->toBeNull();
 });
 
 test('attention is ordered by priority, and business rules can override the AI', function () {
@@ -832,4 +837,15 @@ test('the "Need reply" tab and tag follow the same rule as the waiting count', f
         ->and(snapshot($this->admin)->summary['waiting'])->toBe(1);
 
     dashboard($this->admin)->assertSee('Need reply (1)')->assertSee('Needs reply');
+});
+
+test('team seats do not drive the overall plan usage, and the bar names what is closest to its limit', function () {
+    $usage = snapshot($this->admin)->planUsage;
+    $growing = collect($usage['rows'])->filter(fn ($row) => in_array($row['label'], ['Customers', 'Estimates', 'Automations'], true) && $row['limit']);
+    $expected = (int) min(100, round($growing->map(fn ($row) => $row['used'] / $row['limit'])->max() * 100));
+
+    expect($usage['percent'])->toBe($expected)
+        ->and($usage['fullest'])->toBeIn(['Customers', 'Estimates', 'Automations']);
+
+    dashboard($this->admin)->assertSeeHtml('data-plan-fullest>'.$usage['fullest'].'<')->assertSee('Closest to a limit:');
 });

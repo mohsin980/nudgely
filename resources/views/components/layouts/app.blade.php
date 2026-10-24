@@ -113,7 +113,7 @@
                     @endcan
                 @endauth
 
-                <main id="main" class="mx-auto min-w-0 max-w-6xl px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:py-10">
+                <main id="main" class="mx-auto min-w-0 max-w-screen-2xl px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:py-10">
                     {{ $slot }}
                 </main>
             </div>

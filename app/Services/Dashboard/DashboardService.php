@@ -600,29 +600,39 @@ class DashboardService
     }
 
     /**
-     * The plan name and how much of each limit is used. The overall percentage is the fullest limited measure, and
-     * is null when no measure here has a limit.
+     * The plan name and how much of each limit is used. The overall percentage is the fullest of the measures that
+     * grow with use (customers, estimates, automations) and names which one it is. Team seats are listed but do not
+     * drive it: one seat in use on a one-seat plan is the owner, not consumption. It is null when none of those
+     * measures has a limit.
      *
-     * @return array{plan: string, percent: ?int, rows: list<array{label: string, used: int, limit: ?int}>}
+     * @return array{plan: string, percent: ?int, fullest: ?string, rows: list<array{label: string, used: int, limit: ?int}>}
      */
     public function planUsage(Organization $organization): array
     {
         $summary = $this->entitlements->summary($organization);
+        $growing = [LimitKey::Customers, LimitKey::Estimates, LimitKey::Automations];
         $rows = [];
         $fullest = null;
+        $fullestLabel = null;
 
         foreach ([LimitKey::Customers, LimitKey::Estimates, LimitKey::TeamMembers, LimitKey::Automations] as $key) {
             $row = $summary[$key->value];
             $rows[] = ['label' => $row['label'], 'used' => (int) $row['used'], 'limit' => $row['limit'] === null ? null : (int) $row['limit']];
 
-            if ($row['limit'] !== null && $row['limit'] > 0) {
-                $fullest = max($fullest ?? 0, $row['used'] / $row['limit']);
+            if (in_array($key, $growing, true) && $row['limit'] !== null && $row['limit'] > 0) {
+                $ratio = $row['used'] / $row['limit'];
+
+                if ($fullest === null || $ratio > $fullest) {
+                    $fullest = $ratio;
+                    $fullestLabel = $row['label'];
+                }
             }
         }
 
         return [
             'plan' => $this->entitlements->plan($organization)->name,
             'percent' => $fullest === null ? null : (int) min(100, round($fullest * 100)),
+            'fullest' => $fullestLabel,
             'rows' => $rows,
         ];
     }
@@ -632,7 +642,7 @@ class DashboardService
      * link. Customer replies and overdue follow-ups come first.
      *
      * @param  array<string, mixed>  $health
-     * @return Collection<int, array{key: string, icon: string, tone: string, title: string, description: string, count: int, action: ?string, url: ?string}>
+     * @return Collection<int, array{key: string, icon: string, tone: string, title: string, description: string, count: int, action: ?string, url: ?string, hint: ?string}>
      */
     public function alerts(User $user, Organization $organization, int $overdue, int $waiting, array $health, int $expiring, int $failedEmails): Collection
     {
@@ -641,38 +651,40 @@ class DashboardService
         if ($waiting > 0) {
             $rows->push(['key' => 'replies', 'icon' => 'chat', 'tone' => 'violet', 'title' => 'Customer replied: needs your response', 'count' => $waiting,
                 'description' => trans_choice(':count customer has replied and is waiting for a response.|:count customers have replied and are waiting for a response.', $waiting),
-                'action' => 'View messages', 'url' => route('inbox.index', ['filter' => 'waiting'])]);
+                'action' => 'View messages', 'url' => route('inbox.index', ['filter' => 'waiting']), 'hint' => null]);
         }
 
         if ($overdue > 0) {
             $rows->push(['key' => 'overdue', 'icon' => 'clock', 'tone' => 'red', 'title' => 'Overdue follow-ups', 'count' => $overdue,
                 'description' => trans_choice(':count follow-up is past due and still open.|:count follow-ups are past due and still open.', $overdue),
-                'action' => 'View follow-ups', 'url' => route('follow-ups.index', ['filter' => 'overdue'])]);
+                'action' => 'View follow-ups', 'url' => route('follow-ups.index', ['filter' => 'overdue']), 'hint' => null]);
         }
 
         if ($failedEmails > 0) {
             $rows->push(['key' => 'failed_emails', 'icon' => 'exclamation', 'tone' => 'red', 'title' => 'Emails failed to send', 'count' => $failedEmails,
                 'description' => trans_choice(':count email failed to send in the last 7 days.|:count emails failed to send in the last 7 days.', $failedEmails),
-                'action' => 'View messages', 'url' => route('inbox.index')]);
+                'action' => 'View messages', 'url' => route('inbox.index'), 'hint' => null]);
         }
 
         if (! $health['email_ready']) {
             $rows->push(['key' => 'email', 'icon' => 'envelope', 'tone' => 'sky', 'title' => 'Email sending needs attention', 'count' => 1,
                 'description' => 'No verified, connected sending email is set as the default, so follow-ups cannot be sent.',
-                'action' => $user->can('manage-email') ? 'Fix now' : null, 'url' => $user->can('manage-email') ? route('settings.email') : null]);
+                'action' => $user->can('manage-email') ? 'Fix now' : null, 'url' => $user->can('manage-email') ? route('settings.email') : null,
+                'hint' => $user->can('manage-email') ? null : 'Ask the business owner to connect and verify a sending email.']);
         }
 
         if ($health['failed_7d'] > 0) {
             $canView = $user->can('viewAny', Automation::class);
             $rows->push(['key' => 'automation', 'icon' => 'bolt', 'tone' => 'red', 'title' => 'Automation needs attention', 'count' => $health['failed_7d'],
                 'description' => trans_choice(':count automation execution failed in the last 7 days.|:count automation executions failed in the last 7 days.', $health['failed_7d']),
-                'action' => $canView ? 'View automations' : null, 'url' => $canView ? route('automations.index') : null]);
+                'action' => $canView ? 'View automations' : null, 'url' => $canView ? route('automations.index') : null,
+                'hint' => $canView ? null : 'Ask the business owner to review it.']);
         }
 
         if ($expiring > 0) {
             $rows->push(['key' => 'expiring', 'icon' => 'document', 'tone' => 'amber', 'title' => 'Estimates expiring soon', 'count' => $expiring,
                 'description' => trans_choice(':count estimate expires within 3 days.|:count estimates expire within 3 days.', $expiring),
-                'action' => 'View estimates', 'url' => route('estimates.index', ['status' => 'awaiting'])]);
+                'action' => 'View estimates', 'url' => route('estimates.index', ['status' => 'awaiting']), 'hint' => null]);
         }
 
         return $rows;
