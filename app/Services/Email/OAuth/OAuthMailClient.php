@@ -4,6 +4,7 @@ namespace App\Services\Email\OAuth;
 
 use App\Enums\EmailProvider;
 use App\Exceptions\Email\EmailProviderException;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -28,11 +29,14 @@ class OAuthMailClient
 
     private const GMAIL_SEND = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 
+    private const GMAIL_MESSAGES = 'https://gmail.googleapis.com/gmail/v1/users/me/messages';
+
     private const GRAPH = 'https://graph.microsoft.com/v1.0';
 
-    private const GOOGLE_SCOPES = 'openid email https://www.googleapis.com/auth/gmail.send';
+    /** gmail.readonly lets us find bounce notices in the business's own mailbox. */
+    private const GOOGLE_SCOPES = 'openid email https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly';
 
-    private const MICROSOFT_SCOPES = 'openid email offline_access User.Read Mail.Send';
+    private const MICROSOFT_SCOPES = 'openid email offline_access User.Read Mail.Send Mail.Read';
 
     public function authorizeUrl(EmailProvider $provider, string $state, string $challenge, string $redirectUri): string
     {
@@ -61,7 +65,7 @@ class OAuthMailClient
     }
 
     /**
-     * @return array{access_token: string, refresh_token: ?string, expires_in: int}
+     * @return array{access_token: string, refresh_token: ?string, expires_in: int, scope: ?string}
      *
      * @throws EmailProviderException
      */
@@ -179,9 +183,101 @@ class OAuthMailClient
     }
 
     /**
+     * Recent mailbox messages that may be bounce notices, as provider message IDs.
+     *
+     * @return list<string>
+     *
+     * @throws EmailProviderException
+     */
+    public function listBounceCandidates(EmailProvider $provider, string $accessToken, int $days): array
+    {
+        return match ($provider) {
+            EmailProvider::Gmail => $this->gmailBounceCandidates($accessToken, $days),
+            EmailProvider::Microsoft => $this->microsoftBounceCandidates($accessToken, $days),
+            default => throw EmailProviderException::notConfigured('Bounce notices are read from Gmail and Outlook only.'),
+        };
+    }
+
+    /**
+     * The full MIME message of one mailbox message.
+     *
+     * @throws EmailProviderException
+     */
+    public function fetchRaw(EmailProvider $provider, string $accessToken, string $providerMessageId): string
+    {
+        if ($provider === EmailProvider::Gmail) {
+            $response = $this->send(fn () => $this->request($accessToken)->get(self::GMAIL_MESSAGES.'/'.rawurlencode($providerMessageId), ['format' => 'raw']));
+            $raw = (string) $response->json('raw', '');
+
+            return (string) base64_decode(strtr($raw, '-_', '+/'), true);
+        }
+
+        $response = $this->send(fn () => Http::withToken($accessToken)->withHeaders(['Accept' => 'message/rfc822'])->timeout($this->timeout())
+            ->get(self::GRAPH.'/me/messages/'.rawurlencode($providerMessageId).'/$value'));
+
+        return $response->body();
+    }
+
+    /**
+     * @return list<string>
+     *
+     * @throws EmailProviderException
+     */
+    private function gmailBounceCandidates(string $accessToken, int $days): array
+    {
+        $response = $this->send(fn () => $this->request($accessToken)->get(self::GMAIL_MESSAGES, [
+            'q' => "newer_than:{$days}d (from:mailer-daemon OR from:postmaster OR subject:(undelivered OR \"delivery status notification\"))",
+            'maxResults' => 50,
+        ]));
+
+        return collect($response->json('messages', []))->pluck('id')->filter(fn ($id) => is_string($id) && $id !== '')->values()->all();
+    }
+
+    /**
+     * Graph has no query for "from a mailer daemon", so recent messages are fetched and matched here.
+     *
+     * @return list<string>
+     *
+     * @throws EmailProviderException
+     */
+    private function microsoftBounceCandidates(string $accessToken, int $days): array
+    {
+        $since = CarbonImmutable::now('UTC')->subDays($days)->format('Y-m-d\TH:i:s\Z');
+
+        $response = $this->send(fn () => $this->request($accessToken)->get(self::GRAPH.'/me/messages', [
+            '$filter' => "receivedDateTime ge {$since}",
+            '$select' => 'id,from,subject',
+            '$orderby' => 'receivedDateTime desc',
+            '$top' => 50,
+        ]));
+
+        return collect($response->json('value', []))
+            ->filter(fn (array $message) => $this->looksLikeBounce($message))
+            ->pluck('id')
+            ->filter(fn ($id) => is_string($id) && $id !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $message
+     */
+    private function looksLikeBounce(array $message): bool
+    {
+        $from = strtolower((string) data_get($message, 'from.emailAddress.address', ''));
+        $subject = strtolower((string) ($message['subject'] ?? ''));
+
+        return str_contains($from, 'mailer-daemon')
+            || str_contains($from, 'postmaster')
+            || str_contains($subject, 'undeliverable')
+            || str_contains($subject, 'undelivered')
+            || str_contains($subject, 'delivery status notification');
+    }
+
+    /**
      * @param  array<string, string>  $form
      * @param  callable(Response): EmailProviderException  $onRejected
-     * @return array{access_token: string, refresh_token: ?string, expires_in: int}
+     * @return array{access_token: string, refresh_token: ?string, expires_in: int, scope: ?string}
      *
      * @throws EmailProviderException
      */
@@ -210,6 +306,8 @@ class OAuthMailClient
             'access_token' => $token,
             'refresh_token' => is_string($response->json('refresh_token')) ? $response->json('refresh_token') : null,
             'expires_in' => (int) $response->json('expires_in', 3600),
+            // The permissions the business actually granted (space-separated); they can be fewer than requested.
+            'scope' => is_string($response->json('scope')) ? $response->json('scope') : null,
         ];
     }
 

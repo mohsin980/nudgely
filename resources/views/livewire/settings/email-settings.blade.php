@@ -138,6 +138,9 @@
                             @if ($account->status_message && $account->connection_status !== \App\Models\EmailConnection::STATUS_ACTIVE)
                                 <p class="mt-1 text-sm text-slate-500">{{ $account->status_message }}</p>
                             @endif
+                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE && ! $account->bounce_scan_enabled && $account->provider !== \App\Enums\EmailProvider::Smtp)
+                                <p class="mt-1 text-sm text-slate-500" data-bounce-tracking="off">Bounce tracking is off. Reconnect to let QuoteFlow read bounce notices in this mailbox.</p>
+                            @endif
                         </div>
 
                         <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">

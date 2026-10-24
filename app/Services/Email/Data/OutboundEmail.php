@@ -25,6 +25,8 @@ final readonly class OutboundEmail
         public ?string $replyTo = null,
         public array $metadata = [],
         public array $headers = [],
+        /** SMTP only: where bounce notices are sent (the envelope sender). Not the From address. */
+        public ?string $bounceAddress = null,
     ) {
         if (blank($textBody) && blank($htmlBody)) {
             throw new InvalidArgumentException('An outbound email needs a text or HTML body.');

@@ -102,13 +102,13 @@ These cannot be done from the repository. Without them the OAuth flows cannot be
 **Google**
 - A Google Cloud project with the Gmail API enabled.
 - An OAuth client (Web application) with the redirect URI `https://<app-domain>/settings/email/gmail/callback`.
-- OAuth consent screen: scopes `openid`, `email`, `https://www.googleapis.com/auth/gmail.send`. Gmail send is a *restricted* scope: production use needs Google's verification and a security assessment. Until then only test users can connect.
+- OAuth consent screen: scopes `openid`, `email`, `https://www.googleapis.com/auth/gmail.send`, and `https://www.googleapis.com/auth/gmail.readonly` (for bounce notices). Both are *restricted* scopes: production use needs Google's verification and a security assessment. Until then only test users can connect.
 - Environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
 
 **Microsoft**
 - A Microsoft Entra app registration with supported account types *Accounts in any organizational directory and personal Microsoft accounts* (so Outlook.com/Hotmail and Microsoft 365 both work).
 - Redirect URI `https://<app-domain>/settings/email/microsoft/callback` (Web).
-- Delegated permissions: `Mail.Send`, `User.Read`, `offline_access`, `openid`, `email`. Organizational tenants may require admin consent.
+- Delegated permissions: `Mail.Send`, `Mail.Read` (for bounce notices), `User.Read`, `offline_access`, `openid`, `email`. Organizational tenants may require admin consent.
 - Environment: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT` (default `common`).
 
 **SMTP**
@@ -120,7 +120,8 @@ These cannot be done from the repository. Without them the OAuth flows cannot be
 - Gmail and Microsoft sending counts against the sender's own sending limits.
 - Microsoft has no revocation step in this flow. Disconnecting leaves the grant in place until the business removes the app in its Microsoft account.
 - `encryption = none` is accepted only when `QUOTE_FLOW_SMTP_ALLOW_PRIVATE_HOSTS` is on, so that flag also permits unencrypted SMTP. Keep it off in production.
-- Microsoft `sendMail` returns no message ID. The record stores a local ID. Bounces and delivery updates are not available from Gmail, Microsoft or SMTP.
+- Microsoft `sendMail` returns no message ID. The record stores a local ID.
+- Delivery updates are not available from Gmail, Microsoft or SMTP. Bounces are found another way (section 5c).
 - SMTP senders must send as the login address. Aliases are not supported yet.
 - The SMTP private-address check runs before connecting. A DNS name that changes its address between the check and the connection is not re-checked.
 - A transient failure after the provider accepted a message (for example a 5xx returned after acceptance) can cause a resend. The same rule exists for Postmark.
@@ -147,3 +148,17 @@ These cannot be done from the repository. Without them the OAuth flows cannot be
 - Gmail sending counts against the sender's Gmail sending limits; Google restricts API use for consumer accounts.
 - Microsoft `sendMail` returns no message ID, so the stored provider message ID is empty for these sends. Bounce and delivery updates are not available from these providers.
 - SMTP and account senders cannot receive delivery webhooks; their messages stay `sent` (accepted), never `delivered`.
+
+## 5c. Bounce notices
+
+A permanent bounce (a 5.x.x status) marks the message bounced and stops emailing that address (`customers.email_suppressed_address`). A temporary bounce (4.x.x) changes nothing.
+
+How each provider reports bounces:
+- **Postmark**: delivery webhooks, as before.
+- **SMTP**: the envelope sender is `bounce+<token>@<reply domain>`, so the server's bounce notice comes back to the inbound webhook. The domain's MX must point at the inbound provider, as for replies.
+- **Gmail and Outlook**: the notice lands in the business's own mailbox, so the connection must be granted read access (`gmail.readonly` / `Mail.Read`). `email:scan-bounces` runs every 15 minutes and examines mailbox messages from mailer-daemon or postmaster senders, or with bounce subjects, from the last 3 days. Connections made before this change show "Bounce tracking is off" until the business reconnects.
+
+Every outbound message carries `X-QuoteFlow-Message: <id>.<signature>`. A notice is applied only if its token is signed by us and names a message from the same connection. Each mailbox message is examined once (`mailbox_bounce_notices` keeps the outcome, not the content).
+
+Known limits: this relies on the bounce notice copying our headers back, which mail servers normally do but do not guarantee. The Gmail and Outlook reads need the restricted scope described in section 4, and none of this has been run against live mailboxes.
+

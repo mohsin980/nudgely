@@ -6,6 +6,7 @@ use App\Exceptions\Email\EmailProviderException;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use App\Services\Email\Data\SmtpSettings;
+use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
@@ -56,7 +57,12 @@ class SmtpEmailProvider
         $transport = $this->transport($settings);
 
         try {
-            $sent = $transport->send($message);
+            // Bounce notices go to the bounce address, which routes them back to QuoteFlow. The From header is unchanged.
+            $envelope = $email->bounceAddress === null
+                ? null
+                : new Envelope(new Address($email->bounceAddress), [new Address($email->toEmail)]);
+
+            $sent = $transport->send($message, $envelope);
         } catch (TransportExceptionInterface $e) {
             // The server may have accepted the message before the connection failed, so only failures
             // before the message was handed over are safe to retry; the category decides which.

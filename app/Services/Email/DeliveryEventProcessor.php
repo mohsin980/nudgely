@@ -6,9 +6,9 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Exceptions\Email\InvalidDeliveryEventException;
 use App\Exceptions\Email\MessageNotYetSentException;
-use App\Models\Customer;
 use App\Models\Message;
 use App\Models\WebhookEvent;
+use App\Services\Email\Bounces\BounceRecorder;
 use App\Services\Email\Data\DeliveryEvent;
 use App\Services\Email\Events\PostmarkDeliveryEvents;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +36,10 @@ class DeliveryEventProcessor
 
     public const INVALID = 'invalid';
 
-    public function __construct(private readonly PostmarkDeliveryEvents $events) {}
+    public function __construct(
+        private readonly PostmarkDeliveryEvents $events,
+        private readonly BounceRecorder $bounces,
+    ) {}
 
     public function process(WebhookEvent $event): string
     {
@@ -152,7 +155,7 @@ class DeliveryEventProcessor
         ))->save();
 
         if (in_array($target, [MessageStatus::Bounced, MessageStatus::Complained], true)) {
-            $this->suppressAddress($message, $target);
+            $this->bounces->suppress($message, $target);
         }
 
         $event->markProcessed();
@@ -174,31 +177,5 @@ class DeliveryEventProcessor
             : Log::info($context['event'], $context);
 
         return $reconciling ? self::RECONCILED : self::APPLIED;
-    }
-
-    /**
-     * A bounced or complained address is not emailed again until the customer's address changes.
-     * The customer record itself is kept.
-     */
-    private function suppressAddress(Message $message, MessageStatus $reason): void
-    {
-        if ($message->conversation_id === null) {
-            return;
-        }
-
-        $customer = Customer::query()
-            ->where('organization_id', $message->organization_id)
-            ->whereIn('id', DB::table('conversations')->where('id', $message->conversation_id)->select('customer_id'))
-            ->first();
-
-        if ($customer === null || strtolower((string) $customer->email) !== strtolower((string) $message->to_address)) {
-            return;
-        }
-
-        $customer->forceFill([
-            'email_suppressed_address' => strtolower((string) $customer->email),
-            'email_suppression_reason' => $reason->value,
-            'email_suppressed_at' => now(),
-        ])->save();
     }
 }

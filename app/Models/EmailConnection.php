@@ -56,6 +56,7 @@ class EmailConnection extends Model
             'provider' => EmailProvider::class,
             'verification_status' => EmailVerificationStatus::class,
             'is_default' => 'boolean',
+            'bounce_scan_enabled' => 'boolean',
             'verified_at' => 'datetime',
             'dns_records' => 'array',
             'credentials' => 'encrypted:array',

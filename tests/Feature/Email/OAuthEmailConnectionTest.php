@@ -61,7 +61,7 @@ test('Connect Google redirects with PKCE, a one-time state and only the scopes i
     expect($location)->toStartWith('https://accounts.google.com/o/oauth2/v2/auth')
         ->and($query['code_challenge_method'])->toBe('S256')
         ->and($query['access_type'])->toBe('offline')
-        ->and($query['scope'])->toBe('openid email https://www.googleapis.com/auth/gmail.send')
+        ->and($query['scope'])->toBe('openid email https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly')
         ->and($query['state'])->toBe(session('email_oauth_pending')['state'])
         ->and($query['code_challenge'])->not->toBe(session('email_oauth_pending')['verifier']);
 });
