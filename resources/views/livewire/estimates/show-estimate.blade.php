@@ -131,6 +131,21 @@
                         <x-copy-button :value="$estimate->publicUrl()" label="Copy link" />
                     </div>
                 @endif
+                @can('update', $estimate)
+                    @if ($status->isAwaitingCustomer())
+                        <div class="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                            <p class="text-xs font-medium text-slate-500">Did the customer answer outside this link (a call or text)?</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" wire:click="markAccepted" wire:confirm="Mark this estimate as accepted? Its automated follow-ups will stop." class="{{ $button }}">Mark accepted</button>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="outcome-note" class="block text-sm text-slate-700">Mark declined (optional note)</label>
+                                <input id="outcome-note" type="text" wire:model="outcomeNote" maxlength="500" class="block w-full rounded-lg border-slate-300 text-sm shadow-xs focus:border-violet-500 focus:ring-violet-500">
+                                <button type="button" wire:click="markDeclined" wire:confirm="Mark this estimate as declined? Its automated follow-ups will stop." class="{{ $button }}">Mark declined</button>
+                            </div>
+                        </div>
+                    @endif
+                @endcan
             </section>
 
             {{-- Follow-ups --}}

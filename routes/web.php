@@ -147,6 +147,7 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('estimates')->nam
 // The customer's estimate page: no account; the unguessable link is the only credential.
 Route::prefix('estimate/view/{token}')->name('estimates.public.')->where(['token' => '[A-Za-z0-9]{48}'])->middleware('throttle:public-estimates')->group(function () {
     Route::get('/', [PublicEstimateController::class, 'show'])->name('show');
+    Route::post('/viewed', [PublicEstimateController::class, 'viewed'])->name('viewed');
     Route::post('/accept', [PublicEstimateController::class, 'accept'])->name('accept');
     Route::post('/decline', [PublicEstimateController::class, 'decline'])->name('decline');
 });

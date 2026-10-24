@@ -471,6 +471,25 @@ class EstimateService
         return $this->decide($estimate, EstimateStatus::Declined, $reason, $note === '' ? null : $note);
     }
 
+    /**
+     * The business records a decision the customer made outside the link (a phone call, a text). It follows the same
+     * rules as the customer's own decision: the estimate must still be waiting, and follow-ups stop.
+     *
+     * @throws EstimateException
+     */
+    public function recordOutcome(User $actor, Estimate $estimate, EstimateStatus $decision, ?string $note = null): Estimate
+    {
+        $organization = $this->organizationOf($actor, $estimate);
+
+        if (! in_array($decision, [EstimateStatus::Accepted, EstimateStatus::Declined], true)) {
+            throw new EstimateException('Choose accepted or declined.');
+        }
+
+        $note = $note === null ? null : Str::limit(trim(strip_tags($note)), 500, '');
+
+        return $this->decide($estimate, $decision, null, $note === '' ? null : $note, $actor);
+    }
+
     // Expiry
 
     /**
@@ -578,12 +597,12 @@ class EstimateService
     /**
      * @throws EstimateException
      */
-    private function decide(Estimate $estimate, EstimateStatus $decision, ?EstimateDeclineReason $reason = null, ?string $note = null): Estimate
+    private function decide(Estimate $estimate, EstimateStatus $decision, ?EstimateDeclineReason $reason = null, ?string $note = null, ?User $recordedBy = null): Estimate
     {
         // Expiry is committed on its own, so the customer's error below doesn't undo it.
         $this->expireIfPastValidUntil($estimate);
 
-        $decided = DB::transaction(function () use ($estimate, $decision, $reason, $note) {
+        $decided = DB::transaction(function () use ($estimate, $decision, $reason, $note, $recordedBy) {
             $locked = $this->lock($estimate);
 
             if ($locked->status === $decision) {
@@ -605,7 +624,7 @@ class EstimateService
                 : ['status' => EstimateStatus::Declined, 'declined_at' => $now, 'viewed_at' => $locked->viewed_at ?? $now, 'decline_reason' => $reason, 'decline_note' => $note]
             )->save();
 
-            ConversationEvent::recordForEstimate($locked, 'estimate_'.$decision->value, null, array_filter([
+            ConversationEvent::recordForEstimate($locked, 'estimate_'.$decision->value, $recordedBy, array_filter([
                 'total' => $locked->money('total'),
                 'reason' => $reason?->label(),
                 'note' => $note,

@@ -212,7 +212,7 @@ test('amounts are recalculated from the items before sending', function () {
 
 // Customer view
 
-test('the secure link shows the estimate and marks it viewed once', function () {
+test('the secure link shows the estimate, and the browser report marks it viewed once', function () {
     Event::fake([EstimateViewed::class]);
     $estimate = sentEstimate($this->admin, $this->john);
 
@@ -223,10 +223,15 @@ test('the secure link shows the estimate and marks it viewed once', function () 
         ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
         ->assertHeader('Referrer-Policy', 'no-referrer');
 
+    // Loading the page does not change the estimate: scanners open links without a browser.
+    expect($estimate->refresh()->status)->toBe(EstimateStatus::Sent);
+
+    $this->post($estimate->publicUrl().'/viewed')->assertNoContent();
+
     $estimate->refresh();
     expect($estimate->status)->toBe(EstimateStatus::Viewed)->and($estimate->viewed_at)->not->toBeNull();
 
-    $this->get($estimate->publicUrl())->assertOk();
+    $this->post($estimate->publicUrl().'/viewed')->assertNoContent();
     Event::assertDispatchedTimes(EstimateViewed::class, 1);
     expect(($this->eventTypes)($estimate))->toBe(['estimate_created', 'estimate_sent', 'estimate_viewed']);
 });
@@ -340,6 +345,7 @@ test('the customer can accept; EstimateAccepted fires once', function () {
     Event::fake([EstimateAccepted::class]);
     $estimate = sentEstimate($this->admin, $this->john);
     $this->get($estimate->publicUrl());
+    $this->post($estimate->publicUrl().'/viewed');
 
     $this->post($estimate->publicUrl().'/accept')->assertRedirect($estimate->publicUrl());
     $this->get($estimate->publicUrl())->assertSee('You accepted this estimate')->assertDontSee('Accept Estimate');

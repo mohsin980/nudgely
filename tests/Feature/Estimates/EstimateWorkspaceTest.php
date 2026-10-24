@@ -296,6 +296,7 @@ test('the conversation page shows the linked estimate', function () {
 test('estimate activity appears on the conversation and customer timelines', function () {
     $estimate = sentEstimate($this->admin, $this->john, ['conversation_id' => (string) $this->conversation->id]);
     $this->get($estimate->publicUrl());
+    $this->post($estimate->publicUrl().'/viewed');
     $this->post($estimate->publicUrl().'/accept');
 
     $titles = app(TimelineService::class)->build($this->john, $this->conversation->id)->pluck('title')->all();

@@ -21,18 +21,31 @@ class PublicEstimateController extends Controller
 {
     public function __construct(private readonly EstimateService $estimates) {}
 
+    /**
+     * Showing the page never changes the estimate. Link previews and email scanners open links without a browser
+     * and must not mark an estimate viewed; the page's own script reports the view (see viewed()).
+     */
     public function show(string $token): Response
     {
         $estimate = $this->estimates->findByToken($token) ?? $this->notFound();
-
-        // Someone from the business previewing the link is not the customer viewing it.
-        if (auth()->user()?->organization_id === $estimate->organization_id) {
-            $this->estimates->expireIfPastValidUntil($estimate);
-        } else {
-            $estimate = $this->estimates->recordView($estimate);
-        }
+        $this->estimates->expireIfPastValidUntil($estimate);
 
         return $this->page($estimate, $token);
+    }
+
+    /**
+     * Sent by the estimate page once a browser has loaded it. Someone from the business previewing the link is not
+     * the customer, so their preview is not counted.
+     */
+    public function viewed(string $token): Response
+    {
+        $estimate = $this->estimates->findByToken($token) ?? $this->notFound();
+
+        if (auth()->user()?->organization_id !== $estimate->organization_id) {
+            $this->estimates->recordView($estimate);
+        }
+
+        return response()->noContent();
     }
 
     public function accept(string $token): RedirectResponse

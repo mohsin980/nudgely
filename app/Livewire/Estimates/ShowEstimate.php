@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Estimates;
 
+use App\Enums\EstimateStatus;
 use App\Exceptions\Estimates\EstimateException;
 use App\Livewire\Concerns\ManagesFollowUps;
 use App\Models\Estimate;
@@ -33,6 +34,8 @@ class ShowEstimate extends Component
     public string $statusMessageType = 'success';
 
     public bool $confirmCancel = false;
+
+    public string $outcomeNote = '';
 
     public function mount(int $estimateId): void
     {
@@ -122,6 +125,26 @@ class ShowEstimate extends Component
 
         session()->flash('estimate-status', "Revision {$revision->displayNumber()} created. The customer still has {$this->estimate->displayNumber()} until you send this one.");
         $this->redirectRoute('estimates.edit', $revision->id, navigate: true);
+    }
+
+    /**
+     * The customer accepted by phone or text: recorded here, the same as if they had clicked Accept.
+     */
+    public function markAccepted(EstimateService $estimates): void
+    {
+        $this->authorize('update', $this->estimate);
+
+        $this->act(fn () => $estimates->recordOutcome(Auth::user(), $this->estimate, EstimateStatus::Accepted), 'Marked as accepted. Automated follow-ups for this estimate have stopped.');
+    }
+
+    public function markDeclined(EstimateService $estimates): void
+    {
+        $this->authorize('update', $this->estimate);
+
+        $note = $this->outcomeNote;
+        $this->outcomeNote = '';
+
+        $this->act(fn () => $estimates->recordOutcome(Auth::user(), $this->estimate, EstimateStatus::Declined, $note), 'Marked as declined. Automated follow-ups for this estimate have stopped.');
     }
 
     public function cancel(EstimateService $estimates): void

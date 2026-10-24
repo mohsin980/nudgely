@@ -85,5 +85,16 @@
             </section>
         @endif
     </main>
+    @if ($estimate->status === \App\Enums\EstimateStatus::Sent)
+        {{-- A view counts only when a browser runs this; link previews and email scanners do not run scripts. --}}
+        <script>
+            fetch(@js(route('estimates.public.viewed', $token)), {
+                method: 'POST',
+                credentials: 'same-origin',
+                keepalive: true,
+                headers: { 'X-CSRF-TOKEN': @js(csrf_token()), 'Accept': 'application/json' },
+            }).catch(() => {});
+        </script>
+    @endif
 </body>
 </html>

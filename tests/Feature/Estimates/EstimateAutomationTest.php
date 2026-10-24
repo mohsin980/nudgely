@@ -182,8 +182,9 @@ test('end to end: draft → sent → viewed → accepted, and automation receive
         ->and($message->refresh()->status)->toBe(MessageStatus::Sent)
         ->and($this->provider->sent[0]->subject)->toBe('Estimate EST-1024 from Dallas HVAC');
 
-    // The customer opens the secure link.
+    // The customer opens the secure link, and the page's browser report counts the view.
     $this->get($estimate->publicUrl())->assertOk()->assertSee('EST-1024')->assertSee('$2,750.00');
+    $this->post($estimate->publicUrl().'/viewed')->assertNoContent();
     expect($estimate->refresh()->status)->toBe(EstimateStatus::Viewed);
     Event::assertDispatchedTimes(EstimateViewed::class, 1);
 

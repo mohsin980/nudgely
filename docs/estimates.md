@@ -167,3 +167,8 @@ Events are dispatched after commit, once per change:
 - **No PDF.**
 - **No line-item catalog.**
 - **No organization address or phone** on the document (they aren't stored yet); the sender email is shown.
+
+## Viewed and recorded outcomes
+
+- **Viewed** is recorded by the estimate page's own script, once a browser has loaded it. Loading the link alone does not change the status, so link previews and email scanners cannot mark an estimate viewed. Someone from the business previewing the link is not counted. Customers with JavaScript turned off are not counted as having viewed it.
+- **Recorded outcomes:** when a customer accepts or declines by phone or text, the business can mark it on the estimate page ("Mark accepted" / "Mark declined", with an optional note). The same rules as the customer's own decision apply: only an estimate still waiting for the customer can be changed, and its automated follow-ups stop. The timeline shows who recorded it.
