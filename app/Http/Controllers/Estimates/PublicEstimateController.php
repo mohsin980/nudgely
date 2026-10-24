@@ -76,6 +76,7 @@ class PublicEstimateController extends Controller
             'document' => $document,
             'estimate' => $estimate,
             'token' => $token,
+            'askEmail' => $replyTo,
             'askUrl' => $replyTo ? 'mailto:'.$replyTo.'?subject='.rawurlencode('Question about estimate '.$estimate->displayNumber()) : null,
             'declineReasons' => EstimateDeclineReason::cases(),
         ]));

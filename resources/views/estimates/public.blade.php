@@ -52,7 +52,13 @@
                         <button type="submit" class="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 sm:w-auto">Accept Estimate</button>
                     </form>
                     @if ($askUrl)
-                        <a href="{{ $askUrl }}" class="w-full rounded-lg bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 sm:w-auto">Ask a Question</a>
+                        {{-- A mailto link does nothing when no mail app is set up, so the address is shown as well. --}}
+                        <details class="group w-full sm:w-auto">
+                            <summary class="block w-full cursor-pointer list-none rounded-lg bg-white px-4 py-2.5 text-center text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:w-auto">Ask a Question</summary>
+                            <div class="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 sm:max-w-sm">
+                                <p>Email your question to <a href="{{ $askUrl }}" class="font-semibold text-violet-700 underline break-all">{{ $askEmail }}</a>. Your reply is added to this estimate.</p>
+                            </div>
+                        </details>
                     @endif
                 </div>
                 <details class="text-sm">
