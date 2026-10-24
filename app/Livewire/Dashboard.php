@@ -18,7 +18,7 @@ use Livewire\Component;
  * All data comes from DashboardService for the signed-in user's organization. The page loads
  * lazily behind a skeleton and refreshes itself every minute while visible (no WebSockets).
  */
-#[Layout('components.layouts.app', ['wide' => true])]
+#[Layout('components.layouts.app')]
 #[Title('Dashboard')]
 #[Lazy]
 class Dashboard extends Component
