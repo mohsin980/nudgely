@@ -177,6 +177,9 @@
                                     <div class="min-w-0 flex-1">
                                         <p class="text-sm font-semibold text-slate-900">@if ($alert['url'])<a href="{{ $alert['url'] }}" wire:navigate class="hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded">{{ $alert['title'] }}</a>@else{{ $alert['title'] }}@endif</p>
                                         <p class="text-sm text-slate-500">{{ $alert['description'] }}</p>
+                                        @if ($alert['hint'])
+                                            <p class="mt-0.5 text-xs font-medium text-slate-600" data-alert-hint>{{ $alert['hint'] }}</p>
+                                        @endif
                                     </div>
                                     <span class="grid min-w-7 shrink-0 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold {{ $badgeTones[$alert['tone']] ?? 'bg-slate-100 text-slate-700' }}">{{ $alert['count'] }}</span>
                                     @if ($alert['url'])
@@ -428,9 +431,9 @@
                     </div>
                     @if ($d->planUsage['percent'] !== null)
                         <div class="mt-3">
-                            <div class="flex items-center justify-between text-xs text-slate-500"><span>Plan usage</span><span class="font-semibold text-slate-700" data-plan-percent>{{ $d->planUsage['percent'] }}%</span></div>
-                            <div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Plan usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $d->planUsage['percent'] }}">
-                                <div @class(['h-2 rounded-full', 'bg-violet-600' => $d->planUsage['percent'] < 90, 'bg-red-500' => $d->planUsage['percent'] >= 90]) style="width: {{ $d->planUsage['percent'] }}%"></div>
+                            <div class="flex items-center justify-between gap-2 text-xs text-slate-500"><span>Closest to a limit: <span class="font-medium text-slate-700" data-plan-fullest>{{ $d->planUsage['fullest'] }}</span></span><span class="font-semibold text-slate-700" data-plan-percent>{{ $d->planUsage['percent'] }}%</span></div>
+                            <div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Closest to a plan limit: {{ $d->planUsage['fullest'] }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $d->planUsage['percent'] }}">
+                                <div @class(['h-2 rounded-full', 'bg-violet-600' => $d->planUsage['percent'] < 80, 'bg-amber-500' => $d->planUsage['percent'] >= 80 && $d->planUsage['percent'] < 100, 'bg-red-500' => $d->planUsage['percent'] >= 100]) style="width: {{ $d->planUsage['percent'] }}%"></div>
                             </div>
                         </div>
                     @endif
