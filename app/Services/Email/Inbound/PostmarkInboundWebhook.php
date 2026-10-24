@@ -22,7 +22,7 @@ class PostmarkInboundWebhook implements InboundEmailProviderInterface
     /**
      * Headers kept on the normalized email (lowercased).
      */
-    private const KEPT_HEADERS = ['message-id', 'in-reply-to', 'references', 'date', 'received-spf', 'authentication-results', 'x-spam-status'];
+    private const KEPT_HEADERS = ['message-id', 'in-reply-to', 'references', 'date', 'received-spf', 'authentication-results', 'x-spam-status', 'auto-submitted', 'precedence', 'x-autoreply', 'x-autorespond'];
 
     /**
      * @param  array{inbound_webhook_username?: ?string, inbound_webhook_secret?: ?string}  $config

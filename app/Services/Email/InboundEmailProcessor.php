@@ -149,7 +149,9 @@ class InboundEmailProcessor
         // Our receipt time, not the sender-controlled Date header, so a forged date cannot reorder threads.
         $message = $this->storeMessage($email, $route, $senderMatches ? $conversation : null, $token, $event->created_at);
 
-        if ($senderMatches) {
+        // An out-of-office or other automatic reply is kept in the thread, but it is not a conversation turn:
+        // it does not move the conversation, stop follow-ups, or get classified.
+        if ($senderMatches && ! $this->isAutomatedReply($email)) {
             $conversation->recordActivity($message->received_at);
 
             // Announce only; dispatched after the transaction commits.
@@ -173,6 +175,24 @@ class InboundEmailProcessor
         ]);
 
         return $senderMatches ? self::OUTCOME_ATTACHED : self::OUTCOME_NEEDS_REVIEW;
+    }
+
+    /**
+     * Auto-replies (RFC 3834 Auto-Submitted, bulk or auto-reply Precedence, vacation responder headers).
+     */
+    private function isAutomatedReply(InboundEmail $email): bool
+    {
+        $autoSubmitted = strtolower(trim($email->headers['auto-submitted'] ?? ''));
+
+        if ($autoSubmitted !== '' && $autoSubmitted !== 'no') {
+            return true;
+        }
+
+        if (in_array(strtolower(trim($email->headers['precedence'] ?? '')), ['bulk', 'junk', 'list', 'auto_reply'], true)) {
+            return true;
+        }
+
+        return isset($email->headers['x-autoreply']) || isset($email->headers['x-autorespond']);
     }
 
     /**
@@ -221,6 +241,8 @@ class InboundEmailProcessor
                 'email_date' => $email->receivedAt->toIso8601String(),
                 'attachments' => $email->attachments ?: null,
                 'review_reason' => $conversation === null ? 'sender_mismatch' : null,
+                // Stored, so follow-up stop rules can tell a real reply from an automatic one.
+                'automated' => $this->isAutomatedReply($email) ? '1' : null,
             ]) ?: null,
         ])->save();
 
