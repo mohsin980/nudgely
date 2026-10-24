@@ -567,6 +567,8 @@ class EstimateService
     private function afterExpiry(Collection $ids): void
     {
         foreach (Estimate::query()->whereIn('id', $ids)->get() as $estimate) {
+            // The customer can no longer accept it, so reminders about it stop.
+            $this->followUps->skipForEstimate($estimate->organization_id, $estimate->id);
             ConversationEvent::recordForEstimate($estimate, 'estimate_expired');
             EstimateExpired::dispatch($estimate->organization_id, $estimate->id, $estimate->customer_id, $estimate->conversation_id);
             Log::info('Estimate expired.', ['organization_id' => $estimate->organization_id, 'estimate_id' => $estimate->id]);

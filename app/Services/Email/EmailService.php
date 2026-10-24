@@ -111,6 +111,8 @@ class EmailService
                 conversationId: $conversation->id,
             );
 
+            $this->threadToLastReply($message, $conversation);
+
             // The business has replied: it's now the customer's turn.
             $conversation->recordActivity(now(), ConversationStatus::WaitingCustomer);
 
@@ -204,7 +206,7 @@ class EmailService
                 htmlBody: $message->body_html,
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
-                headers: $this->unsubscribeHeaders($message),
+                headers: $this->outboundHeaders($message),
             );
 
             $result = $provider !== null ? $provider->send($outbound) : $this->accounts->send($connection, $outbound);
@@ -243,6 +245,42 @@ class EmailService
     }
 
     /**
+     * Reply inside the customer's own thread: In-Reply-To points at their latest real reply, so mail clients group
+     * the business's email with it. Automatic replies are skipped, since they are not what the customer is answering.
+     */
+    private function threadToLastReply(Message $message, Conversation $conversation): void
+    {
+        $lastReply = Message::query()
+            ->where('organization_id', $conversation->organization_id)
+            ->where('conversation_id', $conversation->id)
+            ->where('direction', MessageDirection::Inbound)
+            ->whereNotNull('header_message_id')
+            ->where(fn ($query) => $query->whereNull('metadata->automated')->orWhere('metadata->automated', '!=', '1'))
+            ->latest('received_at')
+            ->latest('id')
+            ->first();
+
+        if ($lastReply === null) {
+            return;
+        }
+
+        $inReplyTo = self::angled($lastReply->header_message_id);
+
+        $message->forceFill([
+            'in_reply_to' => $inReplyTo,
+            'references' => trim(implode(' ', array_filter([$lastReply->references, $inReplyTo]))),
+        ])->save();
+    }
+
+    /**
+     * Message-IDs are stored and sent in their <angle-bracketed> form.
+     */
+    public static function angled(string $messageId): string
+    {
+        return '<'.trim($messageId, " \t<>").'>';
+    }
+
+    /**
      * Every email to a customer carries a way to stop them: a footer link everywhere, and the List-Unsubscribe
      * headers (including one-click, RFC 8058) where the provider allows custom headers.
      *
@@ -260,29 +298,39 @@ class EmailService
     }
 
     /**
+     * Threading and unsubscribe headers for a message. Microsoft Graph accepts neither threading headers nor the
+     * unsubscribe headers (it only takes "x-" custom headers), so those sends rely on the footer and on their own thread.
+     *
      * @return array<string, string>
      */
-    private function unsubscribeHeaders(Message $message): array
+    private function outboundHeaders(Message $message): array
     {
-        // Only email to a conversation's customer; invitations, team notices and test emails have no unsubscribe.
-        if ($message->conversation_id === null) {
+        if ($message->provider === EmailProvider::Microsoft) {
             return [];
         }
 
-        $customer = Customer::query()
+        $headers = [];
+
+        if ($message->in_reply_to !== null) {
+            $headers['In-Reply-To'] = $message->in_reply_to;
+
+            if ($message->references) {
+                $headers['References'] = $message->references;
+            }
+        }
+
+        // Only email to a conversation's customer; invitations, team notices and test emails have no unsubscribe.
+        $customer = $message->conversation_id === null ? null : Customer::query()
             ->where('organization_id', $message->organization_id)
             ->whereIn('id', fn ($query) => $query->select('customer_id')->from('conversations')->where('id', $message->conversation_id))
             ->first();
 
-        // Microsoft Graph only accepts custom headers that start with "x-", so those sends rely on the footer link.
-        if ($customer === null || $message->provider === EmailProvider::Microsoft) {
-            return [];
+        if ($customer !== null) {
+            $headers['List-Unsubscribe'] = '<'.app(EmailPreferenceService::class)->unsubscribeUrl($customer).'>';
+            $headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
         }
 
-        return [
-            'List-Unsubscribe' => '<'.app(EmailPreferenceService::class)->unsubscribeUrl($customer).'>',
-            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
-        ];
+        return $headers;
     }
 
     /**
