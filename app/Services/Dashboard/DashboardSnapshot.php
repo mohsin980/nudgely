@@ -16,6 +16,8 @@ final readonly class DashboardSnapshot
      * @param  array<string, int>  $conversationStatuses
      * @param  array{open: int, due: int, overdue: int, later: int}  $taskCounts
      * @param  array{sent_today: int, awaiting: int, accepted_today: int}  $estimates
+     * @param  array<string, mixed>  $estimatePipeline  See DashboardService::estimatePipeline()
+     * @param  array<string, mixed>  $automationHealth  See DashboardService::automationHealth()
      */
     public function __construct(
         public CarbonImmutable $localNow,
@@ -35,5 +37,12 @@ final readonly class DashboardSnapshot
         public int $automationFailures,
         public Collection $notifications,
         public int $unreadNotifications,
+        public array $estimatePipeline,
+        public array $automationHealth,
+        public Collection $alerts,
+        public Collection $upcomingFollowUps,
+        public int $upcomingCount,
+        public Collection $recentEstimates,
+        public array $planUsage,
     ) {}
 }

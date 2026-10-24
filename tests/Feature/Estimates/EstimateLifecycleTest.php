@@ -255,7 +255,8 @@ test('"Ask a question" replies into the estimate conversation', function () {
     $estimate = sentEstimate($this->admin, $this->john);
     $replyTo = $estimate->sendMessage->reply_to;
 
-    $this->get($estimate->publicUrl())->assertSee('mailto:'.$replyTo, false);
+    // The address is shown in the page, so the question can be sent even when no mail app opens from the link.
+    $this->get($estimate->publicUrl())->assertSee('mailto:'.$replyTo, false)->assertSee($replyTo);
 });
 
 test('an invalid token shows "Estimate not found."', function (string $token) {

@@ -210,7 +210,7 @@ test('14. the send email action emails the customer from the verified sender', f
     $email = Message::where('direction', MessageDirection::Outbound)->where('subject', "About {$estimate->estimate_number}")->sole();
     expect($email->from_address)->toBe('sales@example.com')
         ->and($email->to_address)->toBe('john@example.com')
-        ->and($email->body_text)->toBe('Hi John')
+        ->and($email->body_text)->toStartWith('Hi John')
         ->and(AutomationRun::sole()->status)->toBe(AutomationRunStatus::Completed);
 });
 

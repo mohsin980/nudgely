@@ -108,6 +108,7 @@ class PostmarkEmailProvider implements EmailProviderInterface
             'TextBody' => $email->textBody,
             'MessageStream' => $this->config['message_stream'] ?? 'outbound',
             'Metadata' => array_map('strval', $email->metadata) ?: null,
+            'Headers' => array_map(fn (string $name, string $value) => ['Name' => $name, 'Value' => $value], array_keys($email->headers), $email->headers) ?: null,
         ], fn ($value) => $value !== null && $value !== '');
 
         try {

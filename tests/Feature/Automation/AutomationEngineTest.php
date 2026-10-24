@@ -521,7 +521,7 @@ class AutomationEngineTest extends TestCase
         $this->assertSame('sales@example.com', $message->from_address);
         $this->assertSame('john@example.com', $message->to_address);
         $this->assertSame($this->conversation->id, $message->conversation_id);
-        $this->assertSame('Hi John, we can book you in this week.', $message->body_text);
+        $this->assertStringStartsWith('Hi John, we can book you in this week.', $message->body_text);
         $this->assertSame('automation', $message->metadata['type']);
         Queue::assertPushed(SendEmailJob::class, 1);
     }

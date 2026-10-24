@@ -2,7 +2,7 @@
 @php($id = "action-{$i}-{$field->name}")
 @php($model = "actions.{$i}.configuration.{$field->name}")
 <div @class(['sm:col-span-2' => in_array($field->type, ['template', 'template_body', 'textarea'], true)])>
-    <label for="{{ $id }}" class="block text-sm font-medium text-gray-700">{{ $field->label }}@unless ($field->required) <span class="font-normal text-gray-500">(optional)</span>@endunless</label>
+    <label for="{{ $id }}" class="block text-sm font-medium text-slate-700">{{ $field->label }}@unless ($field->required) <span class="font-normal text-slate-500">(optional)</span>@endunless</label>
     @switch($field->type)
         @case('select')
             <select id="{{ $id }}" wire:model.live="{{ $model }}" class="{{ $fieldClass }}">
@@ -28,6 +28,6 @@
             <input id="{{ $id }}" type="text" wire:model.blur="{{ $model }}" @if ($field->max) maxlength="{{ $field->max }}" @endif class="{{ $fieldClass }}">
     @endswitch
     @if ($field->help)
-        <p class="mt-1 text-xs text-gray-500">{{ $field->help }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ $field->help }}</p>
     @endif
 </div>

@@ -335,7 +335,8 @@ test('the dashboard shows estimates sent today, awaiting customer and accepted t
     expect($snapshot->estimates)->toBe(['sent_today' => 3, 'awaiting' => 3, 'accepted_today' => 1]);
 
     Livewire::withoutLazyLoading()->actingAs($this->admin)->test(Dashboard::class)
-        ->assertSeeInOrder(['Estimates', 'Sent today', '3', 'Awaiting customer', '3', 'Accepted today', '1']);
+        ->assertSeeInOrder(['Estimate pipeline', 'Awaiting customer', '3', 'Accepted, last 30 days', '1'])
+        ->assertSeeHtml('data-stat="estimates_sent">3<');
 });
 
 test('the estimate activity shows the customer\'s replies since it was sent, with the AI classification', function () {

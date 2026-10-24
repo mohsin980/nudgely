@@ -4,6 +4,7 @@ namespace App\Services\Email;
 
 use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
+use App\Enums\EmailProvider;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
@@ -17,6 +18,8 @@ use App\Models\EmailConnection;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Services\Billing\EntitlementService;
+use App\Services\Customers\EmailPreferenceService;
+use App\Services\Email\Bounces\BounceTokens;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
 use App\Support\CorrelationId;
@@ -44,6 +47,7 @@ class EmailService
     public function __construct(
         private readonly EmailProviderManager $providers,
         private readonly ReplyRouteService $replyRoutes,
+        private readonly AccountEmailSender $accounts,
     ) {}
 
     /**
@@ -97,6 +101,8 @@ class EmailService
 
         $connection = $this->defaultConnection($organization);
 
+        [$html, $text] = $this->withUnsubscribeFooter($organization, $customer, $html, $text);
+
         $message = DB::transaction(function () use ($conversation, $customer, $connection, $subject, $html, $text, $metadata) {
             $message = $this->createMessage(
                 $connection, $customer->email, $subject, $html, $text,
@@ -105,6 +111,8 @@ class EmailService
                 metadata: $metadata,
                 conversationId: $conversation->id,
             );
+
+            $this->threadToLastReply($message, $conversation);
 
             // The business has replied: it's now the customer's turn.
             $conversation->recordActivity(now(), ConversationStatus::WaitingCustomer);
@@ -174,7 +182,8 @@ class EmailService
                 throw EmailSendingNotAllowedException::senderMismatch();
             }
 
-            $provider = $this->providers->for($connection->provider);
+            // Domain-verified providers are resolved by name; account senders use the connection's own credentials.
+            $provider = $connection->provider->isAccountBased() ? null : $this->providers->for($connection->provider);
         } catch (EmailSendingNotAllowedException $e) {
             return $this->markFailed($message, EmailSendResult::failed('not_allowed', $e->getMessage()));
         } catch (Throwable $e) {
@@ -187,7 +196,7 @@ class EmailService
         $this->log('email.sending', $message, ['attempt' => $message->send_attempts]);
 
         try {
-            $result = $provider->send(new OutboundEmail(
+            $outbound = new OutboundEmail(
                 organizationId: $message->organization_id,
                 fromEmail: $connection->sender_email,
                 fromName: $connection->sender_name,
@@ -198,7 +207,11 @@ class EmailService
                 htmlBody: $message->body_html,
                 replyTo: $message->reply_to,
                 metadata: ['message_id' => (string) $message->id, 'organization_id' => (string) $message->organization_id],
-            ));
+                headers: $this->outboundHeaders($message),
+                bounceAddress: $this->bounceAddressFor($message, $connection),
+            );
+
+            $result = $provider !== null ? $provider->send($outbound) : $this->accounts->send($connection, $outbound);
         } catch (EmailProviderException $e) {
             // A provider that answered with a known temporary error did not accept the email.
             if ($e->isTransient() && $retryTransientFailures) {
@@ -231,6 +244,110 @@ class EmailService
         ]);
 
         return $result;
+    }
+
+    /**
+     * Reply inside the customer's own thread: In-Reply-To points at their latest real reply, so mail clients group
+     * the business's email with it. Automatic replies are skipped, since they are not what the customer is answering.
+     */
+    private function threadToLastReply(Message $message, Conversation $conversation): void
+    {
+        $lastReply = Message::query()
+            ->where('organization_id', $conversation->organization_id)
+            ->where('conversation_id', $conversation->id)
+            ->where('direction', MessageDirection::Inbound)
+            ->whereNotNull('header_message_id')
+            ->where(fn ($query) => $query->whereNull('metadata->automated')->orWhere('metadata->automated', '!=', '1'))
+            ->latest('received_at')
+            ->latest('id')
+            ->first();
+
+        if ($lastReply === null) {
+            return;
+        }
+
+        $inReplyTo = self::angled($lastReply->header_message_id);
+
+        $message->forceFill([
+            'in_reply_to' => $inReplyTo,
+            'references' => trim(implode(' ', array_filter([$lastReply->references, $inReplyTo]))),
+        ])->save();
+    }
+
+    /**
+     * Message-IDs are stored and sent in their <angle-bracketed> form.
+     */
+    public static function angled(string $messageId): string
+    {
+        return '<'.trim($messageId, " \t<>").'>';
+    }
+
+    /**
+     * Every email to a customer carries a way to stop them: a footer link everywhere, and the List-Unsubscribe
+     * headers (including one-click, RFC 8058) where the provider allows custom headers.
+     *
+     * @return array{0: ?string, 1: ?string} The HTML and text bodies with the footer added.
+     */
+    private function withUnsubscribeFooter(Organization $organization, Customer $customer, ?string $html, ?string $text): array
+    {
+        $url = app(EmailPreferenceService::class)->unsubscribeUrl($customer);
+        $line = "Don't want emails from {$organization->name}?";
+
+        return [
+            $html === null ? null : $html.'<p style="margin-top:24px;font-size:12px;color:#64748b">'.e($line).' <a href="'.e($url).'">Unsubscribe</a></p>',
+            $text === null ? null : rtrim($text)."\n\n--\n{$line} Unsubscribe: {$url}",
+        ];
+    }
+
+    /**
+     * Where SMTP bounce notices for this message are sent. Only SMTP lets us choose it; the other providers report bounces themselves.
+     */
+    private function bounceAddressFor(Message $message, EmailConnection $connection): ?string
+    {
+        $domain = config('email.inbound.reply_domain');
+
+        if ($connection->provider !== EmailProvider::Smtp || blank($domain)) {
+            return null;
+        }
+
+        return 'bounce+'.BounceTokens::forMessage($message->id).'@'.strtolower((string) $domain);
+    }
+
+    /**
+     * Headers for a message. Every message names itself, so a bounce notice that copies it back can be matched to it.
+     * Threading and unsubscribe headers are added where the provider accepts them: Microsoft Graph takes neither
+     * (it only takes "x-" custom headers), so those sends rely on the footer and on their own thread.
+     *
+     * @return array<string, string>
+     */
+    private function outboundHeaders(Message $message): array
+    {
+        $headers = [BounceTokens::HEADER => BounceTokens::forMessage($message->id)];
+
+        if ($message->provider === EmailProvider::Microsoft) {
+            return $headers;
+        }
+
+        if ($message->in_reply_to !== null) {
+            $headers['In-Reply-To'] = $message->in_reply_to;
+
+            if ($message->references) {
+                $headers['References'] = $message->references;
+            }
+        }
+
+        // Only email to a conversation's customer; invitations, team notices and test emails have no unsubscribe.
+        $customer = $message->conversation_id === null ? null : Customer::query()
+            ->where('organization_id', $message->organization_id)
+            ->whereIn('id', fn ($query) => $query->select('customer_id')->from('conversations')->where('id', $message->conversation_id))
+            ->first();
+
+        if ($customer !== null) {
+            $headers['List-Unsubscribe'] = '<'.app(EmailPreferenceService::class)->unsubscribeUrl($customer).'>';
+            $headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+        }
+
+        return $headers;
     }
 
     /**
@@ -297,6 +414,10 @@ class EmailService
 
         if (! $connection->isVerified()) {
             throw EmailSendingNotAllowedException::notVerified();
+        }
+
+        if ($connection->connection_status !== EmailConnection::STATUS_ACTIVE) {
+            throw EmailSendingNotAllowedException::connectionUnavailable();
         }
 
         if (blank($connection->sender_email) || Str::afterLast($connection->sender_email, '@') !== $connection->domain) {

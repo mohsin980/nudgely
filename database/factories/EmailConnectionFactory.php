@@ -32,6 +32,7 @@ class EmailConnectionFactory extends Factory
             'sender_name' => $business,
             'provider_domain_id' => null,
             'verification_status' => EmailVerificationStatus::Pending,
+            'connection_status' => EmailConnection::STATUS_ACTIVE,
             'is_default' => false,
             'verified_at' => null,
         ];

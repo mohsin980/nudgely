@@ -31,6 +31,15 @@ class EmailConnection extends Model
      *
      * @var array<string, mixed>
      */
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_REAUTH_REQUIRED = 'reauth_required';
+
+    public const STATUS_DISCONNECTED = 'disconnected';
+
+    /** Secrets for account-based senders. Never serialized, so they cannot reach an API response or a view by accident. */
+    protected $hidden = ['credentials'];
+
     protected $attributes = [
         'verification_status' => 'pending',
         'is_default' => false,
@@ -47,8 +56,11 @@ class EmailConnection extends Model
             'provider' => EmailProvider::class,
             'verification_status' => EmailVerificationStatus::class,
             'is_default' => 'boolean',
+            'bounce_scan_enabled' => 'boolean',
             'verified_at' => 'datetime',
             'dns_records' => 'array',
+            'credentials' => 'encrypted:array',
+            'last_tested_at' => 'datetime',
         ];
     }
 
@@ -121,11 +133,12 @@ class EmailConnection extends Model
     }
 
     /**
-     * Only verified connections may be used as the organization's default sender.
+     * Only verified, connected senders may be the organization's default. A mailbox that needs reconnecting or was
+     * disconnected would fail every automated send from the business.
      */
     public function canBecomeDefault(): bool
     {
-        return $this->isVerified();
+        return $this->isVerified() && $this->connection_status === self::STATUS_ACTIVE;
     }
 
     /**

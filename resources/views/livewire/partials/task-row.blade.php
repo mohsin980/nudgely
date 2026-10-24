@@ -3,10 +3,10 @@
 @php($overdue = ! $done && $task->due_at !== null && $task->due_at->isPast())
 <li wire:key="task-{{ $task->id }}" class="flex items-start justify-between gap-2 py-2">
     <div class="min-w-0">
-        <p @class(['font-medium', 'text-gray-900' => ! $done, 'text-gray-500 line-through' => $done])>{{ $task->title }}</p>
-        <p class="text-xs text-gray-600">
+        <p @class(['font-medium', 'text-slate-900' => ! $done, 'text-slate-500 line-through' => $done])>{{ $task->title }}</p>
+        <p class="text-xs text-slate-500">
             @if (($showCustomer ?? false) && $task->customer)
-                <a href="{{ $task->conversation_id ? route('inbox.show', $task->conversation_id) : route('customers.show', $task->customer_id) }}" wire:navigate class="font-medium text-gray-800 hover:underline">{{ $task->customer->name }}</a> ·
+                <a href="{{ $task->conversation_id ? route('inbox.show', $task->conversation_id) : route('customers.show', $task->customer_id) }}" wire:navigate class="font-medium text-slate-800 hover:underline">{{ $task->customer->name }}</a> ·
             @endif
             {{ ucfirst($task->priority->value) }} priority
             @if ($task->due_at) · due {{ $organization->localTime($task->due_at)->format('M j, g:i A') }} @endif
@@ -18,7 +18,7 @@
     </div>
     @if (! $done && isset($assignable))
         <label class="sr-only" for="task-{{ $task->id }}-assignee">Assign task: {{ $task->title }}</label>
-        <select id="task-{{ $task->id }}-assignee" wire:change="assignTask({{ $task->id }}, $event.target.value)" class="shrink-0 rounded-md border-gray-300 py-1 text-xs shadow-sm focus:border-violet-500 focus:ring-violet-500">
+        <select id="task-{{ $task->id }}-assignee" wire:change="assignTask({{ $task->id }}, $event.target.value)" class="shrink-0 rounded-lg border-slate-300 py-1 text-xs shadow-sm focus:border-violet-500 focus:ring-violet-500">
             <option value="">Unassigned</option>
             @foreach ($assignable as $userId => $userName)
                 <option value="{{ $userId }}" @selected($task->assigned_to === $userId)>{{ $userName }}</option>
@@ -26,6 +26,6 @@
         </select>
     @endif
     @unless ($done)
-        <button type="button" wire:click="completeTask({{ $task->id }})" class="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Complete<span class="sr-only"> task: {{ $task->title }}</span></button>
+        <button type="button" wire:click="completeTask({{ $task->id }})" class="shrink-0 rounded-lg bg-white px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Complete<span class="sr-only"> task: {{ $task->title }}</span></button>
     @endunless
 </li>

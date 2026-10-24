@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Suspended or removed people are signed out on their next request (their status is read
  * fresh from the database each request, so a suspension or role change applies at once).
+ * The same applies to everyone in an organization the platform has suspended.
  * Also records when active members were last seen, at most every five minutes.
  */
 class EnsureActiveMember
@@ -28,6 +29,18 @@ class EnsureActiveMember
             $message = $user->status === MemberStatus::Suspended
                 ? 'Your access to this business has been suspended. Contact the business owner.'
                 : 'You are no longer a member of this business.';
+
+            abort_if($request->expectsJson() || $request->hasHeader('X-Livewire'), 403, $message);
+
+            return redirect()->route('login')->with('status', $message);
+        }
+
+        if ($user instanceof User && $user->organization_id !== null && $user->organization?->isSuspended()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            $message = 'This business account is suspended. Please contact support.';
 
             abort_if($request->expectsJson() || $request->hasHeader('X-Livewire'), 403, $message);
 

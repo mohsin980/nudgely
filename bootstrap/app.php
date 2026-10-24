@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Context;
@@ -40,8 +41,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Suspended and removed members are signed out on their next request.
         $middleware->web(append: [EnsureActiveMember::class, SecurityHeaders::class]);
 
-        // Provider webhooks authenticate themselves and carry no CSRF token.
-        $middleware->validateCsrfTokens(except: ['webhooks/*']);
+        // Provider webhooks authenticate themselves and carry no CSRF token. Unsubscribe links are signed and are
+        // also called by mail providers' one-click unsubscribe (RFC 8058), which cannot send a token.
+        $middleware->validateCsrfTokens(except: ['webhooks/*', 'unsubscribe/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -49,7 +51,8 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         // Routine outcomes a user causes (bad input, no permission, wrong link, too many tries) are not incidents.
-        $exceptions->dontReport([
+        // Laravel turns them into their proper responses (redirect to sign-in, validation errors, 403, 404, 419, 429).
+        $routine = [
             AuthenticationException::class,
             AuthorizationException::class,
             ValidationException::class,
@@ -58,7 +61,10 @@ return Application::configure(basePath: dirname(__DIR__))
             MethodNotAllowedHttpException::class,
             TokenMismatchException::class,
             TooManyRequestsHttpException::class,
-        ]);
+            HttpResponseException::class,
+        ];
+
+        $exceptions->dontReport($routine);
 
         // One sanitized line per unexpected exception, instead of the default full report. The exception's message
         // and trace can contain request data, so only the class, a scrubbed message and the origin are written.
@@ -67,8 +73,12 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         // Production error responses: no trace, no internal message, and the reference to quote to support.
-        $exceptions->render(function (Throwable $exception, Request $request) {
-            if (config('app.debug') || $exception instanceof HttpExceptionInterface && $exception->getStatusCode() < 500) {
+        $exceptions->render(function (Throwable $exception, Request $request) use ($routine) {
+            // Only unexpected failures get the generic 500 page. Routine outcomes keep Laravel's own response: without
+            // this, a guest opening a protected page or a failed sign-in showed "Something went wrong" when debug is off.
+            $isRoutine = collect($routine)->contains(fn (string $class) => $exception instanceof $class);
+
+            if (config('app.debug') || $isRoutine || $exception instanceof HttpExceptionInterface && $exception->getStatusCode() < 500) {
                 return null;
             }
 
