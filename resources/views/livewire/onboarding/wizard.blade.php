@@ -31,6 +31,15 @@
             <p role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" data-error>{{ $error }}</p>
         @endif
 
+        @if ($welcomed && $stepNumber)
+            <div class="mb-4 flex items-center justify-between gap-3 text-xs text-slate-500" data-step-counter>
+                <span>Step {{ $stepNumber }} of {{ $stepTotal }}</span>
+                @if ($canGoBack)
+                    <button type="button" wire:click="goBack" wire:loading.attr="disabled" class="font-medium text-violet-700 hover:underline" data-back>&larr; Back</button>
+                @endif
+            </div>
+        @endif
+
         @if (! $welcomed)
             {{-- Welcome --}}
             <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Welcome to QuoteFollow</h1>
@@ -119,12 +128,38 @@
             <h1 class="text-xl font-semibold text-slate-900">Connect your business email</h1>
             <p class="mt-1 text-sm text-slate-700">Connect the email address your business uses to communicate with customers.</p>
             <p class="mt-2 text-sm text-slate-500">QuoteFollow can send follow-ups and estimates to your customers from that address, and show their replies in your conversations. You approve anything automatic.</p>
-            <p class="mt-4 text-sm" data-email-status>Status: <span class="font-medium text-slate-900">Not connected</span></p>
+            @php($account = $emailAccount)
+            @php($active = $account !== null && $account->isVerified() && $account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE)
+            @php($providerLabel = match ($account?->provider) { \App\Enums\EmailProvider::Gmail => 'Gmail', \App\Enums\EmailProvider::Microsoft => 'Outlook or Microsoft 365', \App\Enums\EmailProvider::Smtp => 'custom SMTP', default => null })
+
+            @if ($account === null)
+                <p class="mt-4 text-sm" data-email-status>Status: <span class="font-medium text-slate-900">Not connected</span></p>
+            @elseif ($account->connection_status === \App\Models\EmailConnection::STATUS_REAUTH_REQUIRED)
+                <p class="mt-4 text-sm text-amber-800" data-email-status>Needs reconnecting: <span class="font-medium">{{ $account->sender_email }}</span>. Follow-ups and estimates can't be sent until you reconnect it.</p>
+            @elseif (! $active)
+                <p class="mt-4 text-sm text-slate-700" data-email-status>Not verified yet: <span class="font-medium">{{ $account->sender_email }}</span>. Finish connecting it to continue.</p>
+            @else
+                <p class="mt-4 text-sm text-slate-700" data-email-status>Connected: <span class="font-medium text-slate-900">{{ $account->sender_email }}</span> via {{ $providerLabel }}</p>
+            @endif
+
+            @if ($testEmailStatus)
+                <p role="status" class="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800" data-test-email-sent>{{ $testEmailStatus }}</p>
+            @endif
+
+            @if ($active)
+                <div class="mt-4">
+                    <button type="button" wire:click="sendTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="{{ $secondary }}" data-send-test-email><span wire:loading.remove wire:target="sendTestEmail">Send a test email to me</span><span wire:loading wire:target="sendTestEmail">Sending…</span></button>
+                </div>
+            @endif
+
             <div class="mt-5 flex flex-col gap-2 sm:flex-row">
                 <a href="{{ route('settings.email', ['from' => 'onboarding']) }}" class="{{ $primary }}">Connect Email</a>
                 <button type="button" wire:click="recheckEmail" wire:loading.attr="disabled" class="{{ $secondary }}">I've connected it — check again</button>
                 <button type="button" wire:click="skip('email_connection')" wire:loading.attr="disabled" class="{{ $secondary }}">Skip for now</button>
             </div>
+            @unless ($active)
+                <p class="mt-3 text-xs text-slate-500" data-email-skip-warning>Without a working email account, follow-ups and estimates can't be sent. You can connect one later in Settings.</p>
+            @endunless
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::FirstCustomer)
             <h1 class="text-xl font-semibold text-slate-900">Add a customer to try QuoteFollow</h1>

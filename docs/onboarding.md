@@ -24,3 +24,10 @@ Steps (`OnboardingStep`): `business_profile` → `business_preferences` → `ema
 ## Development
 
 `php artisan onboarding:reset {organization}` restarts onboarding (refuses in production without `--force`; deletes no business data). There is no reset in the UI.
+
+## Phase 1 navigation and email step
+
+- **Back:** a view-only setting. It shows the previous step, the step counter and saved progress are unchanged, and every save still validates its data again. A request that names a later step is ignored, and the current step is shown.
+- **Step counter:** "Step n of 6", for the six steps in the order above.
+- **Email step:** shows the real default sender and its state. A connection that needs reconnecting, or is not verified, is not counted as connected, so the step stays open. "Send a test email to me" sends from the business's default sender to the signed-in owner's address only.
+- **Skip warning:** skipping the email step tells the user that follow-ups and estimates can't be sent until an account is connected.

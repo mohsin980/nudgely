@@ -3,18 +3,23 @@
 namespace App\Livewire\Onboarding;
 
 use App\Enums\Billing\SubscriptionStatus;
+use App\Enums\MessageStatus;
 use App\Enums\Onboarding\OnboardingStep;
 use App\Exceptions\Billing\PlanLimitException;
+use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\Estimates\EstimateException;
 use App\Livewire\Settings\BusinessPreferences;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\EntitlementService;
+use App\Services\Email\EmailService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\OnboardingState;
 use App\Services\Settings\BusinessSettingsService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -72,6 +77,15 @@ class Wizard extends Component
 
     /** A failure message for the current step (progress already saved is kept). */
     public ?string $error = null;
+
+    /**
+     * An earlier step the user has gone back to. It only changes what is shown: saved progress is never touched,
+     * and every save still validates the submitted data again.
+     */
+    public ?string $viewing = null;
+
+    /** Result of the last test email, shown on the email step. */
+    public ?string $testEmailStatus = null;
 
     public function mount(OnboardingService $onboarding, BillingService $billing): mixed
     {
@@ -141,6 +155,64 @@ class Wizard extends Component
         $this->guarded(fn (OnboardingService $onboarding) => $onboarding->saveLocation($this->user(), [
             'country' => $this->country, 'state' => $this->stateCode, 'city' => $this->city, 'timezone' => $this->timezone,
         ]), ['state' => 'stateCode']);
+    }
+
+    /**
+     * Show the step before the one being shown. Never goes before the first step, and never changes saved progress.
+     */
+    public function goBack(): void
+    {
+        $steps = OnboardingStep::working();
+        $index = array_search($this->displayedStep(), $steps, true);
+
+        if ($index === false || $index === 0) {
+            return;
+        }
+
+        $this->viewing = $steps[$index - 1]->value;
+        $this->error = null;
+        $this->testEmailStatus = null;
+    }
+
+    /**
+     * A test email from the business's default sender to the signed-in owner's own address (never a customer).
+     */
+    public function sendTestEmail(EmailService $emails): void
+    {
+        $this->testEmailStatus = null;
+        $this->error = null;
+
+        $connection = $this->organization()->emailConnections()->default()->first();
+
+        if ($connection === null) {
+            $this->error = 'Connect an email account first, then send a test email.';
+
+            return;
+        }
+
+        $rateKey = 'onboarding-test-email:'.$connection->organization_id;
+
+        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
+            $this->error = 'You have sent several test emails recently. Please wait a while before trying again.';
+
+            return;
+        }
+
+        RateLimiter::hit($rateKey, 3600);
+
+        try {
+            $message = $emails->sendTestEmail($connection, $this->user()->email);
+        } catch (EmailSendingNotAllowedException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        if ($message->status === MessageStatus::Sent) {
+            $this->testEmailStatus = 'Test email sent to '.$this->user()->email.' from '.$connection->sender_email.'. Check your inbox.';
+        } else {
+            $this->error = $message->failure_reason ?? 'The test email could not be sent. Check your email settings and try again.';
+        }
     }
 
     public function skip(string $step): void
@@ -237,13 +309,19 @@ class Wizard extends Component
         $organization = $this->organization()->refresh();
         $state = $onboarding->state($organization);
         $welcomed = (bool) ($organization->onboarding_progress['welcomed'] ?? false) || $state->current !== OnboardingStep::BusinessProfile;
-        $step = $state->current;
+        $step = $this->displayedStep($state);
+        $steps = OnboardingStep::working();
+        $stepIndex = array_search($step, $steps, true);
 
         return view('livewire.onboarding.wizard', [
             'organization' => $organization,
             'state' => $state,
             'step' => $step,
+            'stepNumber' => $stepIndex === false ? null : $stepIndex + 1,
+            'stepTotal' => count($steps),
+            'canGoBack' => $stepIndex !== false && $stepIndex > 0,
             'welcomed' => $welcomed,
+            'emailAccount' => $organization->emailConnections()->default()->first(),
             'trial' => $entitlements->trial($organization),
             'businessTypes' => collect(config('onboarding.business_types'))->map(fn ($t) => $t['label'])->all(),
             'emailConnection' => $organization->emailConnections()->default()->verified()->first(),
@@ -264,6 +342,24 @@ class Wizard extends Component
     }
 
     // ─── Internals ───────────────────────────────────────────────────────────────────────
+
+    /**
+     * The step shown: the saved current step, or an earlier one the user went back to (never a later one).
+     */
+    private function displayedStep(?OnboardingState $state = null): OnboardingStep
+    {
+        $current = $state?->current ?? app(OnboardingService::class)->state($this->organization())->current;
+
+        if ($this->viewing === null) {
+            return $current;
+        }
+
+        $viewed = OnboardingStep::tryFrom($this->viewing);
+
+        return $viewed !== null && $viewed !== $current && array_search($viewed, OnboardingStep::working(), true) < array_search($current, OnboardingStep::working(), true)
+            ? $viewed
+            : $current;
+    }
 
     private function user(): User
     {
@@ -300,6 +396,8 @@ class Wizard extends Component
 
         try {
             $action(app(OnboardingService::class));
+            // The step's data was saved, so the user is back on the step that is really current.
+            $this->viewing = null;
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {
                 $this->addError($fields[$field] ?? $field, $messages[0]);
