@@ -328,3 +328,13 @@ test('the review page links to the problems report when rows need fixing, and th
         ->assertSee('Import complete')
         ->assertSee('Nothing was emailed');
 });
+
+test('the column mapping cannot be changed once the import has started, so rows being imported are never replaced', function () {
+    Queue::fake();
+    $import = uploadAndCheck($this->admin, IMPORT_HEADER."EST-1,Jane Smith,jane@example.com,100,,,,AC\n");
+    $this->imports->start($this->admin, $import, true);
+
+    expect(fn () => $this->imports->saveMapping($this->admin, $import->refresh(), ImportColumns::suggest($import->summary['file']['headers'])))
+        ->toThrow(ValidationException::class, 'already started');
+    expect(EstimateImportRow::query()->where('estimate_import_id', $import->id)->count())->toBe(1);
+});

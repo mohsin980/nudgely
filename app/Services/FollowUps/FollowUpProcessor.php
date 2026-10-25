@@ -310,10 +310,12 @@ class FollowUpProcessor
             return FollowUpSkipReason::CustomerReplied;
         }
 
-        if ($followUp->estimate_id !== null && in_array(
-            $organization->estimates()->whereKey($followUp->estimate_id)->toBase()->value('status'),
-            [EstimateStatus::Accepted->value, EstimateStatus::Declined->value, EstimateStatus::Expired->value, EstimateStatus::Cancelled->value],
-            true,
+        // Checked at send time: a draft never expires by itself, so its valid-until date must be enforced here.
+        $estimate = $followUp->estimate_id === null ? null : $organization->estimates()->find($followUp->estimate_id);
+
+        if ($estimate !== null && (
+            in_array($estimate->status, [EstimateStatus::Accepted, EstimateStatus::Declined, EstimateStatus::Expired, EstimateStatus::Cancelled], true)
+            || $estimate->isPastValidUntil($organization)
         )) {
             return FollowUpSkipReason::EstimateClosed;
         }

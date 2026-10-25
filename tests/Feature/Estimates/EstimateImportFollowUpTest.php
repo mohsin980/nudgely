@@ -3,6 +3,7 @@
 use App\Enums\Automation\AutomationActionType;
 use App\Enums\Automation\AutomationStatus;
 use App\Enums\EstimateStatus;
+use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Jobs\SendEmailJob;
 use App\Livewire\Estimates\EstimateImportWizard;
@@ -181,4 +182,31 @@ test('the review page shows what activation will do, the reasons for exclusions,
         ->assertSee('Nothing was emailed');
 
     expect(FollowUp::query()->count())->toBe(2);
+});
+
+test('a follow-up does not send once its estimate has passed its valid-until date, even if it was scheduled in time', function () {
+    fuSequence($this->admin->organization, [1]);
+    $import = fuImport($this->admin, FU_HEADER."EST-1,Jane Smith,jane@example.com,100,,2099-01-01,sent,AC\n");
+    $this->activation->activate($this->admin, $import, true);
+
+    // The date passes after the follow-up was scheduled; a draft never expires on its own, so the send must check it.
+    Estimate::query()->sole()->forceFill(['valid_until' => now()->subDay()->toDateString()])->save();
+    $followUp = FollowUp::query()->sole();
+    $followUp->forceFill(['status' => FollowUpStatus::Due, 'due_at' => now()->subMinute()])->save();
+
+    expect(app(FollowUpProcessor::class)->stopReason($followUp))->toBe(FollowUpSkipReason::EstimateClosed);
+    expect(app(FollowUpProcessor::class)->process($followUp->id))->toBe(FollowUpProcessor::SKIPPED);
+    expect($followUp->refresh()->status)->toBe(FollowUpStatus::Skipped);
+    Queue::assertNotPushed(SendEmailJob::class);
+});
+
+test('activation is blocked, with the reason, while automations are turned off for the business', function () {
+    fuSequence($this->admin->organization);
+    $import = fuImport($this->admin, FU_HEADER."EST-1,Jane Smith,jane@example.com,100,,,sent,AC\n");
+    $this->admin->organization->forceFill(['automations_enabled' => false])->save();
+    $import->refresh();
+
+    expect($this->activation->plan($import)['blocked'])->toContain('Automations are turned off');
+    expect(fn () => $this->activation->activate($this->admin, $import, true))->toThrow(ValidationException::class, 'Automations are turned off');
+    expect(FollowUp::query()->count())->toBe(0);
 });

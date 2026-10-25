@@ -56,6 +56,11 @@ class ImportFollowUpActivation
         $organization = $import->organization;
         [$automation, $steps, $blocked] = $this->sequence($organization);
 
+        // The follow-up engine skips every automated follow-up while automations are off, so say so before scheduling.
+        if (! config('automation.enabled') || ! $organization->automations_enabled) {
+            $blocked = 'Automations are turned off for your business. Turn them on before starting follow-ups.';
+        }
+
         $eligible = collect();
         $excluded = array_fill_keys(array_keys(self::REASONS), 0);
 

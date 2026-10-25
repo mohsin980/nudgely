@@ -99,10 +99,25 @@ class EstimateImportService
     {
         $this->authorizeFor($actor, $import);
 
-        if (! in_array($import->status, [EstimateImport::STATUS_UPLOADED, EstimateImport::STATUS_READY], true)) {
-            throw ValidationException::withMessages(['map' => 'This import has already started, so its columns can no longer change.']);
-        }
+        // Locked like start(): a mapping save and a start can never interleave, so rows being imported are never replaced.
+        return DB::transaction(function () use ($import, $map) {
+            $locked = EstimateImport::query()->whereKey($import->id)->lockForUpdate()->firstOrFail();
 
+            if (! in_array($locked->status, [EstimateImport::STATUS_UPLOADED, EstimateImport::STATUS_READY], true)) {
+                throw ValidationException::withMessages(['map' => 'This import has already started, so its columns can no longer change.']);
+            }
+
+            return $this->storeMapping($locked, $map);
+        });
+    }
+
+    /**
+     * @param  array<string, ?int>  $map
+     *
+     * @throws ValidationException
+     */
+    private function storeMapping(EstimateImport $import, array $map): EstimateImport
+    {
         $headers = $import->summary['file']['headers'] ?? [];
         $clean = [];
 
