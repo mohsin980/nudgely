@@ -7,8 +7,10 @@ use App\Models\EstimateImport;
 use App\Models\EstimateImportRow;
 use App\Services\Estimates\Import\EstimateImportService;
 use App\Services\Estimates\Import\ImportColumns;
+use App\Services\Estimates\Import\ImportFollowUpActivation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -35,6 +37,10 @@ class EstimateImportWizard extends Component
     public array $map = [];
 
     public bool $confirmed = false;
+
+    public bool $followUpsConfirmed = false;
+
+    public ?string $followUpStatus = null;
 
     public function mount(?int $importId = null): void
     {
@@ -109,6 +115,25 @@ class EstimateImportWizard extends Component
         unset($this->import);
     }
 
+    /**
+     * Starts the follow-up sequence for the imported estimates the business confirmed were already sent.
+     */
+    public function activateFollowUps(ImportFollowUpActivation $activation): void
+    {
+        $this->resetErrorBag();
+        $this->followUpStatus = null;
+
+        try {
+            $scheduled = $activation->activate(Auth::user(), $this->import ?? abort(404), $this->followUpsConfirmed);
+            $this->followUpStatus = "{$scheduled} follow-up ".Str::plural('message', $scheduled).' scheduled. Nothing was emailed by this step.';
+        } catch (ValidationException $e) {
+            $this->addError('followUps', $e->validator->errors()->first());
+        }
+
+        $this->followUpsConfirmed = false;
+        unset($this->import);
+    }
+
     public function startOver(): void
     {
         $this->importId = null;
@@ -133,6 +158,8 @@ class EstimateImportWizard extends Component
                 ? EstimateImportRow::query()->where('estimate_import_id', $import->id)->orderBy('row_number')->limit(10)->get()
                 : collect(),
             'currency' => Auth::user()->organization->currencyCode(),
+            'followUps' => $import?->status === EstimateImport::STATUS_COMPLETED ? app(ImportFollowUpActivation::class)->plan($import) : null,
+            'reasons' => ImportFollowUpActivation::REASONS,
         ]);
     }
 }

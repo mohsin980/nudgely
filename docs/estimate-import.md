@@ -44,6 +44,19 @@ Customers are matched by email within the business. Customers without an email a
 
 ## Limits
 
-- Not done yet: activation of imported estimates (the follow-up sequence and review step), importing from other software, editing rows in the browser, and resuming an import after a failure other than starting it again.
+## Starting follow-ups (activation)
+
+After an import completes, the page offers to start follow-ups for the estimates the business confirms were already sent to the customer.
+
+- **Eligible:** the file's status is `sent` or `viewed`, the estimate is still a draft in QuoteFlow, has no expired date, the customer has a valid email, has not opted out, and the address has not bounced or complained.
+- **Left out, with the reason shown:** not confirmed sent (drafts and other statuses), expired, no email, opted out, bounced or complained, already started, or already sent or changed in QuoteFlow.
+- **Sequence:** the delays and messages come from the business's active automation that has email follow-up steps. Without one, activation is blocked and the page says what to turn on.
+- **What it does:** schedules each follow-up step for each eligible estimate (due in the step's number of days from activation). It sends **no estimate email** and does not change the estimate's status. Each follow-up is then sent by the normal follow-up engine, which rechecks opt-out, bounces, replies and expiry at send time.
+- **Safety:** eligibility is recomputed on the server when activating, each estimate is locked while it is processed, and a repeat activation schedules nothing new.
+- **Not covered yet:** an imported draft has no customer link, so a customer cannot accept or decline online, and the phone-outcome recording only works on estimates that are awaiting the customer. Cancel an estimate's follow-ups from the follow-up list if the customer answers.
+
+## Limits
+
+- Not done yet: importing from other software, editing rows in the browser, and resuming an import after a failure other than starting it again.
 - Imported estimates must be sent from the estimate page like any other draft.
 - Tests use MySQL. The migrations use only portable column types and composite foreign keys, but they have not been run on PostgreSQL in this environment.

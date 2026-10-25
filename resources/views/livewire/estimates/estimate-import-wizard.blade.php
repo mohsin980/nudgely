@@ -125,7 +125,7 @@
                 <div class="rounded-lg bg-slate-50 p-4"><dt class="text-xs font-medium text-slate-600">Already imported (skipped)</dt><dd class="mt-1 text-2xl font-semibold text-slate-900" data-count="skipped">{{ $counts['skipped'] }}</dd></div>
                 <div class="rounded-lg bg-red-50 p-4"><dt class="text-xs font-medium text-red-800">Not imported</dt><dd class="mt-1 text-2xl font-semibold text-red-900" data-count="rejected">{{ $counts['rejected'] }}</dd></div>
             </dl>
-            <p class="mt-4 text-sm text-slate-700">Nothing was emailed. Review the imported drafts, then send or activate them when you are ready.</p>
+            <p class="mt-4 text-sm text-slate-700">Nothing was emailed. The estimates are drafts until you send them or start their follow-ups below.</p>
             <div class="mt-5 flex flex-wrap gap-3">
                 <a href="{{ route('estimates.index') }}" wire:navigate class="{{ $primary }}">View estimates</a>
                 @if ($counts['rejected'] > 0)
@@ -134,5 +134,44 @@
                 <button type="button" wire:click="startOver" class="{{ $secondary }}">Import another file</button>
             </div>
         </section>
+
+        @if ($followUps)
+            <section class="{{ $card }} mt-6" aria-labelledby="followups-heading" data-follow-ups>
+                <h2 id="followups-heading" class="text-base font-semibold text-slate-900">Start follow-ups for estimates already sent</h2>
+                @if ($followUpStatus)
+                    <p role="status" class="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-800" data-follow-up-status>{{ $followUpStatus }}</p>
+                @endif
+                <p class="mt-1 text-sm text-slate-600">Only estimates your file marks as sent or viewed can start follow-ups. Activating schedules the messages; <strong class="font-semibold text-slate-900">it does not send the estimate</strong>, and each follow-up is sent on its date.</p>
+
+                <dl class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-lg bg-green-50 p-4"><dt class="text-xs font-medium text-green-800">Will start follow-ups</dt><dd class="mt-1 text-2xl font-semibold text-green-900" data-follow-up-count="eligible">{{ $followUps['eligible']->count() }}</dd></div>
+                    <div class="rounded-lg bg-slate-50 p-4"><dt class="text-xs font-medium text-slate-600">Left out</dt><dd class="mt-1 text-2xl font-semibold text-slate-900">{{ array_sum($followUps['excluded']) }}</dd></div>
+                </dl>
+
+                @if (! empty($followUps['excluded']))
+                    <ul class="mt-3 space-y-1 text-sm text-slate-700" data-excluded>
+                        @foreach ($followUps['excluded'] as $reason => $count)
+                            <li>{{ $count }} · {{ $reasons[$reason] ?? $reason }}</li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if ($followUps['blocked'])
+                    <p class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status" data-follow-up-blocked>{{ $followUps['blocked'] }}</p>
+                @elseif ($followUps['eligible']->isNotEmpty())
+                    <p class="mt-4 text-sm text-slate-700">Sequence from <span class="font-medium text-slate-900">{{ $followUps['automation']->name }}</span>:
+                        {{ collect($followUps['steps'])->map(fn ($step) => 'after '.$step->configuration['delay_days'].' '.\Illuminate\Support\Str::plural('day', $step->configuration['delay_days']))->implode(', ') }}.
+                    </p>
+                    <form wire:submit="activateFollowUps" class="mt-5 space-y-4 border-t border-slate-200 pt-5">
+                        <label class="flex items-start gap-3 text-sm text-slate-800">
+                            <input type="checkbox" wire:model="followUpsConfirmed" class="mt-1 rounded border-slate-300 text-violet-600 focus:ring-violet-600" data-confirm-follow-ups>
+                            <span>These customers were already sent their estimate outside QuoteFlow, and they should receive the follow-up messages from now on.</span>
+                        </label>
+                        @error('followUps') <p class="text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
+                        <button type="submit" wire:loading.attr="disabled" wire:target="activateFollowUps" class="{{ $primary }}" data-activate-follow-ups><span wire:loading.remove wire:target="activateFollowUps">Start follow-ups for {{ $followUps['eligible']->count() }} {{ \Illuminate\Support\Str::plural('estimate', $followUps['eligible']->count()) }}</span><span wire:loading wire:target="activateFollowUps">Scheduling…</span></button>
+                    </form>
+                @endif
+            </section>
+        @endif
     @endif
 </div>
