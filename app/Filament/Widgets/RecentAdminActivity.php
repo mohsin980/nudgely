@@ -18,7 +18,7 @@ class RecentAdminActivity extends TableWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 55;
+    protected static ?int $sort = 32;
 
     protected int|string|array $columnSpan = 'full';
 

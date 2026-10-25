@@ -18,7 +18,7 @@ class RecentPaymentFailures extends TableWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 40;
+    protected static ?int $sort = 31;
 
     protected int|string|array $columnSpan = 'full';
 

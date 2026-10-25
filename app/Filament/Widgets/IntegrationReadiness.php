@@ -15,7 +15,7 @@ class IntegrationReadiness extends StatsOverviewWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 60;
+    protected static ?int $sort = 15;
 
     protected ?string $heading = 'Integration readiness';
 

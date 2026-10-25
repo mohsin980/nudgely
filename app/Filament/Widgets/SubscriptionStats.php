@@ -14,7 +14,7 @@ class SubscriptionStats extends StatsOverviewWidget
     use ReportsPlatformMetrics;
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 30;
+    protected static ?int $sort = 12;
 
     protected ?string $heading = 'Subscriptions';
 

@@ -15,7 +15,7 @@ class RevenueStats extends StatsOverviewWidget
     use ReportsPlatformMetrics;
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 40;
+    protected static ?int $sort = 13;
 
     protected ?string $heading = 'Revenue';
 

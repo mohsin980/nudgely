@@ -240,7 +240,7 @@ test('a business user cannot reach the admin panel whatever their business role'
 
 test('every platform staff role may enter the panel and see the dashboard', function () {
     foreach (PlatformRole::staffRoles() as $role) {
-        $this->actingAs(platformAdmin($role))->get('/admin')->assertOk()->assertSee('Platform overview');
+        $this->actingAs(platformAdmin($role))->get('/admin')->assertOk()->assertSee('Platform Overview');
         auth()->logout();
     }
 });

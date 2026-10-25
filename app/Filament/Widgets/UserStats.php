@@ -14,7 +14,7 @@ class UserStats extends StatsOverviewWidget
     use ReportsPlatformMetrics;
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 20;
+    protected static ?int $sort = 11;
 
     protected ?string $heading = 'Users';
 

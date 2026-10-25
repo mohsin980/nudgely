@@ -1,0 +1,66 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament';
+@source '../../../../resources/views/filament';
+
+/*
+ * QuoteFlow Super Admin theme. Colours follow the platform's design tokens:
+ * sidebar #17153B, primary #7C3AED, border #E2E8F0, text #111827 / #64748B.
+ */
+
+.fi-sidebar {
+    background-color: #17153b;
+    color: #c4c1e6;
+}
+
+.fi-sidebar .fi-sidebar-header {
+    border-color: rgb(255 255 255 / 0.08);
+}
+
+.fi-sidebar .fi-sidebar-group-label,
+.fi-sidebar .fi-sidebar-item-label {
+    color: #c4c1e6;
+}
+
+.fi-sidebar .fi-sidebar-group-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #8f8bc2;
+}
+
+.fi-sidebar .fi-sidebar-item-btn {
+    border-radius: 0.75rem;
+}
+
+.fi-sidebar .fi-sidebar-item-btn:hover {
+    background-color: rgb(255 255 255 / 0.06);
+}
+
+.fi-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: #7c3aed;
+    color: #ffffff;
+}
+
+.fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-label,
+.fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-icon {
+    color: #ffffff;
+}
+
+.fi-topbar {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.fi-section,
+.fi-wi-stats-overview-stat {
+    border-color: #e2e8f0;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.fi-ta-table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+}
