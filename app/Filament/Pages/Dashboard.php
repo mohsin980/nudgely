@@ -14,7 +14,7 @@ class Dashboard extends BaseDashboard
 {
     use RequiresPlatformPermission;
 
-    protected static ?string $title = 'Platform overview';
+    protected static ?string $title = 'Platform Overview';
 
     protected static ?string $navigationLabel = 'Overview';
 
@@ -25,6 +25,14 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): string|Htmlable|null
     {
-        return config('admin.brand').' platform administration. Modules are added here as they are built.';
+        return 'Monitor your platform health, customer activity, and key metrics across '.config('admin.brand').'.';
+    }
+
+    /**
+     * Three columns on wide screens, two on tablets, one on phones.
+     */
+    public function getColumns(): int|array
+    {
+        return ['default' => 1, 'md' => 2, 'xl' => 3];
     }
 }

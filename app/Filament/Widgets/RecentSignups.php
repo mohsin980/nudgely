@@ -17,7 +17,7 @@ class RecentSignups extends TableWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 20;
+    protected static ?int $sort = 30;
 
     protected int|string|array $columnSpan = 'full';
 

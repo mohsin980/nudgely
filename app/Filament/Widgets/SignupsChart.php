@@ -15,7 +15,9 @@ class SignupsChart extends ChartWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 25;
+    protected static ?int $sort = 20;
+
+    protected int|string|array $columnSpan = ['md' => 2, 'xl' => 2];
 
     protected ?string $heading = 'New businesses per month';
 

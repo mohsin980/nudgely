@@ -66,7 +66,7 @@ test('a billing admin cannot manage roles', function () {
 test('a super admin opens the dashboard and the sensitive pages', function () {
     $this->actingAs(platformAdmin());
 
-    $this->get('/admin')->assertOk()->assertSee('Platform overview');
+    $this->get('/admin')->assertOk()->assertSee('Platform Overview');
     Livewire::test(RolesFixturePage::class)->assertOk();
     Livewire::test(PaymentsFixturePage::class)->assertOk()->callAction('refund');
     expect(PaymentsFixturePage::$ran)->toBeTrue();

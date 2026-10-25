@@ -46,7 +46,7 @@ test('business roles never grant admin access', function () {
 test('a platform administrator sees the dashboard', function () {
     $this->actingAs(platformAdmin())->get('/admin')
         ->assertOk()
-        ->assertSee('Platform overview')
+        ->assertSee('Platform Overview')
         ->assertSee('QuoteFlow AI');
 });
 

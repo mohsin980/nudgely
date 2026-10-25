@@ -17,7 +17,7 @@ class OperationsStats extends StatsOverviewWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 30;
+    protected static ?int $sort = 14;
 
     protected ?string $heading = 'Operations (last 30 days)';
 

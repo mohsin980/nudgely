@@ -17,9 +17,9 @@ class RecentPlatformActivity extends TableWidget
 {
     use RequiresPlatformPermissionForWidget;
 
-    protected static ?int $sort = 50;
+    protected static ?int $sort = 21;
 
-    protected int|string|array $columnSpan = 'full';
+    protected int|string|array $columnSpan = ['md' => 1, 'xl' => 1];
 
     protected static function requiredPermission(): PlatformPermission
     {
