@@ -5,6 +5,7 @@
             <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Estimates</h1>
             <p class="mt-1 text-sm text-slate-500">{{ trans_choice(':count estimate|:count estimates', $estimates->total()) }}{{ $filtering ? ' match your filters' : '' }}</p>
         </div>
+        <a href="{{ route('estimates.import') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Import CSV</a>
         <a href="{{ route('estimates.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Create Estimate</a>
     </div>
 

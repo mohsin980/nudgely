@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Billing\PaymentMethodController;
+use App\Http\Controllers\Estimates\EstimateImportController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Settings\EmailOAuthController;
@@ -20,6 +21,7 @@ use App\Livewire\Customers\CustomerIndex;
 use App\Livewire\Customers\ShowCustomer;
 use App\Livewire\Dashboard;
 use App\Livewire\Estimates\EstimateForm;
+use App\Livewire\Estimates\EstimateImportWizard;
 use App\Livewire\Estimates\EstimateIndex;
 use App\Livewire\Estimates\ShowEstimate;
 use App\Livewire\FollowUps\FollowUpIndex;
@@ -140,6 +142,10 @@ Route::middleware(['auth', 'can:viewAny,'.Automation::class])->prefix('automatio
 Route::middleware(['auth', 'can:access-organization'])->prefix('estimates')->name('estimates.')->group(function () {
     Route::get('/', EstimateIndex::class)->name('index');
     Route::get('/create', EstimateForm::class)->middleware('can:create,'.Estimate::class)->name('create');
+    Route::get('/import', EstimateImportWizard::class)->middleware('can:create,'.Estimate::class)->name('import');
+    Route::get('/import/sample.csv', [EstimateImportController::class, 'sample'])->middleware('can:create,'.Estimate::class)->name('import.sample');
+    Route::get('/import/{importId}', EstimateImportWizard::class)->whereNumber('importId')->middleware('can:create,'.Estimate::class)->name('import.show');
+    Route::get('/import/{importId}/problems.csv', [EstimateImportController::class, 'problems'])->whereNumber('importId')->middleware('can:create,'.Estimate::class)->name('import.problems');
     Route::get('/{estimateId}', ShowEstimate::class)->whereNumber('estimateId')->name('show');
     Route::get('/{estimateId}/edit', EstimateForm::class)->whereNumber('estimateId')->name('edit');
 });

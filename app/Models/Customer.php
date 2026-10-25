@@ -128,7 +128,16 @@ class Customer extends Model
 
     protected function email(): Attribute
     {
-        return Attribute::make(set: fn (string $value) => self::normalizeEmail($value));
+        // Imported customers can have no email address; an empty value is stored as null.
+        return Attribute::make(set: fn (?string $value) => filled($value) ? self::normalizeEmail($value) : null);
+    }
+
+    /**
+     * Only a real, valid address can receive email follow-ups.
+     */
+    public function hasEmail(): bool
+    {
+        return filled($this->email) && filter_var($this->email, FILTER_VALIDATE_EMAIL) !== false;
     }
 
     /**
