@@ -13,6 +13,7 @@ use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Estimates\EstimateException;
 use App\Models\Automation;
 use App\Models\Customer;
+use App\Models\EmailConnection;
 use App\Models\Estimate;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
@@ -104,7 +105,8 @@ class OnboardingService
         return match ($step) {
             OnboardingStep::BusinessProfile => filled($organization->business_type),
             OnboardingStep::BusinessPreferences => ($organization->onboarding_progress[$step->value] ?? null) === 'done',
-            OnboardingStep::EmailConnection => $organization->emailConnections()->default()->verified()->exists(),
+            // A connection that needs reconnecting is not working, so the step is not done.
+            OnboardingStep::EmailConnection => $organization->emailConnections()->default()->verified()->where('connection_status', EmailConnection::STATUS_ACTIVE)->exists(),
             OnboardingStep::FirstCustomer => $organization->customers()->where('is_demo', false)->exists(),
             OnboardingStep::FirstEstimate => $organization->estimates()->exists(),
             OnboardingStep::FirstAutomation => $organization->automations()->where('status', '!=', AutomationStatus::Archived)->exists(),
