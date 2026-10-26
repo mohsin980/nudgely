@@ -60,3 +60,13 @@ After an import completes, the page offers to start follow-ups for the estimates
 - Not done yet: importing from other software, editing rows in the browser, and resuming an import after a failure other than starting it again.
 - Imported estimates must be sent from the estimate page like any other draft.
 - Tests use MySQL. The migrations use only portable column types and composite foreign keys, but they have not been run on PostgreSQL in this environment.
+
+## Retention, upload limits and time
+
+- **Uploaded files** are kept only until the import finishes or fails. A failed import keeps its rows, so starting it again needs no file.
+- **Customer details in rows** are cleared when an import finishes (for imported and skipped rows). Rejected rows keep their details so the problems report still works.
+- **`php artisan estimates:prune-imports`** runs daily. It deletes imports that were never started (uploaded or ready) and clears row details in any import older than `estimates.import.retention_days` (30). Imported estimates are never deleted.
+- **Uploads** are limited to `estimates.import.uploads_per_10_minutes` (10) per user in any 10 minutes. The limit is checked after the file is read, so an unreadable file does not use up an upload.
+- **"Today"** for expiry checks is the business's date in its own timezone, not the server's.
+- **Follow-up activation** runs as one transaction: either every eligible estimate is started or none are, so the page never shows a half-started batch.
+- **The `id` header** is not matched automatically, because it is too generic. Choose the column for the estimate ID by hand.

@@ -16,13 +16,16 @@ use App\Models\User;
 use App\Services\Billing\EntitlementService;
 use App\Services\Estimates\EstimateService;
 use App\Support\Money;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Throwable;
 
 /**
  * Imports estimates from a CSV file.
@@ -73,19 +76,34 @@ class EstimateImportService
             throw ValidationException::withMessages(['file' => $e->getMessage()]);
         }
 
+        $key = 'estimate-import-upload:'.$actor->id;
+
+        if (RateLimiter::tooManyAttempts($key, (int) config('estimates.import.uploads_per_10_minutes'))) {
+            throw ValidationException::withMessages(['file' => 'You have uploaded several files in a short time. Wait a few minutes, then try again.']);
+        }
+
+        RateLimiter::hit($key, 600);
+
         $sha = hash_file('sha256', $path);
         $stored = Storage::disk('local')->putFileAs('estimate-imports/'.$actor->organization_id, $file, Str::uuid().'.csv');
 
-        return DB::transaction(fn () => EstimateImport::query()->create([
-            'organization_id' => $actor->organization_id,
-            'created_by' => $actor->id,
-            'original_name' => Str::limit(basename($file->getClientOriginalName()), 255, ''),
-            'status' => EstimateImport::STATUS_UPLOADED,
-            'file_path' => $stored,
-            'file_sha256' => $sha,
-            'column_map' => ImportColumns::suggest($inspection['headers']),
-            'summary' => ['file' => ['headers' => $inspection['headers'], 'rows' => $inspection['rows']]],
-        ]));
+        try {
+            return DB::transaction(fn () => EstimateImport::query()->create([
+                'organization_id' => $actor->organization_id,
+                'created_by' => $actor->id,
+                'original_name' => Str::limit(basename($file->getClientOriginalName()), 255, ''),
+                'status' => EstimateImport::STATUS_UPLOADED,
+                'file_path' => $stored,
+                'file_sha256' => $sha,
+                'column_map' => ImportColumns::suggest($inspection['headers']),
+                'summary' => ['file' => ['headers' => $inspection['headers'], 'rows' => $inspection['rows']]],
+            ]));
+        } catch (Throwable $e) {
+            // No record points at the file, so it is removed rather than left behind.
+            Storage::disk('local')->delete($stored);
+
+            throw $e;
+        }
     }
 
     /**
@@ -225,7 +243,45 @@ class EstimateImportService
     public function markFailed(EstimateImport $import, string $message): void
     {
         $import->forceFill(['status' => EstimateImport::STATUS_FAILED, 'error_message' => Str::limit($message, 500, '')])->save();
+
+        // The rows hold everything a retry needs, so the uploaded file is no longer kept.
+        $this->deleteStoredFile($import);
+
         Log::error('estimate_import.failed', ['event' => 'estimate_import.failed', 'organization_id' => $import->organization_id, 'estimate_import_id' => $import->id]);
+    }
+
+    /**
+     * Removes the uploaded files and the customer data in rows older than the retention period. Imports that were
+     * never started are deleted entirely. Estimates already imported are never touched.
+     *
+     * @return int number of imports changed
+     */
+    public function prune(CarbonInterface $before): int
+    {
+        $stale = EstimateImport::query()->where('created_at', '<', $before)->get();
+
+        foreach ($stale as $import) {
+            if (in_array($import->status, [EstimateImport::STATUS_UPLOADED, EstimateImport::STATUS_READY], true)) {
+                $this->deleteStoredFile($import);
+                $import->delete();
+
+                continue;
+            }
+
+            $this->deleteStoredFile($import);
+
+            EstimateImportRow::query()->where('estimate_import_id', $import->id)->update(['values' => '[]', 'updated_at' => now()]);
+        }
+
+        return $stale->count();
+    }
+
+    private function deleteStoredFile(EstimateImport $import): void
+    {
+        if ($import->file_path !== null) {
+            Storage::disk('local')->delete($import->file_path);
+            $import->forceFill(['file_path' => null])->save();
+        }
     }
 
     /**
@@ -295,6 +351,7 @@ class EstimateImportService
     {
         $path = Storage::disk('local')->path($import->file_path);
         $currency = $import->organization->currencyCode();
+        $timezone = $import->organization->timezone();
         $references = [];
         $rows = [];
         $counts = ['rows' => 0, 'valid' => 0, 'invalid' => 0, 'warnings' => 0];
@@ -310,7 +367,7 @@ class EstimateImportService
                 }
             }
 
-            $result = $this->validator->validate($values, $currency);
+            $result = $this->validator->validate($values, $currency, $timezone);
             $errors = $result['errors'];
 
             $reference = $result['data']['external_reference'] ?? null;
@@ -364,7 +421,7 @@ class EstimateImportService
                 return;
             }
 
-            $result = $this->validator->validate($locked->values, $organization->currencyCode());
+            $result = $this->validator->validate($locked->values, $organization->currencyCode(), $organization->timezone());
 
             if ($result['data'] === null) {
                 $locked->forceFill(['status' => EstimateImportRow::REJECTED, 'errors' => $result['errors']])->save();
@@ -460,10 +517,12 @@ class EstimateImportService
         ])->save();
 
         // The file's contents now live in the rows, so the stored copy is no longer needed.
-        if ($import->file_path !== null) {
-            Storage::disk('local')->delete($import->file_path);
-            $import->forceFill(['file_path' => null])->save();
-        }
+        $this->deleteStoredFile($import);
+
+        // Imported and skipped rows are now estimates and customers, so their copy of the customer's details is dropped.
+        EstimateImportRow::query()->where('estimate_import_id', $import->id)
+            ->whereIn('status', [EstimateImportRow::IMPORTED, EstimateImportRow::SKIPPED])
+            ->update(['values' => '[]', 'updated_at' => now()]);
     }
 
     private function authorizeImport(User $actor): void

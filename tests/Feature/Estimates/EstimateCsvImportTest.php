@@ -13,11 +13,14 @@ use App\Models\EstimateImportRow;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\Estimates\Import\CsvEstimateParser;
+use App\Services\Estimates\Import\EstimateImportRowValidator;
 use App\Services\Estimates\Import\EstimateImportService;
 use App\Services\Estimates\Import\ImportColumns;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -27,6 +30,9 @@ beforeEach(function () {
     Storage::fake('local');
     [$this->admin] = estimateBusiness();
     $this->imports = app(EstimateImportService::class);
+
+    // The upload limit is kept in the cache, which outlives a test: start each test with a clear count.
+    RateLimiter::clear('estimate-import-upload:'.$this->admin->id);
 });
 
 const IMPORT_HEADER = "Estimate ID,Customer name,Customer email,Amount,Estimate date,Expiration date,Status,Description\n";
@@ -337,4 +343,79 @@ test('the column mapping cannot be changed once the import has started, so rows 
     expect(fn () => $this->imports->saveMapping($this->admin, $import->refresh(), ImportColumns::suggest($import->summary['file']['headers'])))
         ->toThrow(ValidationException::class, 'already started');
     expect(EstimateImportRow::query()->where('estimate_import_id', $import->id)->count())->toBe(1);
+});
+
+test('a bare "id" column is not taken as the estimate ID', function () {
+    expect(ImportColumns::suggest(['id', 'Customer name', 'Amount'])[ImportColumns::EXTERNAL_REFERENCE])->toBeNull()
+        ->and(ImportColumns::suggest(['Estimate ID', 'Customer name', 'Amount'])[ImportColumns::EXTERNAL_REFERENCE])->toBe(0);
+});
+
+test('an expiration date is judged on the business\'s calendar, not the server\'s', function () {
+    // 23:00 UTC on 25 Oct is still 25 Oct in Los Angeles, but already 26 Oct in Kiritimati (UTC+14).
+    Carbon::setTestNow(Carbon::parse('2026-10-25 23:00:00', 'UTC'));
+
+    try {
+        $validator = app(EstimateImportRowValidator::class);
+        $values = [ImportColumns::CUSTOMER_NAME => 'Jane Smith', ImportColumns::AMOUNT => '100', ImportColumns::EXPIRATION_DATE => '2026-10-25'];
+
+        $expiryWarnings = fn (string $timezone) => collect($validator->validate($values, 'USD', $timezone)['warnings'])
+            ->filter(fn (string $warning) => str_contains($warning, 'expiration date has passed'))
+            ->count();
+
+        expect($expiryWarnings('America/Los_Angeles'))->toBe(0)
+            ->and($expiryWarnings('Pacific/Kiritimati'))->toBe(1);
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
+test('a failed import removes its uploaded file, and its rows keep what a retry needs', function () {
+    Queue::fake();
+    $import = uploadAndCheck($this->admin, IMPORT_HEADER."EST-1,Jane Smith,jane@example.com,100,,,,AC\n");
+    $path = $import->file_path;
+
+    $this->imports->markFailed($import, 'The import stopped.');
+
+    expect(Storage::disk('local')->exists($path))->toBeFalse()
+        ->and($import->refresh()->file_path)->toBeNull()
+        ->and(EstimateImportRow::query()->where('estimate_import_id', $import->id)->where('status', EstimateImportRow::PENDING)->count())->toBe(1);
+});
+
+test('a finished import drops the customer details kept in its imported rows', function () {
+    Queue::fake();
+    $import = uploadAndCheck($this->admin, IMPORT_HEADER."EST-1,Jane Smith,jane@example.com,100,,,,AC\n");
+
+    runImport($this->admin, $import);
+
+    $row = EstimateImportRow::query()->where('estimate_import_id', $import->id)->sole();
+    expect($row->status)->toBe(EstimateImportRow::IMPORTED)
+        ->and($row->values)->toBe([]);
+});
+
+test('pruning removes unstarted uploads past retention and clears old customer data, but keeps imported estimates', function () {
+    Queue::fake();
+    $stale = uploadAndCheck($this->admin, IMPORT_HEADER."EST-9,Kim Lee,kim@example.com,50,,,,Pipe\n");
+    $stalePath = $stale->file_path;
+    $done = uploadAndCheck($this->admin, IMPORT_HEADER."EST-10,Lee Park,lee@example.com,60,,,,Duct\n");
+    runImport($this->admin, $done);
+
+    EstimateImport::query()->whereKey([$stale->id, $done->id])->update(['created_at' => now()->subDays(31)]);
+
+    $this->imports->prune(now()->subDays(30));
+
+    expect(EstimateImport::query()->whereKey($stale->id)->exists())->toBeFalse()
+        ->and(Storage::disk('local')->exists($stalePath))->toBeFalse()
+        ->and(Estimate::query()->where('import_id', $done->id)->count())->toBe(1)
+        ->and(EstimateImport::query()->whereKey($done->id)->exists())->toBeTrue();
+});
+
+test('one business can start only a limited number of uploads in ten minutes', function () {
+    $limit = (int) config('estimates.import.uploads_per_10_minutes');
+
+    for ($i = 0; $i < $limit; $i++) {
+        $this->imports->upload($this->admin, UploadedFile::fake()->createWithContent('estimates.csv', IMPORT_HEADER."EST-{$i},Jane,,10,,,,\n"));
+    }
+
+    expect(fn () => $this->imports->upload($this->admin, UploadedFile::fake()->createWithContent('estimates.csv', IMPORT_HEADER."EST-99,Jane,,10,,,,\n")))
+        ->toThrow(ValidationException::class, 'several files in a short time');
 });

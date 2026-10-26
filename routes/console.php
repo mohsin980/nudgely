@@ -13,6 +13,7 @@ use App\Services\Billing\BillingService;
 use App\Services\Email\Bounces\MailboxBounceScanner;
 use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
+use App\Services\Estimates\Import\EstimateImportService;
 use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\Maintenance\RetentionPruner;
 use App\Services\Reliability\OperationsReport;
@@ -104,7 +105,15 @@ Schedule::command('email:recover-stuck-sends')->everyFiveMinutes()->withoutOverl
 Schedule::command('email:scan-bounces')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('billing:sync-subscriptions')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('billing:send-trial-reminders')->dailyAt('09:00')->withoutOverlapping()->onOneServer();
+Artisan::command('estimates:prune-imports', function (EstimateImportService $imports) {
+    $days = (int) config('estimates.import.retention_days');
+    $changed = $imports->prune(now()->subDays($days));
+
+    $this->line("Imports past {$days} days cleaned: {$changed}");
+})->purpose('Delete uploaded files and customer data in estimate imports past their retention period. Imported estimates are kept.');
+
 Schedule::command('retention:prune')->dailyAt('03:30')->withoutOverlapping()->onOneServer();
+Schedule::command('estimates:prune-imports')->dailyAt('03:50')->withoutOverlapping()->onOneServer();
 Schedule::command('platform-audit:prune')->dailyAt('03:45')->withoutOverlapping()->onOneServer();
 Schedule::job(new ExpireTrialsJob)->hourlyAt(5)->name('billing-expire-trials')->withoutOverlapping()->onOneServer();
 Schedule::job(new CheckGracePeriodsJob)->hourlyAt(35)->name('billing-check-grace-periods')->withoutOverlapping()->onOneServer();

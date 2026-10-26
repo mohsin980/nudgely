@@ -34,5 +34,9 @@ return [
         'max_rows' => 5000,
         'max_bytes' => 5 * 1024 * 1024,
         'batch_size' => 100,
+        // Uploaded files and the customer data in import rows are removed after this many days.
+        'retention_days' => 30,
+        // Uploads one business may start per 10 minutes.
+        'uploads_per_10_minutes' => 10,
     ],
 ];

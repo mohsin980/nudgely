@@ -34,7 +34,7 @@ final class ImportColumns
     public static function all(): array
     {
         return [
-            self::EXTERNAL_REFERENCE => ['label' => 'Estimate ID or number', 'aliases' => ['estimate_id', 'estimate_number', 'estimate_no', 'quote_id', 'quote_number', 'external_id', 'reference', 'id', 'number']],
+            self::EXTERNAL_REFERENCE => ['label' => 'Estimate ID or number', 'aliases' => ['estimate_id', 'estimate_number', 'estimate_no', 'quote_id', 'quote_number', 'external_id', 'reference', 'number']],
             self::CUSTOMER_NAME => ['label' => 'Customer name', 'aliases' => ['customer_name', 'customer', 'name', 'client', 'client_name', 'full_name']],
             self::CUSTOMER_EMAIL => ['label' => 'Customer email', 'aliases' => ['customer_email', 'email', 'email_address']],
             self::AMOUNT => ['label' => 'Estimate amount', 'aliases' => ['amount', 'total', 'estimate_amount', 'price', 'grand_total']],

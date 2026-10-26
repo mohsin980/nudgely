@@ -63,9 +63,10 @@ class ImportFollowUpActivation
 
         $eligible = collect();
         $excluded = array_fill_keys(array_keys(self::REASONS), 0);
+        $today = $this->today($organization);
 
-        Estimate::query()->with('customer')->where('import_id', $import->id)->orderBy('id')->get()->each(function (Estimate $estimate) use (&$eligible, &$excluded) {
-            $reason = $this->reasonFor($estimate);
+        Estimate::query()->with('customer')->where('import_id', $import->id)->orderBy('id')->get()->each(function (Estimate $estimate) use (&$eligible, &$excluded, $today) {
+            $reason = $this->reasonFor($estimate, $today);
 
             if ($reason === null) {
                 $eligible->push($estimate);
@@ -107,11 +108,17 @@ class ImportFollowUpActivation
             throw ValidationException::withMessages(['sequence' => 'No estimates are eligible for follow-ups.']);
         }
 
-        $scheduled = 0;
+        // All or nothing: a failure part-way leaves no estimate half-started, so the page never shows a partial state.
+        $scheduled = DB::transaction(function () use ($actor, $import, $plan) {
+            $today = $this->today($import->organization);
+            $messages = 0;
 
-        foreach ($plan['eligible']->pluck('id') as $estimateId) {
-            $scheduled += DB::transaction(fn () => $this->activateOne($actor, $import, (int) $estimateId, $plan['automation'], $plan['steps']));
-        }
+            foreach ($plan['eligible']->pluck('id') as $estimateId) {
+                $messages += $this->activateOne($actor, $import, (int) $estimateId, $plan['automation'], $plan['steps'], $today);
+            }
+
+            return $messages;
+        });
 
         Log::info('estimate_import.follow_ups_activated', ['event' => 'estimate_import.follow_ups_activated', 'organization_id' => $import->organization_id, 'estimate_import_id' => $import->id, 'estimates' => $plan['eligible']->count(), 'follow_ups' => $scheduled]);
 
@@ -121,12 +128,12 @@ class ImportFollowUpActivation
     /**
      * @param  list<AutomationAction>  $steps
      */
-    private function activateOne(User $actor, EstimateImport $import, int $estimateId, Automation $automation, array $steps): int
+    private function activateOne(User $actor, EstimateImport $import, int $estimateId, Automation $automation, array $steps, string $today): int
     {
         // Locked and checked again: another request may have changed the estimate since the page was shown.
         $estimate = Estimate::query()->with('customer')->whereKey($estimateId)->lockForUpdate()->firstOrFail();
 
-        if ($this->reasonFor($estimate) !== null) {
+        if ($this->reasonFor($estimate, $today) !== null) {
             return 0;
         }
 
@@ -158,9 +165,17 @@ class ImportFollowUpActivation
     }
 
     /**
+     * Today's date in the business's timezone, as Y-m-d. Expiry is judged on the business's calendar, not the server's.
+     */
+    private function today(Organization $organization): string
+    {
+        return CarbonImmutable::now($organization->timezone())->toDateString();
+    }
+
+    /**
      * Null when the estimate may start follow-ups, otherwise the reason it may not.
      */
-    private function reasonFor(Estimate $estimate): ?string
+    private function reasonFor(Estimate $estimate, string $today): ?string
     {
         if ($estimate->follow_up_activated_at !== null) {
             return 'already_activated';
@@ -175,7 +190,7 @@ class ImportFollowUpActivation
             return 'not_confirmed_sent';
         }
 
-        if ($estimate->valid_until !== null && $estimate->valid_until->lt(CarbonImmutable::today())) {
+        if ($estimate->valid_until !== null && $estimate->valid_until->toDateString() < $today) {
             return 'expired';
         }
 
