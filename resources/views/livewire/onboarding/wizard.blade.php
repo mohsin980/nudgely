@@ -42,16 +42,55 @@
 
         @if (! $welcomed)
             {{-- Welcome --}}
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Welcome to QuoteFollow</h1>
-            <p class="mt-2 text-sm text-slate-700">Let's get your business ready in a few minutes. You can skip anything optional and come back to it later.</p>
-            <ol class="mt-4 space-y-1 text-sm text-slate-700">
-                @foreach ($groups as $i => $group)<li>{{ $i + 1 }}. {{ $group['label'] }}</li>@endforeach
-            </ol>
-            <div class="mt-6 flex flex-col gap-2 sm:flex-row">
-                <button type="button" wire:click="start" wire:loading.attr="disabled" class="{{ $primary }}">Get Started</button>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700" data-welcome-badge>
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z"/></svg>
+                Getting started
+            </span>
+            <h1 class="mt-4 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Welcome to QuoteFollow</h1>
+            <p class="mt-3 max-w-xl text-base text-slate-600">Let's get your business ready in a few minutes. You can skip anything optional and come back to it later.</p>
+
+            <div class="mt-8 grid gap-6 lg:grid-cols-[1fr_16rem]">
+                <section aria-labelledby="welcome-steps" class="rounded-xl border border-slate-200 bg-white p-2">
+                    <h2 id="welcome-steps" class="sr-only">Setup steps</h2>
+                    <ol class="divide-y divide-slate-100" data-welcome-steps>
+                        @foreach ($groups as $i => $group)
+                            <li class="flex items-center gap-3 px-3 py-3" data-welcome-step="{{ $group['status'] }}">
+                                <span aria-hidden="true" @class(['grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold', 'bg-violet-600 text-white' => $group['status'] === 'done', 'bg-slate-100 text-slate-600' => $group['status'] !== 'done'])>
+                                    @if ($group['status'] === 'done')
+                                        <svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                                    @else
+                                        {{ $i + 1 }}
+                                    @endif
+                                </span>
+                                <span class="flex-1 text-sm font-medium text-slate-900">{{ $group['label'] }}</span>
+                                <span class="text-xs text-slate-500">{{ $group['status'] === 'done' ? 'Done' : ($group['status'] === 'skipped' ? 'Skipped' : 'To do') }}</span>
+                                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4 text-slate-400"><path fill-rule="evenodd" d="M7.2 4.2a1 1 0 011.4 0l4.6 4.6a1 1 0 010 1.4l-4.6 4.6a1 1 0 01-1.4-1.4L11.3 10 7.2 5.6a1 1 0 010-1.4z" clip-rule="evenodd"/></svg>
+                            </li>
+                        @endforeach
+                    </ol>
+                </section>
+
+                <aside class="rounded-xl bg-violet-50/60 p-5 text-sm text-slate-700" aria-labelledby="welcome-needs">
+                    <h2 id="welcome-needs" class="font-semibold text-slate-900">What you'll need</h2>
+                    <ul class="mt-3 space-y-2">
+                        <li class="flex gap-2"><span aria-hidden="true" class="mt-1.5 size-1.5 shrink-0 rounded-full bg-violet-600"></span>Your business name and type</li>
+                        <li class="flex gap-2"><span aria-hidden="true" class="mt-1.5 size-1.5 shrink-0 rounded-full bg-violet-600"></span>The email address you send quotes from</li>
+                        <li class="flex gap-2"><span aria-hidden="true" class="mt-1.5 size-1.5 shrink-0 rounded-full bg-violet-600"></span>One customer and one estimate to start</li>
+                    </ul>
+                </aside>
+            </div>
+
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+                <button type="button" wire:click="start" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50">
+                    Get Started
+                    <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.64l-3.22-3.22a.75.75 0 111.06-1.06l4.5 4.5a.75.75 0 010 1.06l-4.5 4.5a.75.75 0 11-1.06-1.06l3.22-3.22H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
+                </button>
                 <button type="button" wire:click="skipAll" wire:loading.attr="disabled" class="{{ $secondary }}">Skip for now</button>
             </div>
-            <p class="mt-3 text-xs text-slate-500">Skipping leaves everything as it is. A short checklist on your dashboard helps you finish later.</p>
+            <p class="mt-4 flex items-start gap-2 text-xs text-slate-500">
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="mt-0.5 size-4 shrink-0 text-violet-500"><path d="M10 1.5a6 6 0 00-3.5 10.9V14a1 1 0 001 1h5a1 1 0 001-1v-1.6A6 6 0 0010 1.5zM8 17h4v.5a2 2 0 01-4 0V17z"/></svg>
+                Skipping leaves everything as it is. A short checklist on your dashboard helps you finish later.
+            </p>
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::BusinessProfile)
             <h1 class="text-xl font-semibold text-slate-900">About your business</h1>
