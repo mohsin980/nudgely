@@ -9,9 +9,9 @@
         <title>{{ isset($title) ? $title.' · ' : '' }}{{ config('app.name', 'QuoteFollow') }}</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="h-full font-sans text-gray-900 antialiased">
+    <body class="h-full font-sans text-slate-900 antialiased">
         <div class="grid min-h-full lg:grid-cols-2">
-            <aside class="relative hidden overflow-hidden bg-linear-to-br from-violet-700 via-violet-500 to-emerald-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+            <aside class="relative hidden overflow-hidden bg-linear-to-br from-violet-700 via-violet-500 to-violet-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
                 <div class="flex items-center gap-3">
                     <span aria-hidden="true" class="grid size-9 place-items-center rounded-lg bg-white text-base font-bold text-violet-700">Q</span>
                     <span class="text-lg font-semibold tracking-tight">{{ config('app.name', 'QuoteFollow') }}</span>

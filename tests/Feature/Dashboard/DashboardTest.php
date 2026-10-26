@@ -4,6 +4,8 @@ use App\Enums\AttentionPriority;
 use App\Enums\ClassificationStatus;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
+use App\Enums\EstimateStatus;
+use App\Enums\MessageStatus;
 use App\Enums\ReplyUrgency;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
@@ -17,6 +19,8 @@ use App\Models\AutomationActionRun;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\EmailConnection;
+use App\Models\Estimate;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\MessageClassification;
@@ -117,8 +121,8 @@ test('an authenticated user can access the dashboard', function () {
     $this->actingAs($this->admin)->get('/dashboard')->assertOk()->assertSee('Loading your dashboard');
 
     dashboard($this->admin)->assertSee('Good morning, Mohsin')
-        ->assertSee("Here's what needs your attention today.")
-        ->assertSee('Saturday, October 3, 2026');
+        ->assertSee("Here's what's happening at ".$this->organization->name.' today.')
+        ->assertSee('Sat, Oct 3, 2026');
 });
 
 test('a guest is redirected to sign in', function () {
@@ -237,7 +241,7 @@ test('a ready-to-book customer appears with intent, confidence and a high priori
         ->priority->toBe(AttentionPriority::High)
         ->actionLabel->toBe('Open Conversation');
 
-    dashboard($this->admin)->assertSeeInOrder(['Needs your attention', 'John Smith', 'High priority', "“Yes, I'd like to schedule this.”", 'Ready to book', '94% confidence', 'Open Conversation']);
+    dashboard($this->admin)->assertSeeInOrder(['Action required', 'John Smith', 'High priority', "“Yes, I'd like to schedule this.”", 'Ready to book', '94% confidence', 'Open Conversation']);
 });
 
 test('an overdue follow-up appears in the attention list', function () {
@@ -249,7 +253,7 @@ test('an overdue follow-up appears in the attention list', function () {
     expect($item->reason)->toBe('Follow-up overdue')
         ->and($item->priority)->toBe(AttentionPriority::High)
         ->and($item->url)->toContain('filter=overdue');
-    dashboard($this->admin)->assertSeeInOrder(['Needs your attention', 'Sarah Wilson', 'High priority', 'Follow up about estimate', 'Follow-up overdue', 'View Follow-Up']);
+    dashboard($this->admin)->assertSeeInOrder(['Action required', 'Sarah Wilson', 'High priority', 'Follow up about estimate', 'Follow-up overdue', 'View Follow-Up']);
 });
 
 test('closed and waiting-for-customer conversations do not appear', function () {
@@ -257,7 +261,30 @@ test('closed and waiting-for-customer conversations do not appear', function () 
     classifiedReply(customerWithConversation($this->organization, 'Waiting Wendy'), 'Book it', CustomerReplyIntent::ReadyToBook)->conversation->forceFill(['status' => ConversationStatus::WaitingCustomer])->save();
 
     expect(snapshot($this->admin)->attention)->toBeEmpty();
+    dashboard($this->admin)->assertDontSee('Customers to contact first');
+});
+
+test('with sending ready and nothing waiting, the action list says the business is all caught up', function () {
+    $connection = EmailConnection::factory()->for($this->organization)->verified()->create();
+    $connection->markAsDefault();
+
+    expect(snapshot($this->admin)->alerts)->toBeEmpty();
     dashboard($this->admin)->assertSee("You're all caught up.")->assertSee('No customer action is currently required.');
+});
+
+test('a missing sending email shows as an action with a link only for people who may fix it', function () {
+    expect(snapshot($this->admin)->alerts->pluck('key')->all())->toContain('email');
+
+    dashboard($this->admin)->assertSee('Email sending needs attention')->assertSeeHtml('href="'.route('settings.email').'"');
+
+    $staff = User::factory()->staff()->for($this->organization)->create();
+    $alert = snapshot($staff)->alerts->firstWhere('key', 'email');
+    expect($alert['url'])->toBeNull()->and($alert['action'])->toBeNull()
+        ->and($alert['hint'])->toBe('Ask the business owner to connect and verify a sending email.');
+
+    // Someone who cannot fix it is told who can, instead of seeing a problem with no way forward.
+    dashboard($staff)->assertSee('Email sending needs attention')->assertSee('Ask the business owner to connect and verify a sending email.')->assertDontSee('Fix now');
+    expect(snapshot($this->admin)->alerts->firstWhere('key', 'email')['hint'])->toBeNull();
 });
 
 test('attention is ordered by priority, and business rules can override the AI', function () {
@@ -290,7 +317,7 @@ test("today's follow-ups use the organization's timezone", function () {
     reminderAt($this->admin, $this->johnConversation, '2026-10-04 04:30:00', 'Evening call');
 
     expect(snapshot($this->admin->fresh())->todaysFollowUps)->toHaveCount(1);
-    dashboard($this->admin->fresh())->assertSeeInOrder(["Today's follow-ups", '9:30 PM', 'John Smith', 'Evening call', 'Open']);
+    dashboard($this->admin->fresh())->assertSeeInOrder(['Upcoming & overdue follow-ups', '9:30 PM', 'John Smith', 'Evening call', 'Open']);
 
     $this->organization->forceFill(['timezone' => 'America/New_York'])->save();
     expect(snapshot($this->admin->fresh())->todaysFollowUps)->toBeEmpty()
@@ -302,7 +329,7 @@ test('overdue follow-ups are shown separately from today\'s', function () {
     reminderAt($this->admin, $sarah, '2026-10-02 15:00:00', 'Overdue call');
     reminderAt($this->admin, $this->johnConversation, '2026-10-03 16:30:00', 'Estimate follow-up');
 
-    dashboard($this->admin)->assertSeeInOrder(["Today's follow-ups", 'View All Follow-Ups', 'Overdue (1)', 'Yesterday', 'Sarah Wilson', 'Overdue call', 'Today (1)', '11:30 AM', 'John Smith', 'Estimate follow-up']);
+    dashboard($this->admin)->assertSeeInOrder(['Upcoming & overdue follow-ups', 'View All Follow-Ups', 'Today (1)', 'Overdue (1)', '11:30 AM', 'John Smith', 'Estimate follow-up', 'Yesterday', 'Sarah Wilson', 'Overdue call']);
 });
 
 test('completed follow-ups do not appear as pending', function () {
@@ -326,7 +353,7 @@ test('recent customer replies appear with their classification', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-03 15:00:00', 'UTC'));
 
     dashboard($this->admin)->assertSeeInOrder([
-        'Recent customer replies',
+        'Recent conversations',
         'John Smith', '2 minutes ago', "“Yes, let's move forward.”", 'Ready to book', '94%',
         'Sarah Wilson', '1 hour ago', '“Can you explain the pricing?”', 'Question', '88%',
     ])->assertSeeHtml('href="'.route('inbox.show', $this->johnConversation->id).'"');
@@ -382,7 +409,7 @@ test('an automation task due today appears in the attention list and the tasks s
         ->and($snapshot->taskCounts)->toBe(['open' => 1, 'due' => 1, 'overdue' => 0, 'later' => 0]);
 
     dashboard($this->admin)
-        ->assertSeeInOrder(['Needs your attention', 'John Smith', 'High priority', 'Task: Book John Smith', 'Open Task'])
+        ->assertSeeInOrder(['Action required', 'John Smith', 'High priority', 'Task: Book John Smith', 'Open Task'])
         ->assertSeeInOrder(['Tasks (1)', 'Book John Smith', 'John Smith', 'High priority', 'due Oct 3, 2:00 PM', 'by automation', 'Complete']);
 });
 
@@ -495,12 +522,16 @@ function dashboardQueries(User $user): array
 
 test('the dashboard has no N+1 queries: the query count does not grow with data', function () {
     seedVolume($this, 3);
+    // The first render warms process-level caches (such as the plan catalog); measure after that.
+    dashboardQueries($this->admin);
     $small = count(dashboardQueries($this->admin));
 
     seedVolume($this, 25);
     $large = count(dashboardQueries($this->admin));
 
-    expect($large)->toBe($small)->and($large)->toBeLessThanOrEqual(30);
+    // The count must not depend on the amount of data. The ceiling is a budget for the sections the page has
+    // (key numbers, alerts, follow-ups, conversations, plan usage, recent estimates, automation health).
+    expect($large)->toBe($small)->and($large)->toBeLessThanOrEqual(55);
 });
 
 test('the dashboard never loads whole customer, message or follow-up tables', function () {
@@ -540,9 +571,11 @@ test('a new business sees a clear first step instead of zeros', function () {
         ->assertSeeLivewire('customers.create-customer-form');
 });
 
-test('quick actions: add a customer, schedule a follow-up, conversations and automations', function () {
+test('quick actions: add a customer, create a quote, reply to a message and set a reminder', function () {
     dashboard($this->admin)
-        ->assertSee(['Add Customer', 'Schedule Follow-Up', 'View Conversations', 'View Automations'])
+        ->assertSee(['Add a customer', 'Create a quote', 'Reply to a message', 'Set a reminder'])
+        ->assertSeeHtml('href="'.route('estimates.create').'"')
+        ->assertSeeHtml('href="'.route('inbox.index').'"')
         ->assertSeeHtml('href="'.route('follow-ups.index', ['schedule' => 1]).'"')
         ->set('showAddCustomer', true)
         ->assertSeeLivewire('customers.create-customer-form');
@@ -562,7 +595,7 @@ test('quick actions: add a customer, schedule a follow-up, conversations and aut
         ->assertSee('Overdue thing')->assertDontSee('Later thing')->assertSee('Show all follow-ups');
 
     // Staff can view automations (read-only), so they see the link too.
-    dashboard(User::factory()->staff()->for($this->organization)->create())->assertSee('View Automations');
+    dashboard(User::factory()->staff()->for($this->organization)->create())->assertSeeHtml('href="'.route('automations.index').'"');
 });
 
 test('the inbox "Waiting for you" filter matches the dashboard card', function () {
@@ -592,10 +625,227 @@ test('end to end: the dashboard shows what needs attention today', function () {
         ->assertSeeHtml('data-count="overdue">1<')
         ->assertSeeHtml('data-count="due_today">1<')
         ->assertSeeInOrder([
-            'Needs your attention',
+            'Action required',
             'John Smith', 'Ready to book', '94% confidence', 'Open Conversation',
             'Sarah Wilson', 'Follow-up overdue', 'View Follow-Up',
-            "Today's follow-ups", 'Mike Johnson', 'Open',
-            'Recent customer replies', 'John Smith', 'Ready to book', '94%',
+            'Upcoming & overdue follow-ups', 'Mike Johnson', 'Open',
+            'Recent conversations', 'John Smith', 'Ready to book', '94%',
         ]);
+});
+
+// Estimate pipeline, alerts, automation health, plan usage
+
+function estimateFor(Customer $customer, EstimateStatus $status, string $total, array $attributes = []): Estimate
+{
+    // The estimates table requires the timestamp that matches each status.
+    $defaults = match ($status) {
+        EstimateStatus::Draft => [],
+        EstimateStatus::Cancelled => ['cancelled_at' => now()->subDay()],
+        EstimateStatus::Sent => ['sent_at' => now()->subDay()],
+        EstimateStatus::Viewed => ['sent_at' => now()->subDay(), 'viewed_at' => now()->subHours(5)],
+        EstimateStatus::Accepted => ['sent_at' => now()->subDays(3), 'accepted_at' => now()->subDay()],
+        EstimateStatus::Declined => ['sent_at' => now()->subDays(3), 'declined_at' => now()->subDay()],
+        EstimateStatus::Expired => ['sent_at' => now()->subDays(40), 'expired_at' => now()->subDay()],
+    };
+
+    return Estimate::factory()->create($attributes + $defaults + ['customer_id' => $customer->id, 'organization_id' => $customer->organization_id, 'status' => $status, 'total' => $total]);
+}
+
+test('the estimate pipeline counts each status and values only what is outstanding or recently accepted', function () {
+    $john = $this->john;
+    estimateFor($john, EstimateStatus::Draft, '100.00');
+    estimateFor($john, EstimateStatus::Sent, '200.00', ['sent_at' => now()->subDay()]);
+    estimateFor($john, EstimateStatus::Sent, '300.00', ['sent_at' => now()->subDays(2)]);
+    estimateFor($john, EstimateStatus::Viewed, '400.00', ['sent_at' => now()->subDays(10)]);
+    estimateFor($john, EstimateStatus::Accepted, '1000.00', ['sent_at' => now()->subDays(20), 'accepted_at' => now()->subDays(5)]);
+    estimateFor($john, EstimateStatus::Accepted, '5000.00', ['sent_at' => now()->subDays(90), 'accepted_at' => now()->subDays(60)]);
+    estimateFor($john, EstimateStatus::Declined, '700.00');
+    estimateFor($john, EstimateStatus::Expired, '800.00');
+    estimateFor($john, EstimateStatus::Cancelled, '9999.00');
+
+    $pipeline = snapshot($this->admin)->estimatePipeline;
+
+    expect($pipeline)->toMatchArray([
+        'draft' => 1, 'sent' => 2, 'viewed' => 1, 'accepted' => 2, 'declined' => 1, 'expired' => 1,
+        'outstanding_count' => 3, 'outstanding_cents' => 90000,
+        'accepted_recent_count' => 1, 'accepted_recent_cents' => 100000,
+    ]);
+});
+
+test('estimates sent in the last 7 days are compared with the 7 days before', function () {
+    estimateFor($this->john, EstimateStatus::Sent, '10.00', ['sent_at' => now()->subDays(1)]);
+    estimateFor($this->john, EstimateStatus::Sent, '10.00', ['sent_at' => now()->subDays(3)]);
+    estimateFor($this->john, EstimateStatus::Viewed, '10.00', ['sent_at' => now()->subDays(10)]);
+
+    expect(snapshot($this->admin)->estimatePipeline)->toMatchArray(['sent_7d' => 2, 'sent_prev_7d' => 1, 'sent_trend' => 100]);
+
+    dashboard($this->admin)->assertSeeHtml('data-trend="100"');
+});
+
+test('no trend is shown when there is nothing to compare with', function () {
+    estimateFor($this->john, EstimateStatus::Sent, '10.00', ['sent_at' => now()->subDay()]);
+
+    expect(snapshot($this->admin)->estimatePipeline['sent_trend'])->toBeNull();
+    dashboard($this->admin)->assertDontSeeHtml('data-trend=');
+});
+
+test('estimate figures never include another business or cancelled revisions', function () {
+    [$otherAdmin, $otherCustomer] = followUpBusiness('Houston Plumbing');
+    estimateFor($otherCustomer, EstimateStatus::Sent, '5000.00', ['sent_at' => now()]);
+    estimateFor($otherCustomer, EstimateStatus::Accepted, '7000.00', ['accepted_at' => now()]);
+    estimateFor($this->john, EstimateStatus::Cancelled, '300.00', ['sent_at' => now()]);
+
+    expect(snapshot($this->admin)->estimatePipeline)->toMatchArray(['outstanding_count' => 0, 'outstanding_cents' => 0, 'accepted_recent_count' => 0, 'accepted_recent_cents' => 0, 'sent_7d' => 0]);
+    expect(snapshot($otherAdmin)->estimatePipeline['outstanding_cents'])->toBe(500000);
+});
+
+test('the dashboard labels estimate values as totals, not collected revenue', function () {
+    estimateFor($this->john, EstimateStatus::Sent, '900.00', ['sent_at' => now()]);
+    estimateFor($this->john, EstimateStatus::Accepted, '1250.00', ['accepted_at' => now()->subDay()]);
+
+    dashboard($this->admin)
+        ->assertSeeHtml('data-count="awaiting">1<')
+        ->assertSeeHtml('data-estimates="outstanding-value">$900.00<')
+        ->assertSeeHtml('data-count="accepted_value">$1,250.00<')
+        ->assertSee('They are not payments collected.')
+        ->assertDontSee('Recovered revenue');
+});
+
+test('a business with no estimates sees zeros and a way to create one', function () {
+    dashboard($this->admin)
+        ->assertSeeHtml('data-count="accepted_value">$0.00<')
+        ->assertSee('No estimates yet.')
+        ->assertSeeHtml('href="'.route('estimates.create').'"');
+});
+
+test('key number cards open the list they count', function () {
+    dashboard($this->admin)
+        ->assertSeeHtml('data-card="awaiting"')
+        ->assertSeeHtml('href="'.route('estimates.index', ['status' => 'awaiting']).'"')
+        ->assertSeeHtml('href="'.route('follow-ups.index', ['filter' => 'today']).'"')
+        ->assertSeeHtml('href="'.route('follow-ups.index', ['filter' => 'overdue']).'"')
+        ->assertSeeHtml('href="'.route('estimates.index', ['status' => 'accepted']).'"')
+        ->assertSeeHtml('data-card="new_replies"');
+});
+
+test('estimates about to expire are counted from the business calendar, sent or viewed only', function () {
+    $today = $this->organization->localNow();
+    estimateFor($this->john, EstimateStatus::Sent, '10.00', ['valid_until' => $today->addDays(2)->toDateString()]);
+    estimateFor($this->john, EstimateStatus::Viewed, '10.00', ['valid_until' => $today->addDays(3)->toDateString()]);
+    estimateFor($this->john, EstimateStatus::Sent, '10.00', ['valid_until' => $today->addDays(4)->toDateString()]);
+    estimateFor($this->john, EstimateStatus::Accepted, '10.00', ['valid_until' => $today->toDateString()]);
+    estimateFor($this->john, EstimateStatus::Draft, '10.00', ['valid_until' => $today->toDateString()]);
+
+    expect(snapshot($this->admin)->alerts->firstWhere('key', 'expiring')['count'])->toBe(2);
+});
+
+test('failed emails are counted for the last 7 days and only for this business', function () {
+    $mine = EmailConnection::factory()->for($this->organization)->verified()->create();
+    Message::factory()->create(['email_connection_id' => $mine->id, 'status' => MessageStatus::Failed]);
+    Message::factory()->create(['email_connection_id' => $mine->id, 'status' => MessageStatus::Failed, 'created_at' => now()->subDays(10)]);
+    Message::factory()->create(['email_connection_id' => $mine->id, 'status' => MessageStatus::Sent]);
+    Message::factory()->create(['status' => MessageStatus::Failed]); // another business's connection
+
+    expect(snapshot($this->admin)->alerts->firstWhere('key', 'failed_emails')['count'])->toBe(1);
+});
+
+test('automation health comes from execution results and sending readiness, not from being enabled', function () {
+    $automation = Automation::factory()->active()->create(['organization_id' => $this->organization->id]);
+    Automation::factory()->paused()->create(['organization_id' => $this->organization->id]);
+
+    // Active, but nothing can be sent.
+    expect(snapshot($this->admin)->automationHealth)->toMatchArray(['active' => 1, 'paused' => 1, 'email_ready' => false, 'status' => 'email_not_ready']);
+
+    EmailConnection::factory()->for($this->organization)->verified()->create()->markAsDefault();
+    expect(snapshot($this->admin)->automationHealth['status'])->toBe('no_recent_runs');
+
+    $run = fn (string $status, string $id) => AutomationRun::query()->forceCreate(['organization_id' => $this->organization->id, 'automation_id' => $automation->id,
+        'conversation_id' => $this->johnConversation->id, 'event_type' => 'customer_reply_classified', 'event_id' => $id, 'status' => $status]);
+
+    $run('completed', 'ok-1');
+    expect(snapshot($this->admin)->automationHealth)->toMatchArray(['completed_7d' => 1, 'failed_7d' => 0, 'status' => 'healthy']);
+
+    $run('failed', 'bad-1');
+    expect(snapshot($this->admin)->automationHealth)->toMatchArray(['failed_7d' => 1, 'status' => 'failing']);
+
+    dashboard($this->admin)->assertSeeHtml('data-automation-status="failing"')->assertSee('Needs attention');
+});
+
+test('a business with no automations is shown as not set up, never as healthy', function () {
+    EmailConnection::factory()->for($this->organization)->verified()->create()->markAsDefault();
+
+    expect(snapshot($this->admin)->automationHealth['status'])->toBe('idle');
+    dashboard($this->admin)->assertSee('No automations are active yet.')->assertDontSee('running smoothly');
+});
+
+test('upcoming follow-ups are the next 7 days after today, with their total', function () {
+    reminderAt($this->admin, $this->johnConversation, '2026-10-05 15:00:00', 'Next week call');
+    reminderAt($this->admin, $this->johnConversation, '2026-10-12 15:00:00', 'Too far away');
+    reminderAt($this->admin, $this->johnConversation, '2026-10-03 20:00:00', 'Later today');
+
+    $snapshot = snapshot($this->admin);
+    expect($snapshot->upcomingCount)->toBe(1)
+        ->and($snapshot->upcomingFollowUps->pluck('notes')->all())->toBe(['Next week call']);
+
+    dashboard($this->admin)->assertSee('Upcoming (1)')->assertSeeHtml('data-section="upcoming"');
+});
+
+test('plan usage shows the plan and counts only this business', function () {
+    Customer::factory()->count(3)->create(['organization_id' => followUpBusiness('Houston Plumbing')[0]->organization_id]);
+
+    $usage = snapshot($this->admin)->planUsage;
+    $customers = collect($usage['rows'])->firstWhere('label', 'Customers');
+
+    expect($usage['plan'])->not->toBeEmpty()
+        ->and($usage['rows'])->toHaveCount(4)
+        ->and($customers['used'])->toBe(1);
+
+    dashboard($this->admin)->assertSeeHtml('data-plan>'.$usage['plan'].'<');
+});
+
+test('recent estimates lists the five newest with their status, without cancelled ones', function () {
+    foreach (range(1, 6) as $i) {
+        estimateFor($this->john, EstimateStatus::Sent, "{$i}00.00", ['estimate_number' => "EST-{$i}", 'created_at' => now()->subDays(10 - $i)]);
+    }
+    estimateFor($this->john, EstimateStatus::Cancelled, '50.00', ['estimate_number' => 'EST-CANCELLED', 'created_at' => now()]);
+
+    $recent = snapshot($this->admin)->recentEstimates;
+    expect($recent)->toHaveCount(5)->and($recent->pluck('estimate_number')->all())->toBe(['EST-6', 'EST-5', 'EST-4', 'EST-3', 'EST-2']);
+
+    dashboard($this->admin)->assertSee('EST-6')->assertSee('$600.00')->assertDontSee('EST-CANCELLED')->assertDontSee('EST-1');
+});
+
+test('the follow-ups card opens on overdue when nothing is due today', function () {
+    reminderAt($this->admin, $this->johnConversation, '2026-10-02 15:00:00', 'Overdue call');
+
+    dashboard($this->admin)->assertSeeHtml("x-data=\"{ tab: 'overdue' }\"");
+});
+
+test('the notification bell shows the unread count and points at the notifications', function () {
+    $this->admin->notifyNow(new FollowUpNotification('John Smith\'s follow-up is due today.', route('follow-ups.index'), 1, 'due'));
+
+    dashboard($this->admin)->assertSeeHtml('data-bell-count>1<')->assertSeeHtml('href="#notifications"')->assertSeeHtml('id="notifications"');
+});
+
+test('the "Need reply" tab and tag follow the same rule as the waiting count', function () {
+    // Open, but the customer's latest intent calls for action: waiting on the business.
+    classifiedReply($this->johnConversation, 'Book it', CustomerReplyIntent::ReadyToBook);
+    // Closed: never waiting, whatever the intent.
+    classifiedReply(customerWithConversation($this->organization, 'Closed Carl'), 'Book it', CustomerReplyIntent::ReadyToBook)->conversation->forceFill(['status' => ConversationStatus::Closed])->save();
+
+    expect($this->johnConversation->refresh()->isWaitingForBusiness())->toBeTrue()
+        ->and(snapshot($this->admin)->summary['waiting'])->toBe(1);
+
+    dashboard($this->admin)->assertSee('Need reply (1)')->assertSee('Needs reply');
+});
+
+test('team seats do not drive the overall plan usage, and the bar names what is closest to its limit', function () {
+    $usage = snapshot($this->admin)->planUsage;
+    $growing = collect($usage['rows'])->filter(fn ($row) => in_array($row['label'], ['Customers', 'Estimates', 'Automations'], true) && $row['limit']);
+    $expected = (int) min(100, round($growing->map(fn ($row) => $row['used'] / $row['limit'])->max() * 100));
+
+    expect($usage['percent'])->toBe($expected)
+        ->and($usage['fullest'])->toBeIn(['Customers', 'Estimates', 'Automations']);
+
+    dashboard($this->admin)->assertSeeHtml('data-plan-fullest>'.$usage['fullest'].'<')->assertSee('Closest to a limit:');
 });

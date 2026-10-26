@@ -567,13 +567,13 @@ test('the dashboard checklist shows what is left and disappears when everything 
 
     $items = app(OnboardingService::class)->checklist($owner->fresh());
     expect(collect($items)->pluck('done', 'label')->all())->toBe(['Business profile' => true, 'Email connected' => true, 'First customer' => true, 'First estimate' => true, 'Create an automation' => false, 'Invite a teammate' => false]);
-    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertSee('Getting started')->assertSee('Create an automation')->assertSee('Invite a teammate');
+    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertSee('Setup checklist')->assertSee('Create an automation')->assertSee('Invite a teammate');
 
     app(OnboardingService::class)->installTemplate($owner, 'estimate_accepted');
     User::factory()->staff()->for($organization)->create();
 
     expect(app(OnboardingService::class)->checklist($owner->fresh()))->toBeNull()->and($organization->fresh()->onboarding_checklist_done_at)->not->toBeNull();
-    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertDontSee('Getting started');
+    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertDontSee('Setup checklist');
 });
 
 test('the checklist is for the owner only and never appears for other members', function () {

@@ -79,7 +79,7 @@ test('first end-to-end: Dallas HVAC goes from sign-up to a working follow-up aut
 
     // The dashboard: a working business, no longer the empty welcome, no redirect back to onboarding.
     $this->actingAs($owner->fresh())->get('/dashboard')->assertOk();
-    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertDontSee('No customers yet.')->assertSee('Getting started')->assertSee('Invite a teammate');
+    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertDontSee('No customers yet.')->assertSee('Setup checklist')->assertSee('Invite a teammate');
     $summary = ownerWizardSummary($organization);
     expect($summary)->toBe(['customers' => 1, 'estimates' => 1, 'automations' => 1, 'follow_ups' => 0]);
 
@@ -117,7 +117,7 @@ test('second end-to-end: skipping customer, estimate and automation still reache
         ->and($organization->emailConnections()->count())->toBe(0);
 
     // The dashboard invites the next steps instead of showing empty numbers, and the checklist remembers what is left.
-    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertSee('Add Customer')->assertSee('Create Estimate')->assertSee('Create Automation')->assertSee('Getting started');
+    Livewire::withoutLazyLoading()->actingAs($owner->fresh())->test(Dashboard::class)->assertSee('Add Customer')->assertSee('Create Estimate')->assertSee('Create Automation')->assertSee('Setup checklist');
 });
 
 test('third end-to-end: leaving after business, email and customer resumes at the estimate', function () {

@@ -70,6 +70,10 @@ class AutomatedEmailPolicy
             return AutomationActionResult::skipped('Email not sent: the customer opted out of email.', ['reason' => 'opted_out']);
         }
 
+        if ($customer->isEmailSuppressed()) {
+            return AutomationActionResult::skipped('Email not sent: the address bounced or complained.', ['reason' => 'suppressed']);
+        }
+
         try {
             $this->email->assertCanSendFrom($organization->emailConnections()->default()->first(), $organization->id);
         } catch (EmailSendingNotAllowedException $e) {

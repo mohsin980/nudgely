@@ -14,6 +14,9 @@ use App\Models\EmailReplyRoute;
 use App\Models\Message;
 use App\Models\WebhookEvent;
 use App\Services\AI\CustomerReplyClassificationService;
+use App\Services\Email\Bounces\BounceNoticeParser;
+use App\Services\Email\Bounces\BounceRecorder;
+use App\Services\Email\Bounces\BounceTokens;
 use App\Services\Email\Data\InboundEmail;
 use App\Services\Email\Inbound\InboundEmailProviderManager;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -41,12 +44,18 @@ class InboundEmailProcessor
 
     public const OUTCOME_DUPLICATE = 'duplicate';
 
+    public const OUTCOME_BOUNCE = 'bounce';
+
+    public const OUTCOME_BOUNCE_IGNORED = 'bounce_ignored';
+
     public const OUTCOME_ALREADY_PROCESSED = 'already_processed';
 
     public function __construct(
         private readonly InboundEmailProviderManager $providers,
         private readonly ReplyRouteService $replyRoutes,
         private readonly EmailHtmlSanitizer $sanitizer,
+        private readonly BounceNoticeParser $bounceParser,
+        private readonly BounceRecorder $bounces,
     ) {}
 
     public function process(WebhookEvent $event): string
@@ -129,6 +138,11 @@ class InboundEmailProcessor
             return self::OUTCOME_INVALID;
         }
 
+        // A bounce notice for an SMTP message: it is addressed to that message's bounce address, not a reply address.
+        if (($bounced = $this->bounceMessage($email->recipients)) !== null) {
+            return $this->applySmtpBounce($event, $bounced, $email);
+        }
+
         $token = $this->replyRoutes->extractToken($email->recipients);
         $route = $token === null ? null : $this->replyRoutes->resolve($token);
         [$conversation, $customer] = $route === null ? [null, null] : $this->routeTarget($route);
@@ -149,7 +163,9 @@ class InboundEmailProcessor
         // Our receipt time, not the sender-controlled Date header, so a forged date cannot reorder threads.
         $message = $this->storeMessage($email, $route, $senderMatches ? $conversation : null, $token, $event->created_at);
 
-        if ($senderMatches) {
+        // An out-of-office or other automatic reply is kept in the thread, but it is not a conversation turn:
+        // it does not move the conversation, stop follow-ups, or get classified.
+        if ($senderMatches && ! $this->isAutomatedReply($email)) {
             $conversation->recordActivity($message->received_at);
 
             // Announce only; dispatched after the transaction commits.
@@ -173,6 +189,60 @@ class InboundEmailProcessor
         ]);
 
         return $senderMatches ? self::OUTCOME_ATTACHED : self::OUTCOME_NEEDS_REVIEW;
+    }
+
+    /**
+     * The sent message a bounce address names. The signed token means only a message we sent can be matched.
+     *
+     * @param  list<string>  $recipients
+     */
+    private function bounceMessage(array $recipients): ?Message
+    {
+        $domain = preg_quote(strtolower((string) config('email.inbound.reply_domain')), '/');
+
+        foreach ($recipients as $recipient) {
+            if (preg_match('/^bounce\+([\d.a-f]+)@'.$domain.'$/', strtolower(trim($recipient)), $matches)
+                && ($messageId = BounceTokens::messageIdFrom($matches[1])) !== null) {
+                return Message::query()->whereKey($messageId)->where('direction', MessageDirection::Outbound)->first();
+            }
+        }
+
+        return null;
+    }
+
+    private function applySmtpBounce(WebhookEvent $event, Message $message, InboundEmail $email): string
+    {
+        // The message's organization is the trusted one, as for reply routes.
+        $event->forceFill(['organization_id' => $message->organization_id])->save();
+
+        if (! $this->bounceParser->isPermanent($this->bounceParser->statusCode($email->textBody ?? ''))) {
+            $event->markIgnored('Not a permanent bounce.');
+
+            return self::OUTCOME_BOUNCE_IGNORED;
+        }
+
+        $this->bounces->recordPermanentBounce($message, 'smtp');
+        $event->markProcessed();
+
+        return self::OUTCOME_BOUNCE;
+    }
+
+    /**
+     * Auto-replies (RFC 3834 Auto-Submitted, bulk or auto-reply Precedence, vacation responder headers).
+     */
+    private function isAutomatedReply(InboundEmail $email): bool
+    {
+        $autoSubmitted = strtolower(trim($email->headers['auto-submitted'] ?? ''));
+
+        if ($autoSubmitted !== '' && $autoSubmitted !== 'no') {
+            return true;
+        }
+
+        if (in_array(strtolower(trim($email->headers['precedence'] ?? '')), ['bulk', 'junk', 'list', 'auto_reply'], true)) {
+            return true;
+        }
+
+        return isset($email->headers['x-autoreply']) || isset($email->headers['x-autorespond']);
     }
 
     /**
@@ -221,6 +291,8 @@ class InboundEmailProcessor
                 'email_date' => $email->receivedAt->toIso8601String(),
                 'attachments' => $email->attachments ?: null,
                 'review_reason' => $conversation === null ? 'sender_mismatch' : null,
+                // Stored, so follow-up stop rules can tell a real reply from an automatic one.
+                'automated' => $this->isAutomatedReply($email) ? '1' : null,
             ]) ?: null,
         ])->save();
 

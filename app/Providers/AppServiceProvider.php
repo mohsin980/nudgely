@@ -4,9 +4,18 @@ namespace App\Providers;
 
 use App\Billing\PlanCatalog;
 use App\Contracts\Email\EmailProviderInterface;
+use App\Enums\Platform\PlatformPermission;
 use App\Enums\Team\Permission;
+use App\Http\Middleware\DisableUnusedFilamentRoutes;
 use App\Listeners\LogQueueLifecycle;
+use App\Models\Organization;
+use App\Models\PlanSetting;
+use App\Models\PlatformAuditLog;
 use App\Models\User;
+use App\Policies\OrganizationPolicy;
+use App\Policies\PlatformAuditLogPolicy;
+use App\Policies\RolePolicy;
+use App\Policies\UserPolicy;
 use App\Services\AI\ReplyClassifierManager;
 use App\Services\Automation\AutomationExecutionScope;
 use App\Services\Billing\BillingProviderManager;
@@ -25,7 +34,9 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -41,7 +52,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ReplyClassifierManager::class);
         $this->app->singleton(BillingProviderManager::class);
         // Plans are read from config/billing.php once and validated (a bad plan fails loudly).
-        $this->app->singleton(PlanCatalog::class, fn ($app) => new PlanCatalog($app['config']->get('billing', [])));
+        $this->app->singleton(PlanCatalog::class, fn ($app) => new PlanCatalog($app['config']->get('billing', []), fn () => PlanSetting::overrides()));
         // Per job / request, so a chain depth never leaks into unrelated work.
         $this->app->scoped(AutomationExecutionScope::class);
     }
@@ -65,11 +76,34 @@ class AppServiceProvider extends ServiceProvider
             Log::critical('APP_DEBUG was enabled in production; it has been forced off. Fix the environment.');
         }
 
-        // Suspended and removed people can do nothing, whatever their role or the policy says.
-        Gate::before(fn (User $user) => $user->isActiveMember() ? null : false);
+        // Suspended and removed people can do nothing, whatever their role or the policy says. Platform abilities and
+        // active platform administrators are decided by the platform gates and policies below instead, because a
+        // platform administrator does not have to belong to a business.
+        Gate::before(function (User $user, string $ability) {
+            // Active members are checked first: it costs no query, and it is the common case.
+            if (PlatformPermission::tryFrom($ability) !== null || $user->isActiveMember()) {
+                return null;
+            }
+
+            return $user->isActivePlatformAdmin() ? null : false;
+        });
+
+        // Platform permissions (PlatformRole::permissions()) as Gates: can:manage_plans, $user->can('view_payments'), …
+        // Each one needs an active platform administrator who holds the permission through a role (User::hasPlatformPermission).
+        foreach (PlatformPermission::cases() as $permission) {
+            Gate::define($permission->value, fn (User $user) => $user->hasPlatformPermission($permission));
+        }
+
+        // Filament's export/import download routes are not used by this application: close them (see the middleware).
+        Route::middlewareGroup('filament.actions', [DisableUnusedFilamentRoutes::class]);
+
+        Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Organization::class, OrganizationPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(PlatformAuditLog::class, PlatformAuditLogPolicy::class);
 
         // Pages that show an organization's data require the user to be an active member of one.
-        Gate::define('access-organization', fn (User $user) => $user->isActiveMember() && $user->organization()->exists());
+        Gate::define('access-organization', fn (User $user) => $user->isActiveMember() && $user->organization !== null && ! $user->organization->isSuspended());
 
         // Role permissions (OrganizationRole::permissions()) as Gates: can:manage-team, @can('manage-email'), …
         foreach (Permission::cases() as $permission) {
@@ -82,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('email-webhooks', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
         // Customer estimate links: generous for people, slow for anyone guessing tokens.
         RateLimiter::for('public-estimates', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        RateLimiter::for('unsubscribe', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         // Anything that makes the payment provider do work for a business.
         RateLimiter::for('billing', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));

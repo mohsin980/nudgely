@@ -332,6 +332,26 @@ class BillingService
     }
 
     /**
+     * An organization's invoices as the provider reports them, for the Super Admin panel (read-only; nothing is stored).
+     * Same provider call and cache as the customer's own billing page.
+     *
+     * @return list<InvoiceSummary>
+     *
+     * @throws BillingException
+     */
+    public function invoicesFor(Organization $organization): array
+    {
+        // Callers (admin lists) may hold a trimmed model; billing needs the customer columns.
+        $organization = Organization::query()->find($organization->id) ?? $organization;
+
+        if ($organization->billing_customer_id === null || $organization->billing_provider !== $this->provider()->name()) {
+            return [];
+        }
+
+        return Cache::remember($this->cacheKey('invoices', $organization->billing_customer_id), 300, fn () => $this->provider()->invoices($organization->billing_customer_id));
+    }
+
+    /**
      * Forget what was cached from the provider (after the customer used its billing pages).
      */
     public function forgetProviderCache(Organization $organization): void
@@ -522,7 +542,7 @@ class BillingService
     private function store(Organization $organization, string $provider, ProviderSubscription $remote): Subscription
     {
         $subscription = new Subscription;
-        $subscription->forceFill(['organization_id' => $organization->id, 'provider' => $provider] + $remote->toAttributes() + $this->lifecycle->graceAttributes(null, $remote->status))->save();
+        $subscription->forceFill(['organization_id' => $organization->id, 'provider' => $provider, 'last_synced_at' => now()] + $remote->toAttributes() + $this->lifecycle->graceAttributes(null, $remote->status))->save();
 
         return $subscription;
     }
@@ -534,7 +554,7 @@ class BillingService
     {
         $this->plans->get($remote->planKey);
         $before = $this->lifecycle->snapshot($subscription);
-        $subscription->forceFill($remote->toAttributes() + $this->lifecycle->graceAttributes($subscription, $remote->status))->save();
+        $subscription->forceFill(['last_synced_at' => now()] + $remote->toAttributes() + $this->lifecycle->graceAttributes($subscription, $remote->status))->save();
         $this->lifecycle->transition($subscription->organization, $before, $subscription, $actor);
 
         return $subscription;

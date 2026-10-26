@@ -95,7 +95,7 @@ test('E2E 1: follow up after estimate emails the customer once after 3 days with
     $email = Message::where('direction', MessageDirection::Outbound)->where('subject', 'Checking in about your estimate')->sole();
     expect($email->from_address)->toBe('sales@example.com')
         ->and($email->to_address)->toBe('john@example.com')
-        ->and($email->body_text)->toBe("Hi John,\n\nJust checking in regarding estimate EST-1024.\n\nPlease let us know if you have any questions.")
+        ->and($email->body_text)->toStartWith("Hi John,\n\nJust checking in regarding estimate EST-1024.\n\nPlease let us know if you have any questions.")
         ->and(FollowUp::where('automation_id', $automation->id)->count())->toBe(1)
         ->and(FollowUp::sole()->estimate_id)->toBe($estimate->id);
 

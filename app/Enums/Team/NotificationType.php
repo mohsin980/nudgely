@@ -22,6 +22,8 @@ enum NotificationType: string
     case SubscriptionRenewed = 'subscription_renewed';
     case BillingRestricted = 'billing_restricted';
 
+    case EmailAccountNeedsReconnect = 'email_account_needs_reconnect';
+
     public function label(): string
     {
         return match ($this) {
@@ -39,6 +41,7 @@ enum NotificationType: string
             self::SubscriptionEnded => 'Billing: subscription ended (owner)',
             self::SubscriptionRenewed => 'Billing: renewal (owner)',
             self::BillingRestricted => 'Billing: paid features paused (owner)',
+            self::EmailAccountNeedsReconnect => 'Email account needs reconnecting',
         };
     }
 

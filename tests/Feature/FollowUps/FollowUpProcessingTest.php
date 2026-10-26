@@ -185,7 +185,8 @@ test('email is sent through EmailService when the automation is allowed', functi
         ->and($email->from_address)->toBe('sales@example.com')
         ->and($email->subject)->toBe('Following up on your estimate')
         ->and($email->body_text)->toStartWith('Hi John,')
-        ->and($email->body_text)->toEndWith("Best,\nDallas HVAC");
+        ->and($email->body_text)->toContain("Best,\nDallas HVAC")
+        ->and($email->body_text)->toContain('Unsubscribe: ');
     Queue::assertPushed(SendEmailJob::class, fn ($job) => $job->messageId === $email->id);
 });
 

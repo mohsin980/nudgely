@@ -101,6 +101,50 @@ class EstimateService
     }
 
     /**
+     * Writes one imported estimate as a draft. Import is data entry, so this dispatches no event (an "estimate created"
+     * automation must never react to an import), sends nothing, and records no conversation activity.
+     *
+     * @param  array{name: string, amount: int, currency: string, estimate_date: ?string, expiration_date: ?string, imported_status: ?string, description: string, external_reference: ?string}  $data
+     *
+     * @throws EstimateException|PlanLimitException
+     */
+    public function importDraft(Organization $organization, Customer $customer, int $importId, array $data): Estimate
+    {
+        $lines = [['description' => $data['description'], 'quantity' => Money::parse('1'), 'unit_price' => $data['amount']]];
+        $totals = $this->calculator->calculate($lines);
+
+        return app(EntitlementService::class)->guard($organization, LimitKey::Estimates, function () use ($organization, $customer, $importId, $data, $lines, $totals) {
+            $estimate = new Estimate;
+            $estimate->forceFill([
+                'organization_id' => $organization->id,
+                'estimate_number' => $this->nextNumber($organization),
+                'revision' => 1,
+                'status' => EstimateStatus::Draft,
+                'currency' => $organization->currencyCode(),
+                'import_id' => $importId,
+                'external_reference' => $data['external_reference'],
+                'imported_status' => $data['imported_status'],
+            ]);
+
+            $this->fill($estimate, [
+                'customer' => $customer,
+                'conversation' => null,
+                'title' => Str::limit($data['description'], 200, ''),
+                'notes' => $data['external_reference'] === null ? 'Imported from a CSV file.' : 'Imported from a CSV file. Original estimate ID: '.$data['external_reference'],
+                'valid_until' => $data['expiration_date'],
+                'discount_type' => null,
+                'discount_value' => null,
+                'tax_rate' => null,
+                'totals' => $totals,
+            ]);
+            $estimate->save();
+            $this->saveItems($estimate, $lines, $totals);
+
+            return $estimate;
+        });
+    }
+
+    /**
      * Only drafts can be edited; a sent estimate is revised instead.
      *
      * @param  array<string, mixed>  $input
@@ -567,6 +611,8 @@ class EstimateService
     private function afterExpiry(Collection $ids): void
     {
         foreach (Estimate::query()->whereIn('id', $ids)->get() as $estimate) {
+            // The customer can no longer accept it, so reminders about it stop.
+            $this->followUps->skipForEstimate($estimate->organization_id, $estimate->id);
             ConversationEvent::recordForEstimate($estimate, 'estimate_expired');
             EstimateExpired::dispatch($estimate->organization_id, $estimate->id, $estimate->customer_id, $estimate->conversation_id);
             Log::info('Estimate expired.', ['organization_id' => $estimate->organization_id, 'estimate_id' => $estimate->id]);

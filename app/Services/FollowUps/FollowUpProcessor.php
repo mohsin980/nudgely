@@ -15,6 +15,8 @@ use App\Exceptions\FollowUps\InvalidFollowUpException;
 use App\Jobs\ProcessFollowUpJob;
 use App\Models\Automation;
 use App\Models\AutomationAction;
+use App\Models\Conversation;
+use App\Models\EmailReplyRoute;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\User;
@@ -308,16 +310,22 @@ class FollowUpProcessor
             return FollowUpSkipReason::CustomerReplied;
         }
 
-        if ($followUp->estimate_id !== null && in_array(
-            $organization->estimates()->whereKey($followUp->estimate_id)->toBase()->value('status'),
-            [EstimateStatus::Accepted->value, EstimateStatus::Declined->value, EstimateStatus::Cancelled->value],
-            true,
+        // Checked at send time: a draft never expires by itself, so its valid-until date must be enforced here.
+        $estimate = $followUp->estimate_id === null ? null : $organization->estimates()->find($followUp->estimate_id);
+
+        if ($estimate !== null && (
+            in_array($estimate->status, [EstimateStatus::Accepted, EstimateStatus::Declined, EstimateStatus::Expired, EstimateStatus::Cancelled], true)
+            || $estimate->isPastValidUntil($organization)
         )) {
             return FollowUpSkipReason::EstimateClosed;
         }
 
         if ($customer->hasOptedOutOfEmail()) {
             return FollowUpSkipReason::OptedOut;
+        }
+
+        if ($customer->isEmailSuppressed()) {
+            return FollowUpSkipReason::EmailSuppressed;
         }
 
         if ($conversation->status === ConversationStatus::Closed) {
@@ -349,6 +357,7 @@ class FollowUpProcessor
             return match ($blocked->data['reason'] ?? null) {
                 'already_exists' => $this->completeSent($locked, (int) $blocked->data['message_id'], $actor, alreadySent: true),
                 'opted_out' => $this->skipped($locked, FollowUpSkipReason::OptedOut),
+                'suppressed' => $this->skipped($locked, FollowUpSkipReason::EmailSuppressed),
                 'rate_limited' => $actor !== null
                     ? [self::RATE_LIMITED, $blocked->message]
                     : [$this->awaitPerson($locked, FollowUpNotifier::READY, 'Follow-up ready: the automatic email limit was reached.'), $blocked->message],
@@ -468,16 +477,29 @@ class FollowUpProcessor
     }
 
     /**
-     * Any reply from this customer (in any of their conversations) after the follow-up was scheduled.
+     * A real reply from this customer after the follow-up was scheduled, in any of their conversations.
+     *
+     * A reply counts when it came from their address, or when it arrived on one of their conversations' reply
+     * addresses from someone else (a spouse, an alias, a forward), because it is still held for review.
+     * Automatic replies (out-of-office) do not count.
      */
     private function customerRepliedSince(FollowUp $followUp): bool
     {
+        $conversations = Conversation::query()
+            ->where('organization_id', $followUp->organization_id)
+            ->where('customer_id', $followUp->customer_id)
+            ->select('id');
+
+        $routes = EmailReplyRoute::query()
+            ->where('organization_id', $followUp->organization_id)
+            ->whereIn('conversation_id', $conversations)
+            ->select('id');
+
         return Message::query()
             ->where('organization_id', $followUp->organization_id)
             ->where('direction', MessageDirection::Inbound)
-            ->whereIn('conversation_id', fn ($query) => $query->select('id')->from('conversations')
-                ->where('organization_id', $followUp->organization_id)
-                ->where('customer_id', $followUp->customer_id))
+            ->where(fn ($query) => $query->whereIn('conversation_id', $conversations)->orWhereIn('email_reply_route_id', $routes))
+            ->where(fn ($query) => $query->whereNull('metadata->automated')->orWhere('metadata->automated', '!=', '1'))
             ->where('received_at', '>', $followUp->created_at)
             ->exists();
     }

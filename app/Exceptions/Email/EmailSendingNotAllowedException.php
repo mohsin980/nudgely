@@ -11,6 +11,11 @@ use RuntimeException;
  */
 class EmailSendingNotAllowedException extends RuntimeException
 {
+    public static function connectionUnavailable(): self
+    {
+        return new self('This email account is disconnected or needs to be connected again. Reconnect it in Email settings.');
+    }
+
     public static function noSender(): self
     {
         return new self('Set up and verify a business email in Email Settings before sending emails.');
