@@ -97,7 +97,7 @@ test('3. the welcome page loads with progress and both choices', function () {
     ['owner' => $owner] = newBusiness();
 
     $this->actingAs($owner)->get('/onboarding')->assertOk();
-    wizard($owner)->assertSee('Welcome to QuoteFollow')->assertSee("Let's get your business ready in a few minutes.", false)->assertSee('Get Started')->assertSee('Skip for now')
+    wizard($owner)->assertSee('Welcome to QuoteFollow')->assertSee("Let's get your business ready in a few minutes.", false)->assertSee('Get started')->assertSee('Skip for now')
         ->assertSeeInOrder(['Business', 'Email', 'Customer', 'Estimate', 'Automation']);
 });
 

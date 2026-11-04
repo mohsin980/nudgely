@@ -38,7 +38,7 @@ final class OnboardingState
     /**
      * The five headings with their state: done only when every step under it is done.
      *
-     * @return list<array{label: string, status: 'done'|'skipped'|'pending', current: bool}>
+     * @return list<array{label: string, status: 'done'|'skipped'|'pending', current: bool, step: string}> step is the group's first step, where the group opens
      */
     public function groups(): array
     {
@@ -47,7 +47,7 @@ final class OnboardingState
         foreach (OnboardingStep::working() as $step) {
             $label = $step->group();
             $status = $this->status($step);
-            $groups[$label] ??= ['label' => $label, 'statuses' => [], 'current' => false];
+            $groups[$label] ??= ['label' => $label, 'statuses' => [], 'current' => false, 'step' => $step->value];
             $groups[$label]['statuses'][] = $status;
             $groups[$label]['current'] = $groups[$label]['current'] || $step === $this->current;
         }
@@ -57,6 +57,7 @@ final class OnboardingState
             'status' => ! in_array('pending', $g['statuses'], true) && ! in_array('skipped', $g['statuses'], true) ? 'done'
                 : (in_array('pending', $g['statuses'], true) ? 'pending' : 'skipped'),
             'current' => $g['current'],
+            'step' => $g['step'],
         ], $groups));
     }
 
