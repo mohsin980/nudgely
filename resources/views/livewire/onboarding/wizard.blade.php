@@ -1,6 +1,6 @@
 @php($input = 'mt-1 block w-full rounded-lg border-0 px-3 py-2 text-sm text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600')
-@php($primary = 'inline-flex w-full items-center justify-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 sm:w-auto')
-@php($secondary = 'inline-flex w-full items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 disabled:opacity-50 sm:w-auto')
+@php($primary = 'inline-flex w-full items-center justify-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto')
+@php($secondary = 'inline-flex w-full items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto')
 @php($groups = $state->groups())
 <div class="space-y-6 lg:grid lg:grid-cols-[14rem_1fr] lg:gap-10 lg:space-y-0" data-onboarding data-step="{{ $step->value }}">
     {{-- Progress: top indicator on phones, left navigation on desktop. Reflects saved state only. --}}
@@ -12,17 +12,26 @@
             </div>
             <p class="mt-1 text-xs text-slate-500" data-percent>{{ $state->percent() }}% complete</p>
         </div>
-        <ol class="flex flex-wrap gap-x-4 gap-y-1 text-sm lg:flex-col lg:gap-y-2" data-progress>
-            @foreach ($groups as $group)
-                <li @class(['flex items-center gap-2', 'font-semibold text-slate-900' => $group['current'], 'text-slate-500' => ! $group['current']]) data-group="{{ $group['label'] }}" data-status="{{ $group['status'] }}" @if ($group['current']) aria-current="step" @endif>
-                    <span aria-hidden="true" @class(['inline-flex h-5 w-5 items-center justify-center rounded-full text-xs', 'bg-green-100 text-green-800' => $group['status'] === 'done', 'bg-slate-100 text-slate-500' => $group['status'] === 'skipped', 'ring-1 ring-slate-300 text-slate-400' => $group['status'] === 'pending'])>{{ $group['status'] === 'done' ? '✓' : ($group['status'] === 'skipped' ? '–' : '○') }}</span>
+        <ol class="flex flex-wrap gap-x-2 gap-y-1 text-sm lg:flex-col lg:gap-y-1" data-progress>
+            @foreach ($groups as $index => $group)
+                <li @class(['flex items-center gap-2.5 rounded-lg px-2 py-1.5', 'bg-violet-50 font-semibold text-violet-900' => $group['current'], 'text-slate-500' => ! $group['current']]) data-group="{{ $group['label'] }}" data-status="{{ $group['status'] }}" @if ($group['current']) aria-current="step" @endif>
+                    <span aria-hidden="true" @class(['grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold', 'bg-emerald-500 text-white' => $group['status'] === 'done', 'bg-slate-200 text-slate-600' => $group['status'] === 'skipped', 'bg-violet-600 text-white' => $group['status'] === 'pending' && $group['current'], 'ring-1 ring-slate-300 text-slate-500' => $group['status'] === 'pending' && ! $group['current']])>
+                        @if ($group['status'] === 'done')
+                            <svg viewBox="0 0 20 20" fill="currentColor" class="size-3.5"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                        @else
+                            {{ $index + 1 }}
+                        @endif
+                    </span>
                     <span>{{ $group['label'] }}</span>
                     <span class="sr-only">{{ $group['status'] === 'done' ? '(done)' : ($group['status'] === 'skipped' ? '(skipped)' : '(to do)') }}</span>
                 </li>
             @endforeach
         </ol>
         @if ($trial)
-            <p class="rounded-lg bg-violet-50 p-2 text-xs text-violet-900" data-trial>Your trial ends in {{ $trial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $trial['days_left']) }}.</p>
+            <p class="flex items-start gap-2 rounded-lg border border-violet-100 bg-violet-50 p-2.5 text-xs text-violet-900" data-trial>
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="mt-px size-4 shrink-0 text-violet-600"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm10 6H4v7h12V8z" clip-rule="evenodd"/></svg>
+                <span>Your trial ends in {{ $trial['days_left'] }} {{ \Illuminate\Support\Str::plural('day', $trial['days_left']) }}.</span>
+            </p>
         @endif
     </aside>
 
@@ -52,19 +61,24 @@
             <div class="mt-8 grid gap-6 lg:grid-cols-[1fr_16rem]">
                 <section aria-labelledby="welcome-steps" class="rounded-xl border border-slate-200 bg-white p-2">
                     <h2 id="welcome-steps" class="sr-only">Setup steps</h2>
+                    @php($currentGroup = collect($groups)->search(fn ($group) => $group['current']))
                     <ol class="divide-y divide-slate-100" data-welcome-steps>
                         @foreach ($groups as $i => $group)
-                            <li class="flex items-center gap-3 px-3 py-3" data-welcome-step="{{ $group['status'] }}">
-                                <span aria-hidden="true" @class(['grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold', 'bg-violet-600 text-white' => $group['status'] === 'done', 'bg-slate-100 text-slate-600' => $group['status'] !== 'done'])>
-                                    @if ($group['status'] === 'done')
-                                        <svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
-                                    @else
-                                        {{ $i + 1 }}
-                                    @endif
-                                </span>
-                                <span class="flex-1 text-sm font-medium text-slate-900">{{ $group['label'] }}</span>
-                                <span class="text-xs text-slate-500">{{ $group['status'] === 'done' ? 'Done' : ($group['status'] === 'skipped' ? 'Skipped' : 'To do') }}</span>
-                                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4 text-slate-400"><path fill-rule="evenodd" d="M7.2 4.2a1 1 0 011.4 0l4.6 4.6a1 1 0 010 1.4l-4.6 4.6a1 1 0 01-1.4-1.4L11.3 10 7.2 5.6a1 1 0 010-1.4z" clip-rule="evenodd"/></svg>
+                            {{-- A step opens only when reached: finished steps can be reviewed, later ones open in order. --}}
+                            @php($reachable = $currentGroup !== false && $i <= $currentGroup)
+                            <li data-welcome-step="{{ $group['status'] }}">
+                                <button type="button" wire:click="viewStep('{{ $group['step'] }}')" @disabled(! $reachable) data-open-step="{{ $group['step'] }}" class="group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-violet-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                                    <span aria-hidden="true" @class(['grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold', 'bg-emerald-500 text-white' => $group['status'] === 'done', 'bg-violet-600 text-white' => $group['current'] && $group['status'] !== 'done', 'bg-slate-100 text-slate-600' => ! $group['current'] && $group['status'] !== 'done'])>
+                                        @if ($group['status'] === 'done')
+                                            <svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                                        @else
+                                            {{ $i + 1 }}
+                                        @endif
+                                    </span>
+                                    <span @class(['flex-1 text-sm font-medium', 'text-slate-900' => $reachable, 'text-slate-400' => ! $reachable])>{{ $group['label'] }}</span>
+                                    <span @class(['rounded-full px-2.5 py-0.5 text-xs font-medium', 'bg-emerald-50 text-emerald-700' => $group['status'] === 'done', 'bg-slate-100 text-slate-600' => $group['status'] !== 'done'])>{{ $group['status'] === 'done' ? 'Done' : ($group['status'] === 'skipped' ? 'Skipped' : 'To do') }}</span>
+                                    <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5"><path fill-rule="evenodd" d="M7.2 4.2a1 1 0 011.4 0l4.6 4.6a1 1 0 010 1.4l-4.6 4.6a1 1 0 01-1.4-1.4L11.3 10 7.2 5.6a1 1 0 010-1.4z" clip-rule="evenodd"/></svg>
+                                </button>
                             </li>
                         @endforeach
                     </ol>
@@ -81,8 +95,8 @@
             </div>
 
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button type="button" wire:click="start" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50">
-                    Get Started
+                <button type="button" wire:click="start" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50">
+                    Get started
                     <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.64l-3.22-3.22a.75.75 0 111.06-1.06l4.5 4.5a.75.75 0 010 1.06l-4.5 4.5a.75.75 0 11-1.06-1.06l3.22-3.22H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
                 </button>
                 <button type="button" wire:click="skipAll" wire:loading.attr="disabled" class="{{ $secondary }}">Skip for now</button>

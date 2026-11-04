@@ -175,6 +175,22 @@ class Wizard extends Component
     }
 
     /**
+     * Open an earlier step from the checklist. A step not reached yet is never opened here: it opens in order.
+     * Opening the current step (or a later one) returns to the saved step. Saved progress is never changed.
+     */
+    public function viewStep(string $step, OnboardingService $onboarding): void
+    {
+        $steps = OnboardingStep::working();
+        $current = array_search($onboarding->state($this->organization())->current, $steps, true);
+        $target = OnboardingStep::tryFrom($step);
+        $targetIndex = $target === null ? false : array_search($target, $steps, true);
+
+        $this->viewing = $targetIndex !== false && $current !== false && $targetIndex < $current ? $target->value : null;
+        $this->error = null;
+        $this->testEmailStatus = null;
+    }
+
+    /**
      * A test email from the business's default sender to the signed-in owner's own address (never a customer).
      */
     public function sendTestEmail(EmailService $emails): void

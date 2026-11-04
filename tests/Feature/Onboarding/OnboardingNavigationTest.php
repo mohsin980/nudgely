@@ -172,3 +172,41 @@ test('a business without a connection cannot send a test email, and never uses a
 
     expect($provider->sent)->toBeEmpty();
 });
+
+// Checklist
+
+test('a finished checklist step can be reviewed, and a step not reached yet does not open', function () {
+    [$owner, $organization] = navOwnerAtEmailStep();
+    $before = app(OnboardingService::class)->state($organization)->percent();
+
+    Livewire::actingAs($owner)->test(Wizard::class)
+        ->call('viewStep', OnboardingStep::BusinessProfile->value)
+        ->assertSee('About your business')->assertSee('Step 1 of 6')
+        ->call('viewStep', OnboardingStep::FirstEstimate->value)
+        ->assertSee('Connect your business email')->assertDontSee('About your business');
+
+    $state = app(OnboardingService::class)->state($organization->fresh());
+    expect($state->current)->toBe(OnboardingStep::EmailConnection)
+        ->and($state->percent())->toBe($before);
+});
+
+test('checklist rows after the current step are disabled, and each row opens its group\'s first step', function () {
+    $owner = User::factory()->owner()->create();
+    app(OnboardingService::class)->begin($owner->organization);
+    $state = app(OnboardingService::class)->state($owner->organization->fresh());
+    $lastStep = collect($state->groups())->last()['step'];
+
+    $html = Livewire::actingAs($owner)->test(Wizard::class)->assertSee('Welcome to QuoteFollow')->html();
+
+    expect($html)->toMatch('/disabled[^>]*data-open-step="'.$lastStep.'"/')
+        ->and($html)->toMatch('/data-open-step="'.collect($state->groups())->first()['step'].'"/');
+});
+
+test('the Get started button opens the first step that is not finished', function () {
+    [$owner, $organization] = navOwnerAtEmailStep();
+
+    // Welcome is only shown before a business starts; once it has, Get started goes straight to the saved step.
+    Livewire::actingAs($owner)->test(Wizard::class)
+        ->assertSee('Connect your business email')
+        ->assertDontSee('Welcome to QuoteFollow');
+});
