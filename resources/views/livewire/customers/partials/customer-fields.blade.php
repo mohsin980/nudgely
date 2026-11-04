@@ -1,12 +1,19 @@
 {{-- Customer form fields. Expects the component to have the customer properties, save(), and optionally $duplicateCustomerId. --}}
 @php($field = 'mt-1.5 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 <form wire:submit="save" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6" aria-label="{{ ($customerId ?? null) ? 'Edit customer' : 'Add customer' }}" novalidate>
-    <div>
-        <h2 class="text-base font-semibold text-slate-900">Basic information</h2>
-        <p class="mt-1 text-sm text-slate-500">Name and email are needed. Everything else is optional.</p>
-    </div>
     <div class="grid gap-x-5 gap-y-5 sm:grid-cols-2">
         @foreach ([['first_name', 'First name', 'text', 'given-name', true], ['last_name', 'Last name', 'text', 'family-name', true], ['email', 'Email', 'email', 'off', true], ['phone', 'Phone', 'tel', 'off', false], ['company', 'Company', 'text', 'off', false]] as [$name, $label, $type, $auto, $required])
+            @if ($name === 'first_name')
+                <div class="sm:col-span-2">
+                    <h2 class="text-base font-semibold text-slate-900">Contact</h2>
+                    <p class="mt-1 text-sm text-slate-500">Name and email are needed. Everything else is optional.</p>
+                </div>
+            @elseif ($name === 'company')
+                <div class="border-t border-slate-100 pt-5 sm:col-span-2">
+                    <h2 class="text-base font-semibold text-slate-900">Details</h2>
+                    <p class="mt-1 text-sm text-slate-500">Shown on the customer's page.</p>
+                </div>
+            @endif
             <div @class(['sm:col-span-2' => $name === 'company'])>
                 <label for="customer-{{ $name }}" class="block text-sm font-medium text-slate-700">{{ $label }} @unless ($required)<span class="font-normal text-slate-500">(optional)</span>@endunless</label>
                 <input id="customer-{{ $name }}" type="{{ $type }}" wire:model="{{ $name }}" autocomplete="{{ $auto }}" @if ($required) required aria-required="true" @endif
