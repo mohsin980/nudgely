@@ -1,6 +1,6 @@
 @php($input = 'mt-1 block w-full rounded-lg border-0 px-3 py-2 text-sm text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600')
-@php($primary = 'inline-flex w-full items-center justify-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto')
-@php($secondary = 'inline-flex w-full items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto')
+@php($primary = 'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto')
+@php($secondary = 'inline-flex w-full items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50 sm:w-auto')
 @php($groups = $state->groups())
 <div class="space-y-6 lg:grid lg:grid-cols-[14rem_1fr] lg:gap-10 lg:space-y-0" data-onboarding data-step="{{ $step->value }}">
     {{-- Progress: top indicator on phones, left navigation on desktop. Reflects saved state only. --}}
@@ -35,16 +35,16 @@
         @endif
     </aside>
 
-    <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-live="polite">
+    <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-live="polite">
         @if ($error)
             <p role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" data-error>{{ $error }}</p>
         @endif
 
         @if ($welcomed && $stepNumber)
-            <div class="mb-4 flex items-center justify-between gap-3 text-xs text-slate-500" data-step-counter>
-                <span>Step {{ $stepNumber }} of {{ $stepTotal }}</span>
+            <div class="mb-6 flex items-center justify-between gap-3" data-step-counter>
+                <span class="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">Step {{ $stepNumber }} of {{ $stepTotal }}</span>
                 @if ($canGoBack)
-                    <button type="button" wire:click="goBack" wire:loading.attr="disabled" class="font-medium text-violet-700 hover:underline" data-back>&larr; Back</button>
+                    <button type="button" wire:click="goBack" wire:loading.attr="disabled" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600" data-back>&larr; Back</button>
                 @endif
             </div>
         @endif
@@ -107,8 +107,8 @@
             </p>
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::BusinessProfile)
-            <h1 class="text-xl font-semibold text-slate-900">About your business</h1>
-            <p class="mt-1 text-sm text-slate-500">Just the basics. You can change these any time in Settings.</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">About your business</h1>
+            <p class="mt-2 text-base text-slate-600">Just the basics. You can change these any time in Settings.</p>
             <form wire:submit="saveBusiness" class="mt-5 space-y-4" novalidate>
                 <div>
                     <label for="businessName" class="block text-sm font-medium text-slate-700">Business name</label>
@@ -142,8 +142,8 @@
             </form>
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::BusinessPreferences)
-            <h1 class="text-xl font-semibold text-slate-900">Where are you located?</h1>
-            <p class="mt-1 text-sm text-slate-500">We use this to send follow-ups at sensible local times. No full address needed.</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Where are you located?</h1>
+            <p class="mt-2 text-base text-slate-600">We use this to send follow-ups at sensible local times. No full address needed.</p>
             <form wire:submit="saveLocation" class="mt-5 space-y-4" novalidate>
                 <div class="grid gap-4 sm:grid-cols-3">
                     <div>
@@ -178,22 +178,33 @@
             </form>
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::EmailConnection)
-            <h1 class="text-xl font-semibold text-slate-900">Connect your business email</h1>
-            <p class="mt-1 text-sm text-slate-700">Connect the email address your business uses to communicate with customers.</p>
-            <p class="mt-2 text-sm text-slate-500">QuoteFollow can send follow-ups and estimates to your customers from that address, and show their replies in your conversations. You approve anything automatic.</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Connect your business email</h1>
+            <p class="mt-2 text-base text-slate-600">Connect the email address your business uses to communicate with customers.</p>
+            <p class="mt-3 text-sm text-slate-600">QuoteFollow can send follow-ups and estimates to your customers from that address, and show their replies in your conversations. You approve anything automatic.</p>
             @php($account = $emailAccount)
             @php($active = $account !== null && $account->isVerified() && $account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE)
             @php($providerLabel = match ($account?->provider) { \App\Enums\EmailProvider::Gmail => 'Gmail', \App\Enums\EmailProvider::Microsoft => 'Outlook or Microsoft 365', \App\Enums\EmailProvider::Smtp => 'custom SMTP', default => null })
 
-            @if ($account === null)
-                <p class="mt-4 text-sm" data-email-status>Status: <span class="font-medium text-slate-900">Not connected</span></p>
-            @elseif ($account->connection_status === \App\Models\EmailConnection::STATUS_REAUTH_REQUIRED)
-                <p class="mt-4 text-sm text-amber-800" data-email-status>Needs reconnecting: <span class="font-medium">{{ $account->sender_email }}</span>. Follow-ups and estimates can't be sent until you reconnect it.</p>
-            @elseif (! $active)
-                <p class="mt-4 text-sm text-slate-700" data-email-status>Not verified yet: <span class="font-medium">{{ $account->sender_email }}</span>. Finish connecting it to continue.</p>
-            @else
-                <p class="mt-4 text-sm text-slate-700" data-email-status>Connected: <span class="font-medium text-slate-900">{{ $account->sender_email }}</span> via {{ $providerLabel }}</p>
-            @endif
+            <div class="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <span aria-hidden="true" @class(['mt-0.5 grid size-6 shrink-0 place-items-center rounded-full', 'bg-emerald-500 text-white' => $active, 'bg-amber-100 text-amber-700' => ! $active])>
+                    @if ($active)
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="size-3.5"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                    @else
+                        <span class="size-2 rounded-full bg-current"></span>
+                    @endif
+                </span>
+                <div class="text-sm">
+                    @if ($account === null)
+                        <p class="text-slate-700" data-email-status>Status: <span class="font-medium text-slate-900">Not connected</span></p>
+                    @elseif ($account->connection_status === \App\Models\EmailConnection::STATUS_REAUTH_REQUIRED)
+                        <p class="text-amber-800" data-email-status>Needs reconnecting: <span class="font-medium">{{ $account->sender_email }}</span>. Follow-ups and estimates can't be sent until you reconnect it.</p>
+                    @elseif (! $active)
+                        <p class="text-slate-700" data-email-status>Not verified yet: <span class="font-medium">{{ $account->sender_email }}</span>. Finish connecting it to continue.</p>
+                    @else
+                        <p class="text-slate-700" data-email-status>Connected: <span class="font-medium text-slate-900">{{ $account->sender_email }}</span> via {{ $providerLabel }}</p>
+                    @endif
+                </div>
+            </div>
 
             @if ($testEmailStatus)
                 <p role="status" class="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800" data-test-email-sent>{{ $testEmailStatus }}</p>
@@ -201,22 +212,25 @@
 
             @if ($active)
                 <div class="mt-4">
-                    <button type="button" wire:click="sendTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="{{ $secondary }}" data-send-test-email><span wire:loading.remove wire:target="sendTestEmail">Send a test email to me</span><span wire:loading wire:target="sendTestEmail">Sending…</span></button>
+                    <button type="button" wire:click="sendTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail" class="{{ $secondary }} sm:w-auto" data-send-test-email><span wire:loading.remove wire:target="sendTestEmail">Send a test email to me</span><span wire:loading wire:target="sendTestEmail">Sending…</span></button>
                 </div>
             @endif
 
-            <div class="mt-5 flex flex-col gap-2 sm:flex-row">
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row">
                 <a href="{{ route('settings.email', ['from' => 'onboarding']) }}" class="{{ $primary }}">Connect Email</a>
                 <button type="button" wire:click="recheckEmail" wire:loading.attr="disabled" class="{{ $secondary }}">I've connected it — check again</button>
                 <button type="button" wire:click="skip('email_connection')" wire:loading.attr="disabled" class="{{ $secondary }}">Skip for now</button>
             </div>
             @unless ($active)
-                <p class="mt-3 text-xs text-slate-500" data-email-skip-warning>Without a working email account, follow-ups and estimates can't be sent. You can connect one later in Settings.</p>
+                <p class="mt-4 flex items-start gap-2 text-xs text-slate-500" data-email-skip-warning>
+                    <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="mt-0.5 size-4 shrink-0 text-violet-500"><path d="M10 1.5a6 6 0 00-3.5 10.9V14a1 1 0 001 1h5a1 1 0 001-1v-1.6A6 6 0 0010 1.5zM8 17h4v.5a2 2 0 01-4 0V17z"/></svg>
+                    Without a working email account, follow-ups and estimates can't be sent. You can connect one later in Settings.
+                </p>
             @endunless
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::FirstCustomer)
-            <h1 class="text-xl font-semibold text-slate-900">Add a customer to try QuoteFollow</h1>
-            <p class="mt-1 text-sm text-slate-500">Someone you've quoted or might quote. Only a name is required.</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Add a customer to try QuoteFollow</h1>
+            <p class="mt-2 text-base text-slate-600">Someone you've quoted or might quote. Only a name is required.</p>
             <form wire:submit="addCustomer" class="mt-5 space-y-4" novalidate>
                 <div>
                     <label for="customerName" class="block text-sm font-medium text-slate-700">Name</label>
@@ -252,8 +266,8 @@
             </div>
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::FirstEstimate)
-            <h1 class="text-xl font-semibold text-slate-900">Create your first estimate</h1>
-            <p class="mt-1 text-sm text-slate-500">A quick draft. You'll review and send it from the estimate page, nothing is sent now.</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Create your first estimate</h1>
+            <p class="mt-2 text-base text-slate-600">A quick draft. You'll review and send it from the estimate page, nothing is sent now.</p>
             @if ($customers->isEmpty())
                 <p class="mt-4 text-sm text-slate-700">Add a customer first to create an estimate.</p>
                 <div class="mt-4"><button type="button" wire:click="skip('first_estimate')" class="{{ $secondary }}">Skip</button></div>
@@ -289,8 +303,8 @@
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::FirstAutomation)
             @if ($review === null)
-                <h1 class="text-xl font-semibold text-slate-900">Set up your first automation</h1>
-                <p class="mt-1 text-sm text-slate-500">Suggested for {{ $businessTypes[$organization->business_type] ?? 'your business' }}. Nothing runs until you confirm it.</p>
+                <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Set up your first automation</h1>
+                <p class="mt-2 text-base text-slate-600">Suggested for {{ $businessTypes[$organization->business_type] ?? 'your business' }}. Nothing runs until you confirm it.</p>
                 <ul role="list" class="mt-5 space-y-3" data-templates>
                     @foreach ($templates as $key => $template)
                         <li class="rounded-lg border border-slate-200 p-4" data-template="{{ $key }}">
@@ -302,8 +316,8 @@
                 </ul>
                 <div class="mt-5"><button type="button" wire:click="skip('first_automation')" wire:loading.attr="disabled" class="{{ $secondary }}">Skip</button></div>
             @else
-                <h1 class="text-xl font-semibold text-slate-900">{{ $review['name'] }}</h1>
-                <p class="mt-1 text-sm text-slate-500">Review exactly what this will do before turning it on.</p>
+                <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $review['name'] }}</h1>
+                <p class="mt-2 text-base text-slate-600">Review exactly what this will do before turning it on.</p>
                 <dl class="mt-5 grid gap-3 text-sm sm:grid-cols-[8rem_1fr]" data-review>
                     <dt class="text-slate-500">When</dt><dd class="text-slate-900" data-review-trigger>{{ $review['trigger'] }}</dd>
                     @if ($review['delay'])<dt class="text-slate-500">Wait</dt><dd class="text-slate-900" data-review-delay>{{ $review['delay'] }}</dd>@endif
