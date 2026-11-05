@@ -20,7 +20,12 @@
             <p class="text-sm text-slate-700">“{{ $followUp->reason() }}”</p>
             <p class="text-sm text-slate-500">
                 @if ($open)
-                    Due: <x-follow-up-due :at="$followUp->due_at" :organization="$organization" class="font-medium text-slate-900" />
+                    <span @class([
+                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        'bg-red-50 text-red-700' => $followUp->due_at?->isPast(),
+                        'bg-violet-50 text-violet-700' => ! $followUp->due_at?->isPast() && $organization->localTime($followUp->due_at)->isToday(),
+                        'bg-slate-100 text-slate-600' => ! $followUp->due_at?->isPast() && ! $organization->localTime($followUp->due_at)->isToday(),
+                    ])>Due: <x-follow-up-due :at="$followUp->due_at" :organization="$organization" class="ml-1 font-semibold" /></span>
                 @elseif ($followUp->completed_at)
                     Completed <x-follow-up-due :at="$followUp->completed_at" :organization="$organization" />
                 @else
@@ -46,14 +51,21 @@
         </div>
 
         @if ($open)
-            <div @class(['flex flex-wrap gap-2', 'sm:justify-end' => ! ($compact ?? false)])>
+            <div @class(['flex flex-wrap items-center gap-2', 'sm:justify-end' => ! ($compact ?? false)])>
                 @if ($ready)
-                    <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-2xl bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50">Send Follow-Up</button>
+                    <button type="button" wire:click="sendFollowUp({{ $followUp->id }})" wire:loading.attr="disabled" class="rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">Send Follow-Up</button>
                 @endif
-                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'complete')" class="rounded-2xl bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Complete</button>
-                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'reschedule')" class="rounded-2xl bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Reschedule</button>
-                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'assign')" class="rounded-2xl bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Assign</button>
-                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'cancel')" class="rounded-2xl px-3 py-1.5 text-sm font-medium text-red-600 hover:underline">Cancel</button>
+                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'complete')" class="rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Complete</button>
+                <button type="button" wire:click="openFollowUpForm({{ $followUp->id }}, 'reschedule')" class="rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Reschedule</button>
+                <details class="relative">
+                    <summary aria-label="More actions for {{ $followUp->customer?->name }}" class="grid size-9 cursor-pointer list-none place-items-center rounded-xl text-slate-500 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 [&::-webkit-details-marker]:hidden">
+                        <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-5"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5.5 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5.5 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"/></svg>
+                    </summary>
+                    <div class="absolute right-0 z-10 mt-1 w-40 rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200">
+                        <button type="button" onclick="this.closest('details').open = false" wire:click="openFollowUpForm({{ $followUp->id }}, 'assign')" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Assign</button>
+                        <button type="button" onclick="this.closest('details').open = false" wire:click="openFollowUpForm({{ $followUp->id }}, 'cancel')" class="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50">Cancel</button>
+                    </div>
+                </details>
             </div>
         @endif
     </div>
