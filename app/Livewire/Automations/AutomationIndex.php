@@ -70,6 +70,25 @@ class AutomationIndex extends Component
     }
 
     /**
+     * Headline numbers for the top of the page: active automations, and run outcomes across the business.
+     *
+     * @return array{active: int, runs: int, successful: int, failed: int}
+     */
+    #[Computed]
+    public function stats(): array
+    {
+        $organization = $this->currentOrganization();
+        $runs = AutomationRun::query()->where('organization_id', $organization->id);
+
+        return [
+            'active' => $organization->automations()->where('status', AutomationStatus::Active)->count(),
+            'runs' => (clone $runs)->count(),
+            'successful' => (clone $runs)->where('status', AutomationRunStatus::Completed)->count(),
+            'failed' => $this->recentFailures,
+        ];
+    }
+
+    /**
      * Failed executions in the last 7 days.
      */
     #[Computed]

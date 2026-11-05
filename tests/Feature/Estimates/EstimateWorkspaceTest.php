@@ -215,7 +215,7 @@ test('the list shows number, customer, title, total, status and dates', function
     $sent = sentEstimate($this->admin, $this->john);
 
     Livewire::actingAs($this->admin)->test(EstimateIndex::class)
-        ->assertSeeInOrder(['EST-1001', 'Sent', 'John Smith', 'AC Installation', 'Created Oct 3, 2026', 'Sent Oct 3', 'Valid until Nov 2', '$2,750.00']);
+        ->assertSeeInOrder(['EST-1001', 'John Smith', 'AC Installation', 'Sent', '$2,750.00', 'Oct 3, 2026', 'Sent Oct 3', 'Nov 2']);
 });
 
 test('estimates can be filtered and searched in the database', function () {
