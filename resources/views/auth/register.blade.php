@@ -43,7 +43,7 @@
             </div>
         </div>
 
-        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-600/25 transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
+        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#8b3dff,#6d28ff)] px-4 py-3.5 text-lg font-semibold text-white shadow-xl shadow-violet-600/40 ring-1 ring-white/20 ring-inset transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
             Create account <x-ui-icon name="arrow-right" class="size-5" />
         </button>
     </form>

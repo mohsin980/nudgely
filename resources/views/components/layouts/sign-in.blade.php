@@ -11,7 +11,9 @@
     </head>
     <body class="h-full font-sans text-slate-900 antialiased">
         <div class="grid min-h-full lg:grid-cols-2">
-            <aside class="relative hidden min-h-screen overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between" style="background: radial-gradient(120% 90% at 0% 0%, #8b3dff 0%, transparent 55%), radial-gradient(90% 70% at 100% 100%, #5b1fd6 0%, transparent 60%), linear-gradient(160deg, #7c3aed 0%, #5b21d6 45%, #3b12b5 100%);">
+            <aside class="relative hidden min-h-screen overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between" style="background: radial-gradient(55% 45% at 12% 8%, rgba(255,255,255,0.45) 0%, transparent 70%), radial-gradient(60% 50% at 92% 96%, #c026d3 0%, transparent 65%), linear-gradient(155deg, #a855f7 0%, #7c3aed 30%, #5b21ff 65%, #3b0fd0 100%);">
+                <span aria-hidden="true" class="pointer-events-none absolute -top-24 -left-24 size-96 rounded-full bg-white/25 blur-3xl"></span>
+                <span aria-hidden="true" class="pointer-events-none absolute top-1/3 -right-40 h-40 w-[140%] -rotate-12 bg-gradient-to-r from-transparent via-white/15 to-transparent blur-2xl"></span>
                 <svg aria-hidden="true" class="pointer-events-none absolute inset-0 size-full text-white/10" viewBox="0 0 800 900" preserveAspectRatio="none">
                     <path d="M0 640 C 200 540, 380 780, 800 580 L 800 900 L 0 900 Z" fill="currentColor" />
                     <path d="M0 250 C 260 90, 520 300, 800 130 L 800 0 L 0 0 Z" fill="currentColor" />
@@ -77,8 +79,8 @@
             </aside>
 
             <main id="main" class="relative flex items-start justify-center overflow-hidden px-6 pt-16 pb-12 sm:px-12 lg:pt-28">
-                <span aria-hidden="true" class="pointer-events-none absolute -top-32 -right-32 size-[26rem] rounded-full bg-violet-100/80"></span>
-                <span aria-hidden="true" class="pointer-events-none absolute -right-24 -bottom-40 size-[22rem] rounded-full bg-violet-100/60"></span>
+                <span aria-hidden="true" class="pointer-events-none absolute -top-32 -right-32 size-[26rem] rounded-full bg-violet-200/70"></span>
+                <span aria-hidden="true" class="pointer-events-none absolute -right-24 -bottom-40 size-[22rem] rounded-full bg-violet-200/60"></span>
                 <div class="relative w-full max-w-[34rem]">
                     <div class="mb-10 flex items-center justify-center gap-2 lg:hidden">
                         <span aria-hidden="true" class="grid size-10 place-items-center rounded-xl bg-violet-600 text-base font-bold text-white">Q</span>
