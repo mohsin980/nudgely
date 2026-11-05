@@ -1,15 +1,35 @@
 {{-- Customer form fields. Expects the component to have the customer properties, save(), and optionally $duplicateCustomerId. --}}
-@php($field = 'mt-1.5 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-<form wire:submit="save" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6" aria-label="{{ ($customerId ?? null) ? 'Edit customer' : 'Add customer' }}" novalidate>
-    <div>
-        <h2 class="text-base font-semibold text-slate-900">Basic information</h2>
-        <p class="mt-1 text-sm text-slate-500">Name and email are needed. Everything else is optional.</p>
-    </div>
+@php($field = 'mt-1.5 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($isEdit = ($customerId ?? null) !== null)
+<form wire:submit="save" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6" aria-label="{{ $isEdit ? 'Edit customer' : 'Add customer' }}" novalidate>
     <div class="grid gap-x-5 gap-y-5 sm:grid-cols-2">
-        @foreach ([['first_name', 'First name', 'text', 'given-name', true], ['last_name', 'Last name', 'text', 'family-name', true], ['email', 'Email', 'email', 'off', true], ['phone', 'Phone', 'tel', 'off', false], ['company', 'Company', 'text', 'off', false]] as [$name, $label, $type, $auto, $required])
+        @foreach ([
+            ['first_name', 'First name', 'text', 'given-name', true, 'e.g. Jane'],
+            ['last_name', 'Last name', 'text', 'family-name', true, 'e.g. Smith'],
+            ['email', 'Email', 'email', 'off', true, 'e.g. jane@example.com'],
+            ['phone', 'Phone', 'tel', 'off', false, 'e.g. +1 555 123 4567'],
+            ['company', 'Company', 'text', 'off', false, 'e.g. Acme Inc.'],
+        ] as [$name, $label, $type, $auto, $required, $placeholder])
+            @if ($name === 'first_name')
+                <div class="flex items-start gap-3 sm:col-span-2">
+                    <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600"><x-ui-icon name="user" class="size-5" /></span>
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-900">Contact</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">Name and email are needed. Everything else is optional.</p>
+                    </div>
+                </div>
+            @elseif ($name === 'company')
+                <div class="flex items-start gap-3 border-t border-slate-100 pt-5 sm:col-span-2">
+                    <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600"><x-ui-icon name="briefcase" class="size-5" /></span>
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-900">Details</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">Shown on the customer's page.</p>
+                    </div>
+                </div>
+            @endif
             <div @class(['sm:col-span-2' => $name === 'company'])>
-                <label for="customer-{{ $name }}" class="block text-sm font-medium text-slate-700">{{ $label }} @unless ($required)<span class="font-normal text-slate-500">(optional)</span>@endunless</label>
-                <input id="customer-{{ $name }}" type="{{ $type }}" wire:model="{{ $name }}" autocomplete="{{ $auto }}" @if ($required) required aria-required="true" @endif
+                <label for="customer-{{ $name }}" class="block text-sm font-medium text-slate-700">{{ $label }} @if ($required)<span class="text-red-600" aria-hidden="true">*</span>@else<span class="font-normal text-slate-500">(optional)</span>@endif</label>
+                <input id="customer-{{ $name }}" type="{{ $type }}" wire:model="{{ $name }}" autocomplete="{{ $auto }}" placeholder="{{ $placeholder }}" @if ($required) required aria-required="true" @endif
                        @error($name) aria-invalid="true" aria-describedby="customer-{{ $name }}-error" @enderror class="{{ $field }}">
                 @error($name)
                     <p id="customer-{{ $name }}-error" class="mt-1 text-sm text-red-600">{{ $message }}
@@ -25,7 +45,7 @@
         @endforeach
         <div class="sm:col-span-2">
             <label for="customer-notes" class="block text-sm font-medium text-slate-700">Notes <span class="font-normal text-slate-500">(optional)</span></label>
-            <textarea id="customer-notes" wire:model="notes" rows="3" maxlength="2000" class="{{ $field }}"></textarea>
+            <textarea id="customer-notes" wire:model="notes" rows="3" maxlength="2000" placeholder="Add any notes about this customer…" class="{{ $field }}"></textarea>
             @error('notes') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
         </div>
         @if ($withStatus ?? false)
@@ -41,9 +61,9 @@
         @endif
     </div>
     <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
-        <a href="{{ ($customerId ?? null) ? route('customers.show', $customerId) : route('customers.index') }}" wire:navigate class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Cancel</a>
-        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">
-            <span wire:loading.remove wire:target="save">{{ ($customerId ?? null) ? 'Save changes' : 'Add Customer' }}</span>
+        <a href="{{ $isEdit ? route('customers.show', $customerId) : route('customers.index') }}" wire:navigate class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50">Cancel</a>
+        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">
+            <span wire:loading.remove wire:target="save" class="inline-flex items-center gap-1.5">@unless ($isEdit)<x-ui-icon name="plus" class="size-4" />@endunless{{ $isEdit ? 'Save changes' : 'Add Customer' }}</span>
             <span wire:loading wire:target="save">Saving…</span>
         </button>
     </div>
