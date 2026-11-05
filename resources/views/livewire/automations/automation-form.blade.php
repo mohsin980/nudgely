@@ -11,14 +11,24 @@
     </div>
 
     {{-- Steps --}}
-    <nav aria-label="Steps">
-        <ol role="list" class="flex flex-wrap gap-2">
+    <nav aria-label="Steps" class="overflow-x-auto">
+        <ol role="list" class="flex min-w-max items-start">
             @foreach ($steps as $number => $label)
-                <li>
+                <li class="flex items-start">
                     <button type="button" wire:click="goToStep({{ $number }})" @disabled($number > $furthestStep) @if ($number === $step) aria-current="step" @endif
-                            @class(['rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset', 'bg-violet-600 text-white ring-violet-600' => $number === $step, 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => $number !== $step && $number <= $furthestStep, 'bg-slate-50 text-slate-400 ring-slate-200' => $number > $furthestStep])>
-                        {{ $number }}. {{ $label }}
+                            class="group flex flex-col items-center gap-2 px-2 text-center focus:outline-none disabled:cursor-not-allowed">
+                        <span @class(['grid size-9 place-items-center rounded-full text-sm font-semibold ring-2 transition', 'bg-violet-600 text-white ring-violet-600' => $number === $step, 'bg-violet-50 text-violet-700 ring-violet-200' => $number < $step, 'bg-white text-slate-600 ring-slate-300 group-hover:bg-slate-50' => $number > $step && $number <= $furthestStep, 'bg-slate-50 text-slate-400 ring-slate-200' => $number > $furthestStep])>
+                            @if ($number < $step)
+                                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                            @else
+                                {{ $number }}
+                            @endif
+                        </span>
+                        <span @class(['text-xs font-medium', 'text-slate-900' => $number === $step, 'text-slate-500' => $number !== $step])>{{ $label }}</span>
                     </button>
+                    @unless ($loop->last)
+                        <span aria-hidden="true" @class(['mt-4 h-0.5 w-10 shrink-0 sm:w-16', 'bg-violet-300' => $number < $step, 'bg-slate-200' => $number >= $step])></span>
+                    @endunless
                 </li>
             @endforeach
         </ol>
@@ -30,17 +40,20 @@
 
     {{-- 1. Name --}}
     @if ($step === 1)
-        <section aria-labelledby="step-name" class="{{ $card }} space-y-3">
-            <h2 id="step-name" class="{{ $heading }}">Name your automation</h2>
-            <div>
-                <label for="automation-name" class="block text-sm font-medium text-slate-700">Name</label>
-                <input id="automation-name" type="text" wire:model="name" maxlength="100" placeholder="Follow up after estimate" class="{{ $fieldClass }}">
-                @error('name') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <label for="automation-description" class="block text-sm font-medium text-slate-700">Description <span class="font-normal text-slate-500">(optional)</span></label>
-                <textarea id="automation-description" wire:model="description" rows="2" maxlength="500" class="{{ $fieldClass }}"></textarea>
-                @error('description') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+        <section aria-labelledby="step-name" class="{{ $card }} flex flex-col gap-6 sm:flex-row sm:items-start">
+            <div class="grid size-20 shrink-0 place-items-center self-start rounded-2xl bg-violet-50 text-violet-600"><x-automation-icon name="bolt" class="size-9" /></div>
+            <div class="min-w-0 flex-1 space-y-3">
+                <h2 id="step-name" class="{{ $heading }}">Name your automation</h2>
+                <div>
+                    <label for="automation-name" class="block text-sm font-medium text-slate-700">Name</label>
+                    <input id="automation-name" type="text" wire:model="name" maxlength="100" placeholder="Follow up after estimate" class="{{ $fieldClass }}">
+                    @error('name') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label for="automation-description" class="block text-sm font-medium text-slate-700">Description <span class="font-normal text-slate-500">(optional)</span></label>
+                    <textarea id="automation-description" wire:model="description" rows="2" maxlength="500" class="{{ $fieldClass }}"></textarea>
+                    @error('description') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                </div>
             </div>
         </section>
     @endif
