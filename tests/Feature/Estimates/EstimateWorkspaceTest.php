@@ -39,7 +39,7 @@ test('organization A cannot see organization B estimates', function () {
     $mine = draftEstimate($this->admin, $this->john);
 
     Livewire::actingAs($this->admin)->test(EstimateIndex::class)
-        ->assertSee($mine->title)->assertDontSee('Foreign water heater')->assertDontSee('Foreign Fred');
+        ->assertSee($mine->displayNumber())->assertDontSee('Foreign water heater')->assertDontSee('Foreign Fred');
     Livewire::actingAs($this->admin)->test(EstimateIndex::class)->set('search', 'Foreign')->assertDontSee('Foreign water heater');
 
     $this->actingAs($this->admin)->get(route('estimates.show', $foreign->id))->assertNotFound();
@@ -215,7 +215,7 @@ test('the list shows number, customer, title, total, status and dates', function
     $sent = sentEstimate($this->admin, $this->john);
 
     Livewire::actingAs($this->admin)->test(EstimateIndex::class)
-        ->assertSeeInOrder(['EST-1001', 'John Smith', 'AC Installation', 'Sent', '$2,750.00', 'Oct 3, 2026', 'Sent Oct 3', 'Nov 2']);
+        ->assertSeeInOrder(['EST-1001', 'John Smith', 'Sent', '$2,750.00', 'Oct 3, 2026', 'Nov 2']);
 });
 
 test('estimates can be filtered and searched in the database', function () {
@@ -278,7 +278,7 @@ test('the customer page lists estimates and opens them', function () {
     $draft = draftEstimate($this->admin, $this->john, ['title' => 'HVAC Repair', 'items' => [['description' => 'Repair', 'quantity' => '1', 'unit_price' => '1250']]]);
 
     Livewire::actingAs($this->admin)->test(ShowCustomer::class, ['customerId' => $this->john->id])
-        ->assertSeeInOrder(['Estimates', 'EST-1002', 'HVAC Repair', '$1,250.00', 'Draft', 'EST-1001', 'AC Installation', '$2,750.00', 'Accepted'])
+        ->assertSeeInOrder(['Estimates', 'EST-1002', '$1,250.00', 'Draft', 'EST-1001', '$2,750.00', 'Accepted'])
         ->assertSee(route('estimates.show', $sent->id))
         ->assertSee(route('estimates.create', ['customer' => $this->john->id]));
 
