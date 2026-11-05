@@ -1,7 +1,7 @@
 <x-layouts.sign-in title="Sign in">
     <div class="text-center">
-        <h1 class="text-4xl font-semibold tracking-tight text-slate-900">Welcome back</h1>
-        <p class="mt-2 text-base text-slate-500">Sign in to your QuoteFollow account.</p>
+        <h1 class="text-5xl font-bold tracking-tight text-slate-900">Welcome back</h1>
+        <p class="mt-3 text-lg text-slate-500">Sign in to your QuoteFollow account.</p>
     </div>
 
     @if (session('status'))
@@ -32,9 +32,14 @@
             </div>
         </div>
 
-        <label class="flex items-center gap-3 text-sm text-slate-700">
-            <input type="checkbox" name="remember" value="1" class="size-4 rounded border-slate-300 accent-violet-600"> Keep me signed in
-        </label>
+        <div class="flex items-center justify-between gap-4">
+            <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input type="checkbox" name="remember" value="1" class="size-4 rounded border-slate-300 accent-violet-600"> Keep me signed in
+            </label>
+            @if (Route::has('password.request'))
+                <a href="{{ route('password.request') }}" class="text-sm font-medium text-violet-700 hover:underline">Forgot password?</a>
+            @endif
+        </div>
 
         <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-600/25 transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
             Sign in <x-ui-icon name="arrow-right" class="size-5" />
