@@ -1,7 +1,7 @@
 <x-layouts.sign-in title="Create your account">
     <div class="text-center">
-        <h1 class="text-4xl font-semibold tracking-tight text-slate-900">Create your account</h1>
-        <p class="mt-2 text-base text-slate-500">You'll be the owner. Invite your team afterwards.</p>
+        <h1 class="text-[58px] leading-none font-bold tracking-tight text-slate-900">Create your account</h1>
+        <p class="mt-4 text-[21px] text-slate-500">You'll be the owner. Invite your team afterwards.</p>
     </div>
 
     <form method="POST" action="{{ route('register') }}" class="mt-10 space-y-5" x-data="{ show: false }">

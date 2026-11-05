@@ -1,7 +1,7 @@
 <x-layouts.sign-in title="Sign in">
     <div class="text-center">
-        <h1 class="text-5xl font-bold tracking-tight text-slate-900">Welcome back</h1>
-        <p class="mt-3 text-lg text-slate-500">Sign in to your QuoteFollow account.</p>
+        <h1 class="text-[66px] leading-none font-bold tracking-tight text-slate-900">Welcome back</h1>
+        <p class="mt-4 text-[21px] text-slate-500">Sign in to your QuoteFollow account.</p>
     </div>
 
     @if (session('status'))
