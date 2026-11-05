@@ -21,17 +21,29 @@
                     <span class="text-lg font-semibold text-slate-900" data-total>{{ $estimate->money('total') }}</span>
                 </p>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 @if ($status === \App\Enums\EstimateStatus::Draft)
-                    <a href="{{ route('estimates.edit', $estimate->id) }}" wire:navigate class="{{ $button }}">Edit</a>
                     <button type="button" wire:click="send" wire:loading.attr="disabled" @disabled($this->sending) class="{{ $primary }}"><span wire:loading.remove wire:target="send">{{ $this->failedSend ? 'Try Again' : 'Send Estimate' }}</span><span wire:loading wire:target="send">Sending…</span></button>
-                @endif
-                @if ($status->canBeRevised())
-                    <button type="button" wire:click="revise" class="{{ $button }}">Revise Estimate</button>
-                @endif
-                <button type="button" wire:click="openScheduleForm" class="{{ $button }}">Schedule Follow-Up</button>
-                @if (in_array($status, [\App\Enums\EstimateStatus::Draft, \App\Enums\EstimateStatus::Sent, \App\Enums\EstimateStatus::Viewed, \App\Enums\EstimateStatus::Expired], true) && ! $this->sending)
-                    <button type="button" wire:click="$set('confirmCancel', true)" class="{{ $button }} text-red-700">Cancel Estimate</button>
+                    <a href="{{ route('estimates.edit', $estimate->id) }}" wire:navigate class="{{ $button }}">Edit</a>
+                    <button type="button" wire:click="openScheduleForm" class="{{ $button }}">Schedule Follow-Up</button>
+                    @unless ($this->sending)
+                        <details class="relative">
+                            <summary aria-label="More actions" class="grid size-9 cursor-pointer list-none place-items-center rounded-lg text-slate-500 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 [&::-webkit-details-marker]:hidden">
+                                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="size-5"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5.5 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5.5 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"/></svg>
+                            </summary>
+                            <div class="absolute right-0 z-10 mt-1 w-44 rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200">
+                                <button type="button" onclick="this.closest('details').open = false" wire:click="$set('confirmCancel', true)" class="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50">Cancel Estimate</button>
+                            </div>
+                        </details>
+                    @endunless
+                @else
+                    @if ($status->canBeRevised())
+                        <button type="button" wire:click="revise" class="{{ $button }}">Revise Estimate</button>
+                    @endif
+                    <button type="button" wire:click="openScheduleForm" class="{{ $button }}">Schedule Follow-Up</button>
+                    @if (in_array($status, [\App\Enums\EstimateStatus::Sent, \App\Enums\EstimateStatus::Viewed, \App\Enums\EstimateStatus::Expired], true) && ! $this->sending)
+                        <button type="button" wire:click="$set('confirmCancel', true)" class="{{ $button }} text-red-700">Cancel Estimate</button>
+                    @endif
                 @endif
             </div>
         </div>
@@ -84,7 +96,7 @@
             <section aria-labelledby="activity-heading" class="{{ $card }}">
                 <h2 id="activity-heading" class="{{ $heading }}">Activity</h2>
                 @if ($this->activity->isEmpty())
-                    <p class="mt-3 text-sm text-slate-500">No activity yet.</p>
+                    <p class="mt-3 text-sm text-slate-500">{{ $status === \App\Enums\EstimateStatus::Draft ? 'Sent, viewed and replies appear here after the estimate is sent.' : 'No activity yet.' }}</p>
                 @else
                     <ol role="list" class="mt-2 divide-y divide-slate-100" data-section="activity">
                         @foreach ($this->activity as $entry)
@@ -96,6 +108,17 @@
         </div>
 
         <div class="min-w-0 space-y-6">
+            @if ($status === \App\Enums\EstimateStatus::Draft)
+                <section aria-labelledby="before-sending-heading" class="{{ $card }}">
+                    <h2 id="before-sending-heading" class="{{ $heading }}">Before sending</h2>
+                    <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
+                        <li>Add at least one item</li>
+                        <li>Check the valid-until date</li>
+                        <li>Send when you are ready</li>
+                    </ol>
+                </section>
+            @endif
+
             {{-- Customer --}}
             <section aria-labelledby="customer-heading" class="{{ $card }} space-y-1 text-sm">
                 <h2 id="customer-heading" class="{{ $heading }}">Customer</h2>
