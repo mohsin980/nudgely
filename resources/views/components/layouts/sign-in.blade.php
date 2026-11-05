@@ -57,7 +57,7 @@
                 </p>
             </aside>
 
-            <main id="main" class="flex items-center justify-center px-6 py-12 sm:px-12">
+            <main id="main" class="flex items-start justify-center px-6 pt-12 pb-12 sm:px-12 lg:pt-24">
                 <div class="w-full max-w-md">
                     <div class="mb-10 flex items-center justify-center gap-2 lg:hidden">
                         <span aria-hidden="true" class="grid size-9 place-items-center rounded-lg bg-violet-600 text-sm font-bold text-white">Q</span>
