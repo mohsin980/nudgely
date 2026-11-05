@@ -1,26 +1,29 @@
 <div class="space-y-6">
-    @php($field = 'block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+    @php($field = 'block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+    @php($columns = 'sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_auto]')
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Customers</h1>
             <p class="mt-1 text-sm text-slate-500">{{ trans_choice(':count customer|:count customers', $customers->total()) }}{{ $filtering ? ' match your filters' : '' }}</p>
         </div>
-        <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Add Customer</a>
+        <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"><x-ui-icon name="plus" class="size-4" />Add Customer</a>
     </div>
 
     @if (! $hasAnyCustomer)
         <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-            <p class="text-base font-semibold text-slate-900">No customers yet.</p>
+            <span class="mx-auto grid size-12 place-items-center rounded-xl bg-violet-50 text-violet-600"><x-ui-icon name="user-plus" class="size-6" /></span>
+            <p class="mt-4 text-base font-semibold text-slate-900">No customers yet.</p>
             <p class="mt-1 text-sm text-slate-500">Add your first customer to start a conversation.</p>
             <a href="{{ route('customers.create') }}" wire:navigate class="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Add Customer</a>
         </div>
     @else
-        <section aria-label="Search and filters" class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">
-            <div>
+        <section aria-label="Search and filters" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">
+            <div class="relative">
                 <label for="customer-search" class="sr-only">Search customers</label>
-                <input id="customer-search" type="search" wire:model.live.debounce.300ms="search" placeholder="Search by name, email or phone" class="{{ $field }}">
+                <x-ui-icon name="search" class="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-slate-400" />
+                <input id="customer-search" type="search" wire:model.live.debounce.300ms="search" placeholder="Search by name, email or phone" class="{{ $field }} pl-10">
             </div>
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <div><label for="f-status" class="block text-xs font-medium text-slate-500">Status</label>
                     <select id="f-status" wire:model.live="status" class="mt-1 {{ $field }}"><option value="">All</option>@foreach ($customerStatuses as $s)<option value="{{ $s->value }}">{{ $s->label() }}</option>@endforeach</select></div>
                 <div><label for="f-conversation" class="block text-xs font-medium text-slate-500">Conversation</label>
@@ -43,45 +46,54 @@
             @if ($customers->isEmpty())
                 <p class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">No customers match your search or filters.</p>
             @else
-                <ul role="list" class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs" data-section="customers">
-                    @foreach ($customers as $customer)
-                        <li wire:key="customer-{{ $customer->id }}">
-                            <a href="{{ route('customers.show', $customer->id) }}" wire:navigate class="grid gap-2 px-4 py-3 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
-                                <div class="min-w-0">
-                                    <p class="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
-                                        <span class="truncate">{{ $customer->name }}</span>@if ($customer->is_demo)<span class="ml-2 shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif
-                                        @if (! $customer->isActive())
-                                            <span class="rounded-lg bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
-                                        @endif
-                                    </p>
-                                    <p class="truncate text-sm text-slate-500">{{ $customer->email }}@if ($customer->phone) · {{ $customer->phone }}@endif</p>
-                                </div>
-                                <div class="flex flex-wrap items-center gap-1.5 text-sm">
-                                    @if ($customer->conversation_status)
-                                        <x-conversation-status-badge :status="\App\Enums\ConversationStatus::from($customer->conversation_status)" />
-                                    @else
-                                        <span class="text-slate-500">No conversation</span>
-                                    @endif
-                                    @if ($customer->latest_intent && ($intentEnum = \App\Enums\CustomerReplyIntent::tryFrom($customer->latest_intent)))
-                                        <x-intent-badge :intent="$intentEnum" />
-                                    @endif
-                                </div>
-                                <dl class="grid grid-cols-[auto_1fr] gap-x-2 text-xs text-slate-500 sm:text-right">
-                                    <dt class="sm:sr-only">Last activity:</dt>
-                                    <dd>{{ $customer->last_activity_at ? 'Active '.$customer->last_activity_at->diffForHumans() : 'Added '.$organization->localTime($customer->created_at)->format('M j, Y') }}</dd>
-                                    <dt class="sm:sr-only">Next follow-up:</dt>
-                                    <dd>
-                                        @if ($customer->next_follow_up_at)
-                                            Next follow-up {{ $organization->localTime(\Carbon\CarbonImmutable::parse($customer->next_follow_up_at))->format('M j') }}
+                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs" data-section="customers">
+                    <div class="hidden gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:grid {{ $columns }}" aria-hidden="true">
+                        <span>Customer</span>
+                        <span>Conversation</span>
+                        <span>Follow-up</span>
+                        <span>Added</span>
+                        <span class="text-right">Action</span>
+                    </div>
+                    <ul role="list" class="divide-y divide-slate-100">
+                        @foreach ($customers as $customer)
+                            <li wire:key="customer-{{ $customer->id }}">
+                                <a href="{{ route('customers.show', $customer->id) }}" wire:navigate class="grid gap-3 px-5 py-4 transition-colors hover:bg-violet-50/50 focus:outline-none focus-visible:bg-violet-50/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-inset sm:items-center sm:gap-4 {{ $columns }}">
+                                    <div class="min-w-0">
+                                        <p class="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
+                                            <span class="truncate">{{ $customer->name }}</span>@if ($customer->is_demo)<span class="ml-2 shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif
+                                            @if (! $customer->isActive())
+                                                <span class="rounded-lg bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
+                                            @endif
+                                        </p>
+                                        <p class="truncate text-sm text-slate-500">{{ $customer->email }}@if ($customer->phone) · {{ $customer->phone }}@endif</p>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-1.5 text-sm">
+                                        @if ($customer->conversation_status)
+                                            <x-conversation-status-badge :status="\App\Enums\ConversationStatus::from($customer->conversation_status)" />
                                         @else
-                                            No follow-up
+                                            <span class="text-slate-500">No conversation</span>
                                         @endif
-                                    </dd>
-                                </dl>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+                                        @if ($customer->latest_intent && ($intentEnum = \App\Enums\CustomerReplyIntent::tryFrom($customer->latest_intent)))
+                                            <x-intent-badge :intent="$intentEnum" />
+                                        @endif
+                                    </div>
+                                    <div class="text-sm">
+                                        @if ($customer->next_follow_up_at)
+                                            <span class="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Next follow-up {{ $organization->localTime(\Carbon\CarbonImmutable::parse($customer->next_follow_up_at))->format('M j') }}</span>
+                                        @else
+                                            <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">No follow-up</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-sm">
+                                        <p class="text-slate-700">{{ $organization->localTime($customer->created_at)->format('M j, Y') }}</p>
+                                        @if ($customer->last_activity_at)<p class="text-xs text-slate-500">Active {{ $customer->last_activity_at->diffForHumans() }}</p>@endif
+                                    </div>
+                                    <span class="inline-flex items-center justify-end gap-1 text-sm font-medium text-violet-700">View <x-ui-icon name="arrow-right" class="size-4" /></span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
                 <div class="mt-4">{{ $customers->links() }}</div>
             @endif
         </div>
