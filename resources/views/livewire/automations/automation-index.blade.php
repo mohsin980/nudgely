@@ -9,6 +9,7 @@
         'price_objection' => ['icon' => 'tag', 'tone' => 'bg-blue-100 text-blue-600', 'tab' => 'Sales', 'tags' => ['Sales', 'Priority']],
         'wants_callback' => ['icon' => 'phone', 'tone' => 'bg-teal-100 text-teal-600', 'tab' => 'Support', 'tags' => ['Support', 'Callback']],
         'estimate_follow_up' => ['icon' => 'calendar', 'tone' => 'bg-amber-100 text-amber-600', 'tab' => 'Reminders', 'tags' => ['Reminders', '3 days']],
+        'new_lead_follow_up' => ['icon' => 'plus', 'tone' => 'bg-fuchsia-100 text-fuchsia-600', 'tab' => 'Follow-ups', 'tags' => ['Leads', '1 day']],
         'estimate_declined' => ['icon' => 'x', 'tone' => 'bg-rose-100 text-rose-600', 'tab' => 'Sales', 'tags' => ['Sales', 'High priority']],
     ])
 

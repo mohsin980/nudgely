@@ -151,6 +151,7 @@ class ConditionEvaluator
             C::CustomerStatusEquals => $customer()?->status?->value,
             C::CustomerHasEmail => $customer() === null ? null : (bool) filter_var($customer()->email, FILTER_VALIDATE_EMAIL),
             C::CustomerHasPhone => $customer() === null ? null : filled($customer()->phone),
+            C::CustomerHasEstimate => $customer() === null ? null : $customer()->estimates()->exists(),
             C::CustomerEmail => $lower($customer()?->email),
             C::CustomerCompany => $lower($customer()?->company),
             C::ConversationStatusEquals => $conversation()?->status?->value,
