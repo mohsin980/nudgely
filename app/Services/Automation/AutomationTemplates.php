@@ -133,6 +133,32 @@ class AutomationTemplates
                     $notifyOwner('{{customer.name}} declined an estimate.'),
                 ],
             ],
+            'new_lead_sequence' => [
+                'name' => 'New lead sequence',
+                'description' => 'Three check-in emails to a new lead, on days 1, 3 and 7. Stops when they reply, you send an estimate, or you mark the lead won or lost.',
+                'trigger_type' => 'customer_created',
+                'conditions' => [
+                    ['type' => 'customer_has_email', 'operator' => 'is_true', 'value' => ''],
+                    ['type' => 'customer_has_estimate', 'operator' => 'is_false', 'value' => ''],
+                ],
+                'actions' => [
+                    ['type' => 'schedule_follow_up', 'configuration' => [
+                        'delay_days' => 1,
+                        'subject' => 'Thanks for getting in touch with {{business.name}}',
+                        'body' => "Hi {{customer.first_name}},\n\nThanks for reaching out to {{business.name}}. Do you have any questions, or would you like us to put together an estimate for you?\n\nJust reply to this email and we'll get back to you.\n\nThanks,\n{{business.name}}",
+                    ]],
+                    ['type' => 'schedule_follow_up', 'configuration' => [
+                        'delay_days' => 3,
+                        'subject' => 'Can we help with your project?',
+                        'body' => "Hi {{customer.first_name}},\n\nI wanted to follow up in case my last email got buried. If you tell us a little about what you need, we can send you a free estimate.\n\nJust reply to this email.\n\nThanks,\n{{business.name}}",
+                    ]],
+                    ['type' => 'schedule_follow_up', 'configuration' => [
+                        'delay_days' => 7,
+                        'subject' => 'Still interested?',
+                        'body' => "Hi {{customer.first_name}},\n\nI don't want to fill your inbox, so this is my last check-in. If you'd still like an estimate, just reply and we'll take it from there.\n\nThanks,\n{{business.name}}",
+                    ]],
+                ],
+            ],
             'new_lead_follow_up' => [
                 'name' => 'New lead follow-up',
                 'description' => 'When a new customer is added without an estimate, email them the next day to check in. Stops if they reply or you send them an estimate.',

@@ -4,6 +4,7 @@ namespace App\Services\Conversations;
 
 use App\Enums\ClassificationStatus;
 use App\Enums\FollowUpStatus;
+use App\Enums\LeadStage;
 use App\Models\AutomationRun;
 use App\Models\ConversationEvent;
 use App\Models\Customer;
@@ -268,6 +269,14 @@ class TimelineService
             'classification_changed' => 'Classification corrected'.($by ? " by {$by}" : ''),
             'customer_inactive' => 'Customer marked inactive: no reply '.($event->data['days'] ?? config('follow_ups.inactive_after_days')).' days after the last follow-up',
             'customer_reactivated' => 'Customer active again after replying',
+            'lead_stage_changed' => 'Lead stage changed to '.(LeadStage::tryFrom($event->data['to'] ?? '')?->label() ?? 'unknown').($by ? " by {$by}" : match ($event->data['by'] ?? null) {
+                'email_sent' => ' (first email sent)',
+                'customer_replied' => ' (customer replied)',
+                'estimate_sent' => ' (estimate sent)',
+                'estimate_accepted' => ' (estimate accepted)',
+                'estimate_declined' => ' (estimate declined)',
+                default => '',
+            }),
             default => Str::headline($event->type),
         };
     }

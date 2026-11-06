@@ -16,6 +16,18 @@
                     @if ($this->customer->phone) · {{ $this->customer->phone }} @endif
                     @if ($this->customer->company) · {{ $this->customer->company }} @endif
                 </p>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-section="lead-stage">
+                    <span class="text-slate-500">Lead stage:</span>
+                    <div role="group" aria-label="Lead stage" class="inline-flex flex-wrap gap-1 rounded-xl bg-white p-1 shadow-xs ring-1 ring-slate-200">
+                        @foreach (\App\Enums\LeadStage::cases() as $leadStage)
+                            @php($current = $this->customer->lead_stage === $leadStage)
+                            <button type="button" wire:click="setLeadStage('{{ $leadStage->value }}')" aria-pressed="{{ $current ? 'true' : 'false' }}" title="{{ $leadStage->description() }}"
+                                    @class(['rounded-lg px-3 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                                        'bg-white shadow-xs ring-1 ring-inset '.$leadStage->tone() => $current,
+                                        'text-slate-500 hover:bg-slate-50 hover:text-slate-800' => ! $current])>{{ $leadStage->label() }}</button>
+                        @endforeach
+                    </div>
+                </div>
                 <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
                     <span class="text-slate-500">Status:</span>
                     <span @class(['rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', 'bg-green-50 text-green-700 ring-green-600/20' => $this->customer->isActive(), 'bg-slate-100 text-slate-500 ring-gray-500/20' => ! $this->customer->isActive()])>{{ $this->customer->status->label() }}</span>

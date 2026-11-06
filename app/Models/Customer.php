@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CustomerStatus;
+use App\Enums\LeadStage;
 use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -27,6 +28,13 @@ class Customer extends Model
     use HasFactory;
 
     /**
+     * New customers start as new leads (the database default, set here too so it's there before a refresh).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = ['lead_stage' => 'new'];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -37,6 +45,8 @@ class Customer extends Model
             'email_opted_out_at' => 'datetime',
             'is_demo' => 'boolean',
             'last_activity_at' => 'datetime',
+            'lead_stage' => LeadStage::class,
+            'lead_stage_changed_at' => 'datetime',
             'status' => CustomerStatus::class,
             'status_changed_at' => 'datetime',
         ];

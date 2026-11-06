@@ -45,6 +45,23 @@
             @endforeach
         </section>
 
+        {{-- Lead stages: the pipeline at a glance, and a one-click filter --}}
+        <nav aria-label="Lead stages" class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" data-section="lead-stages">
+            @php($stageTotal = $stageCounts->sum())
+            @foreach (array_merge([null], $leadStages) as $leadStage)
+                @php($value = $leadStage?->value ?? '')
+                <button type="button" wire:click="$set('stage', '{{ $value }}')" @if ($stage === $value) aria-current="true" @endif
+                        @class([
+                            'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                            'bg-linear-to-r from-violet-600 to-violet-500 text-white shadow-[0_8px_18px_-8px_rgba(109,40,217,0.7)]' => $stage === $value,
+                            'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50' => $stage !== $value,
+                        ])>
+                    {{ $leadStage?->label() ?? 'All leads' }}
+                    <span @class(['rounded-full px-1.5 text-xs', 'bg-white/25' => $stage === $value, 'bg-slate-100 text-slate-600' => $stage !== $value])>{{ number_format($leadStage ? (int) ($stageCounts[$value] ?? 0) : $stageTotal) }}</span>
+                </button>
+            @endforeach
+        </nav>
+
         <section aria-label="Search and filters" class="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-4">
             <div class="relative">
                 <label for="customer-search" class="sr-only">Search customers</label>
@@ -111,6 +128,7 @@
                                         <div class="min-w-0">
                                             <p class="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
                                                 <span class="truncate">{{ $customer->name }}</span>
+                                                <x-lead-stage-badge :stage="$customer->lead_stage" />
                                                 @if ($customer->is_demo)<span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif
                                                 @if (! $customer->isActive())<span class="rounded-lg bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>@endif
                                             </p>

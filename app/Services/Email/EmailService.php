@@ -5,6 +5,7 @@ namespace App\Services\Email;
 use App\Enums\Billing\LimitKey;
 use App\Enums\ConversationStatus;
 use App\Enums\EmailProvider;
+use App\Enums\LeadStage;
 use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
@@ -22,6 +23,7 @@ use App\Services\Customers\EmailPreferenceService;
 use App\Services\Email\Bounces\BounceTokens;
 use App\Services\Email\Data\EmailSendResult;
 use App\Services\Email\Data\OutboundEmail;
+use App\Services\Leads\LeadStageService;
 use App\Support\CorrelationId;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
@@ -246,6 +248,11 @@ class EmailService
             'provider_message_id' => $result->providerMessageId,
             'duration_ms' => round((hrtime(true) - $started) / 1e6, 1),
         ]);
+
+        // The business has been in touch: a new lead is now "Contacted".
+        if ($message->conversation_id !== null && ($customerId = Conversation::query()->whereKey($message->conversation_id)->value('customer_id')) !== null) {
+            app(LeadStageService::class)->advance($message->organization_id, $customerId, LeadStage::Contacted, 'email_sent', $message->conversation_id);
+        }
 
         return $result;
     }

@@ -3,6 +3,7 @@
 namespace App\Livewire\Customers;
 
 use App\Enums\ConversationStatus;
+use App\Enums\LeadStage;
 use App\Exceptions\Conversations\ConversationActionException;
 use App\Livewire\Concerns\ManagesFollowUps;
 use App\Models\Conversation;
@@ -13,6 +14,7 @@ use App\Models\Task;
 use App\Services\Conversations\ConversationService;
 use App\Services\Conversations\TimelineService;
 use App\Services\Customers\EmailPreferenceService;
+use App\Services\Leads\LeadStageService;
 use App\Services\Tasks\TaskService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -186,6 +188,14 @@ class ShowCustomer extends Component
         $this->authorize('update', $this->customer);
 
         $preferences->optIn(Auth::user(), $this->customer);
+        $this->customerChanged();
+    }
+
+    public function setLeadStage(string $stage, LeadStageService $stages): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $stages->set(Auth::user(), $this->customer, LeadStage::tryFrom($stage) ?? abort(422));
         $this->customerChanged();
     }
 
