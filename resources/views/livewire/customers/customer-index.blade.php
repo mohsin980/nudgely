@@ -11,7 +11,12 @@
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Customers</h1>
             <p class="mt-1 text-sm text-slate-500">{{ trans_choice(':count customer|:count customers', $customers->total()) }}{{ $filtering ? ' match your filters' : '' }}</p>
         </div>
-        <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(109,40,217,0.7)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2" style="background: linear-gradient(90deg, #6a2cf2, #8b5cf6);"><x-ui-icon name="plus" class="size-4 stroke-2" />Add Customer</a>
+        <div class="flex flex-wrap items-center gap-2">
+            @can('create', \App\Models\Customer::class)
+                <a href="{{ route('customers.import') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset transition hover:bg-slate-50"><x-ui-icon name="download" class="size-4 rotate-180 stroke-2" />Import CSV</a>
+            @endcan
+            <a href="{{ route('customers.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(109,40,217,0.7)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2" style="background: linear-gradient(90deg, #6a2cf2, #8b5cf6);"><x-ui-icon name="plus" class="size-4 stroke-2" />Add Customer</a>
+        </div>
     </div>
 
     @if (! $hasAnyCustomer)
@@ -20,6 +25,7 @@
             <p class="mt-4 text-base font-semibold text-slate-900">No customers yet.</p>
             <p class="mt-1 text-sm text-slate-500">Add your first customer to start a conversation.</p>
             <a href="{{ route('customers.create') }}" wire:navigate class="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700"><x-ui-icon name="plus" class="size-4 stroke-2" />Add Customer</a>
+            <p class="mt-3 text-sm text-slate-500">Have a list already? <a href="{{ route('customers.import') }}" wire:navigate class="font-semibold text-violet-700 hover:underline">Import customers from a CSV</a></p>
         </div>
     @else
         {{-- Summary: the whole business, not only the filtered rows --}}

@@ -388,8 +388,10 @@ test('no admin table offers bulk actions, and no export exists', function () {
     // Filament's own export/import download routes exist in the router but are closed (DisableUnusedFilamentRoutes).
     // The business's own estimate import (CSV sample and problem report) is the one intended exception: it is tenant
     // data, and both routes must stay behind sign-in and the create-estimate permission.
+    // The customer import's sample file is a fixed template (no tenant data), behind sign-in and the create-customer permission.
     $intended = ['estimates.import.sample', 'estimates.import.problems'];
-    $exports = collect(Route::getRoutes()->getRoutes())->filter(fn ($route) => preg_match('/export|download|csv|xlsx/i', $route->uri()) && ! str_starts_with($route->uri(), 'filament/') && ! in_array($route->getName(), $intended, true))->map->uri()->values()->all();
+    $exports = collect(Route::getRoutes()->getRoutes())->filter(fn ($route) => preg_match('/export|download|csv|xlsx/i', $route->uri()) && ! str_starts_with($route->uri(), 'filament/') && ! in_array($route->getName(), [...$intended, 'customers.import.sample'], true))->map->uri()->values()->all();
+    expect(Route::getRoutes()->getByName('customers.import.sample')->gatherMiddleware())->toContain('auth', 'can:create,App\\Models\\Customer');
     expect($exports)->toBe([]);
 
     foreach ($intended as $name) {
