@@ -9,6 +9,7 @@ use App\Livewire\Customers\CustomerIndex;
 use App\Livewire\Customers\ShowCustomer;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\FollowUp;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Customers\CustomerService;
@@ -256,4 +257,19 @@ test('organization_id from the form is ignored', function () {
     app(CustomerService::class)->create($this->admin, ['first_name' => 'Ann', 'last_name' => 'Lee', 'email' => 'ann@example.com', 'organization_id' => $otherAdmin->organization_id]);
 
     expect(Customer::where('email', 'ann@example.com')->sole()->organization_id)->toBe($this->organization->id);
+});
+
+test('the customer list shows totals for the whole business', function () {
+    // John (from setup) is active with no open follow-up.
+    $sarah = addCustomer($this->organization, 'Sarah', 'Wilson');
+    addCustomer($this->organization, 'Old', 'Client', ['status' => CustomerStatus::Inactive]);
+    $sarahConversation = Conversation::factory()->create(['organization_id' => $this->organization->id, 'customer_id' => $sarah->id]);
+    FollowUp::factory()->create(['conversation_id' => $sarahConversation->id]);
+    [$otherAdmin] = followUpBusiness('Houston Plumbing');
+    addCustomer($otherAdmin->organization, 'Foreign', 'Fred');
+
+    $list = customerList($this->admin, ['status' => 'inactive']);
+
+    expect($list->instance()->summary)->toBe(['total' => 3, 'active' => 2, 'inactive' => 1, 'follow_up' => 1, 'no_follow_up' => 2]);
+    $list->assertSeeHtml('data-summary="total"')->assertSeeInOrder(['Total customers', 'Active', 'With follow-up', 'No follow-up', 'Inactive']);
 });

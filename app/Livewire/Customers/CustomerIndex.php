@@ -4,9 +4,11 @@ namespace App\Livewire\Customers;
 
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerStatus;
+use App\Enums\FollowUpStatus;
 use App\Models\Customer;
 use App\Services\Customers\CustomerDirectory;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -53,6 +55,32 @@ class CustomerIndex extends Component
         if (in_array($property, ['search', 'status', 'conversation', 'followUp', 'intent', 'sort', 'perPage'], true)) {
             $this->resetPage();
         }
+    }
+
+    /**
+     * Totals for the whole business (not only the filtered list): active, inactive, and with or without an open follow-up.
+     *
+     * @return array{total: int, active: int, inactive: int, follow_up: int, no_follow_up: int}
+     */
+    #[Computed]
+    public function summary(): array
+    {
+        $customers = Auth::user()->organization->customers();
+        $byStatus = (clone $customers)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $total = (int) $byStatus->sum();
+        $withFollowUp = (clone $customers)
+            ->whereExists(fn ($q) => $q->from('follow_ups')
+                ->whereColumn('follow_ups.customer_id', 'customers.id')
+                ->whereIn('follow_ups.status', [FollowUpStatus::Pending->value, FollowUpStatus::Due->value]))
+            ->count();
+
+        return [
+            'total' => $total,
+            'active' => (int) ($byStatus[CustomerStatus::Active->value] ?? 0),
+            'inactive' => (int) ($byStatus[CustomerStatus::Inactive->value] ?? 0),
+            'follow_up' => $withFollowUp,
+            'no_follow_up' => $total - $withFollowUp,
+        ];
     }
 
     public function clearFilters(): void
