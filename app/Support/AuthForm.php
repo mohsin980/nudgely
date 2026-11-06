@@ -15,7 +15,7 @@ final class AuthForm
 
     public const TOGGLE = 'absolute top-1/2 right-3 grid size-10 -translate-y-1/2 place-items-center rounded-lg text-[#3d3a5c] hover:text-[#14113b] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500';
 
-    public const SUBMIT = 'flex h-[52px] w-full items-center justify-center gap-3 rounded-[10px] text-[21px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(109,40,217,0.6)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2';
+    public const SUBMIT = 'auth-shine flex h-[52px] w-full items-center justify-center gap-3 rounded-[10px] text-[21px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(109,40,217,0.6)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2';
 
     public const SUBMIT_STYLE = 'background: linear-gradient(90deg, #6a2cf2 0%, #7c3aed 45%, #a07bff 100%);';
 
