@@ -32,6 +32,14 @@ class EstimateIndex extends Component
     #[Url(except: '')]
     public string $customer = '';
 
+    /**
+     * Date-range shortcut. Picking one fills in "from" and "to" in the business's timezone.
+     */
+    public const RANGES = ['today' => 'Today', '7' => 'Last 7 days', '30' => 'Last 30 days', '90' => 'Last 90 days', 'year' => 'This year'];
+
+    #[Url(except: '')]
+    public string $range = '';
+
     #[Url(except: '')]
     public string $from = '';
 
@@ -54,12 +62,28 @@ class EstimateIndex extends Component
 
     public function updated(string $property): void
     {
+        if (in_array($property, ['from', 'to'], true)) {
+            $this->range = ''; // dates typed by hand: a custom range
+        }
         $this->resetPage();
+    }
+
+    public function updatedRange(string $range): void
+    {
+        $today = now(Auth::user()->organization->timezone())->startOfDay()->toImmutable();
+
+        [$this->from, $this->to] = match ($range) {
+            'today' => [$today->toDateString(), $today->toDateString()],
+            '7', '30', '90' => [$today->subDays((int) $range - 1)->toDateString(), $today->toDateString()],
+            'year' => [$today->startOfYear()->toDateString(), $today->toDateString()],
+            default => ['', ''],
+        };
+        $this->range = array_key_exists($range, self::RANGES) ? $range : '';
     }
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status', 'customer', 'from', 'to', 'min', 'max', 'perPage');
+        $this->reset('search', 'status', 'customer', 'range', 'from', 'to', 'min', 'max', 'perPage');
         $this->resetPage();
     }
 
