@@ -310,6 +310,27 @@ class AutomationBuilderTest extends TestCase
 
     // Templates
 
+    public function test_summary_counts_pending_runs_and_compares_this_week_with_last_week(): void
+    {
+        $automation = $this->automation(['status' => 'active']);
+        $run = fn (string $status, $createdAt, int $n) => AutomationRun::query()->forceCreate([
+            'organization_id' => $automation->organization_id, 'automation_id' => $automation->id, 'event_type' => 'estimate_sent',
+            'event_id' => 'estimate:'.$n, 'status' => $status, 'created_at' => $createdAt, 'updated_at' => $createdAt,
+        ]);
+        $run('completed', now()->subDays(2), 1);
+        $run('completed', now()->subDays(3), 2);
+        $run('waiting', now()->subHour(), 3);
+        $run('completed', now()->subDays(10), 4);
+
+        $stats = Livewire::actingAs($this->admin)->test(AutomationIndex::class)->instance()->stats;
+
+        $this->assertSame(4, $stats['runs']);
+        $this->assertSame(3, $stats['successful']);
+        $this->assertSame(1, $stats['pending']);
+        $this->assertSame(200, $stats['runs_trend']);       // 3 this week vs 1 the week before
+        $this->assertSame(100, $stats['successful_trend']); // 2 vs 1
+    }
+
     public function test_templates_are_copied_into_the_organization_as_drafts(): void
     {
         $page = Livewire::actingAs($this->admin)->test(AutomationIndex::class);

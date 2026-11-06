@@ -9,6 +9,7 @@ use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Automation;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationTemplates;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -71,21 +72,38 @@ class AutomationIndex extends Component
 
     /**
      * Headline numbers for the top of the page: active automations, and run outcomes across the business.
+     * The trends compare the last 7 days with the 7 days before (null when there is nothing to compare with).
      *
-     * @return array{active: int, runs: int, successful: int, failed: int}
+     * @return array{active: int, runs: int, successful: int, pending: int, failed: int, runs_trend: ?int, successful_trend: ?int}
      */
     #[Computed]
     public function stats(): array
     {
         $organization = $this->currentOrganization();
         $runs = AutomationRun::query()->where('organization_id', $organization->id);
+        $successful = (clone $runs)->where('status', AutomationRunStatus::Completed);
 
         return [
             'active' => $organization->automations()->where('status', AutomationStatus::Active)->count(),
             'runs' => (clone $runs)->count(),
-            'successful' => (clone $runs)->where('status', AutomationRunStatus::Completed)->count(),
+            'successful' => (clone $successful)->count(),
+            'pending' => (clone $runs)->whereIn('status', [AutomationRunStatus::Waiting, AutomationRunStatus::Running])->count(),
             'failed' => $this->recentFailures,
+            'runs_trend' => $this->weeklyTrend($runs),
+            'successful_trend' => $this->weeklyTrend($successful),
         ];
+    }
+
+    /**
+     * Percentage change from the previous 7 days to the last 7 days, or null when the previous 7 days had none.
+     */
+    private function weeklyTrend(Builder $query): ?int
+    {
+        $now = now();
+        $recent = (clone $query)->where('created_at', '>=', $now->copy()->subDays(7))->count();
+        $previous = (clone $query)->where('created_at', '>=', $now->copy()->subDays(14))->where('created_at', '<', $now->copy()->subDays(7))->count();
+
+        return $previous === 0 ? null : (int) round(($recent - $previous) / $previous * 100);
     }
 
     /**
