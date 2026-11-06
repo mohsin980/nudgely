@@ -26,6 +26,14 @@
 
     @include('livewire.automations.partials.flash')
 
+    @cannot('create', \App\Models\Automation::class)
+        <div class="flex items-start gap-3 rounded-2xl bg-violet-50/80 px-4 py-3.5 text-[15px] ring-1 ring-violet-100" data-view-only-note>
+            <x-ui-icon name="info" class="mt-0.5 size-5 shrink-0 stroke-2 text-violet-600" />
+            <p class="text-slate-700"><span class="font-semibold text-slate-900">You can view automations, but not add or change them.</span>
+                Only the owner or a manager can.@if ($owner) Ask {{ $owner->name }} if you need one set up or changed.@endif</p>
+        </div>
+    @endcannot
+
     @if ($this->recentFailures > 0)
         <div role="alert" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-failures>
             <p><span class="font-semibold">Automation issue:</span> {{ trans_choice(':count execution failed|:count executions failed', $this->recentFailures) }} in the last 7 days. Open an automation's logs to see why.</p>
@@ -45,7 +53,7 @@
                 <span class="relative grid size-14 shrink-0 place-items-center rounded-2xl {{ $tone }} shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"><x-ui-icon :name="$icon" class="size-7 stroke-2" /></span>
                 <div class="relative min-w-0 flex-1">
                     <p class="text-[28px] leading-tight font-extrabold tracking-tight text-slate-900">{{ number_format($value) }}</p>
-                    <p class="truncate text-[13px] whitespace-nowrap text-slate-500 sm:text-sm">{{ $label }}</p>
+                    <p class="text-[13px] leading-snug text-slate-500 sm:text-sm">{{ $label }}</p>
                 </div>
                 @if ($trend !== null)
                     <span class="absolute top-3 right-12 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold {{ $trend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}" title="Last 7 days compared with the 7 days before">{{ $trend >= 0 ? '↑' : '↓' }} {{ abs($trend) }}%</span>
@@ -68,7 +76,11 @@
             <div class="rounded-2xl border-2 border-dashed border-violet-200 bg-white/70 px-6 py-12 text-center">
                 <span class="mx-auto grid size-[72px] place-items-center rounded-full bg-linear-to-b from-violet-100 to-violet-200/60 text-violet-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"><x-automation-icon name="bolt" class="size-9" /></span>
                 <p class="mt-5 text-xl font-bold text-slate-900">Automate repetitive follow-ups and customer tasks.</p>
-                <p class="mt-1.5 text-[17px] text-slate-500">Start from a template below, or build your own.</p>
+                @can('create', \App\Models\Automation::class)
+                    <p class="mt-1.5 text-[17px] text-slate-500">Start from a template below, or build your own.</p>
+                @else
+                    <p class="mt-1.5 text-[17px] text-slate-500">The owner or a manager can set them up.</p>
+                @endcan
                 @can('create', \App\Models\Automation::class)
                 <a href="#templates-heading" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-6 py-3 text-[15px] font-semibold text-white shadow-[0_10px_24px_-8px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600">Browse Templates <x-ui-icon name="arrow-right" class="size-5 stroke-2" /></a>
                 @endcan

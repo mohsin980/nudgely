@@ -81,7 +81,7 @@
                     {{-- A small nudge that fits the page. Viewers can hide it; that choice is kept in their browser only. --}}
                     @php($promo = match (true) {
                         request()->routeIs('settings.security') => ['shield', 'Your account is secure', 'Keep your account safe with a strong, unique password.', 'Learn More', route('settings.security').'#password-heading'],
-                        request()->routeIs('automations.*') && $user->can('viewAny', \App\Models\Automation::class) => ['robot', 'Automate your follow-ups', 'Save time and grow your business.', 'Learn More', route('automations.index').'#templates-heading'],
+                        request()->routeIs('automations.*') && $user->can('create', \App\Models\Automation::class) => ['robot', 'Automate your follow-ups', 'Save time and grow your business.', 'Learn More', route('automations.index').'#templates-heading'],
                         request()->routeIs('settings.billing*') => ['rocket', 'Grow your business', 'Automate follow-ups and get more customers.', 'Upgrade Plan', route('settings.billing.plans')],
                         default => ['bell', 'Stay on track', 'Never miss a follow-up with smart reminders.', 'Open reminders', route('follow-ups.index')],
                     })

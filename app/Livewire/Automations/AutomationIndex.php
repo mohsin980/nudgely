@@ -9,6 +9,7 @@ use App\Exceptions\Billing\PlanLimitException;
 use App\Models\Automation;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationTemplates;
+use App\Services\Team\TeamDirectory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -160,9 +161,13 @@ class AutomationIndex extends Component
 
     public function render()
     {
+        $organization = $this->currentOrganization();
+
         return view('livewire.automations.automation-index', [
-            'organization' => $this->currentOrganization(),
+            'organization' => $organization,
             'starters' => AutomationTemplates::STARTERS,
+            // Who to ask, for people who can view automations but not change them.
+            'owner' => Auth::user()->can('create', Automation::class) ? null : app(TeamDirectory::class)->owner($organization->id),
         ]);
     }
 
