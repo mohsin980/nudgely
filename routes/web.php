@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Billing\PaymentMethodController;
+use App\Http\Controllers\Customers\CustomerImportController;
 use App\Http\Controllers\Estimates\EstimateImportController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\HealthController;
@@ -18,6 +19,7 @@ use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Automations\AutomationLogs;
 use App\Livewire\Automations\ShowAutomation;
 use App\Livewire\Customers\CustomerForm;
+use App\Livewire\Customers\CustomerImport;
 use App\Livewire\Customers\CustomerIndex;
 use App\Livewire\Customers\ShowCustomer;
 use App\Livewire\Dashboard;
@@ -64,6 +66,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:access-organization')->group(function () {
         Route::get('/customers', CustomerIndex::class)->name('customers.index');
         Route::get('/customers/create', CustomerForm::class)->middleware('can:create,'.Customer::class)->name('customers.create');
+        Route::get('/customers/import', CustomerImport::class)->middleware('can:create,'.Customer::class)->name('customers.import');
+        Route::get('/customers/import/sample.csv', [CustomerImportController::class, 'sample'])->middleware('can:create,'.Customer::class)->name('customers.import.sample');
         Route::get('/customers/{customerId}', ShowCustomer::class)->whereNumber('customerId')->name('customers.show');
         Route::get('/customers/{customerId}/edit', CustomerForm::class)->whereNumber('customerId')->name('customers.edit');
     });

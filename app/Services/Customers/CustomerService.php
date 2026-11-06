@@ -25,10 +25,11 @@ class CustomerService
 {
     /**
      * @param  array{first_name?: ?string, last_name?: ?string, email?: ?string, phone?: ?string, company?: ?string, notes?: ?string}  $input
+     * @param  bool  $runAutomations  false for bulk imports: the customer is added without starting "Customer created" automations
      *
      * @throws ValidationException|DuplicateCustomerException
      */
-    public function create(User $actor, array $input): Customer
+    public function create(User $actor, array $input, bool $runAutomations = true): Customer
     {
         $organization = $actor->organization ?? abort(403);
         $data = $this->validated($input, requireStatus: false);
@@ -46,7 +47,9 @@ class CustomerService
         }
 
         Log::info('Customer created.', ['organization_id' => $organization->id, 'customer_id' => $customer->id, 'user_id' => $actor->id]);
-        CustomerCreated::dispatch($organization->id, $customer->id);
+        if ($runAutomations) {
+            CustomerCreated::dispatch($organization->id, $customer->id);
+        }
 
         return $customer;
     }

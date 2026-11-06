@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-slate-50">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-[#f7f6fc]">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,35 +11,27 @@
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-full font-sans text-slate-900 antialiased">
-        <header class="border-b border-slate-200 bg-white shadow-sm">
-            <div class="flex h-14 items-center justify-between px-4 sm:px-6">
-                <a href="{{ url('/') }}" class="flex items-center gap-2 text-base font-semibold tracking-tight text-slate-900">
-                    <span aria-hidden="true" class="grid size-7 place-items-center rounded-lg bg-linear-to-br from-violet-600 to-violet-500 text-sm font-bold text-white">Q</span>
-                    {{ config('app.name', 'QuoteFollow') }}
-                </a>
-                <div class="flex items-center gap-4 text-sm">
-                    @can('manage-billing')<a href="{{ route('settings.billing') }}" class="font-medium text-slate-700 hover:underline">Billing</a>@endcan
-                    <a href="{{ route('settings.security') }}" class="font-medium text-slate-700 hover:underline">Account</a>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="font-medium text-slate-700 hover:underline">Sign out</button>
-                    </form>
-                </div>
-            </div>
-        </header>
+    <body class="min-h-full bg-[#f7f6fc] font-sans text-slate-900 antialiased">
+        {{-- Soft lavender shapes behind the page. --}}
+        <div aria-hidden="true" class="pointer-events-none fixed inset-0 -z-0 overflow-hidden">
+            <div class="absolute -top-40 right-[-10rem] size-[40rem] rounded-full bg-violet-200/40 blur-3xl"></div>
+            <div class="absolute -bottom-48 right-[-6rem] size-[30rem] rounded-full bg-violet-100/70 blur-3xl"></div>
+            <div class="absolute -bottom-40 -left-40 size-[28rem] rounded-full bg-fuchsia-100/50 blur-3xl"></div>
+        </div>
 
-        @auth
-            @can('manage-billing')
-                @php($billingBanner = app(\App\Services\Billing\BillingBanner::class)->for(auth()->user()->organization))
-                @if ($billingBanner)
-                    <x-billing.banner :banner="$billingBanner" />
-                @endif
-            @endcan
-        @endauth
+        <div class="relative">
+            @auth
+                @can('manage-billing')
+                    @php($billingBanner = app(\App\Services\Billing\BillingBanner::class)->for(auth()->user()->organization))
+                    @if ($billingBanner)
+                        <x-billing.banner :banner="$billingBanner" />
+                    @endif
+                @endcan
+            @endauth
 
-        <main id="main" class="px-4 py-6 sm:px-6 lg:py-10">
-            {{ $slot }}
-        </main>
+            <main id="main">
+                {{ $slot }}
+            </main>
+        </div>
     </body>
 </html>

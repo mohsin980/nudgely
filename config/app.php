@@ -55,6 +55,11 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | Where "Contact support" links go. Leave empty to hide them.
+    */
+    'support_email' => env('SUPPORT_EMAIL'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

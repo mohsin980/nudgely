@@ -9,7 +9,7 @@
         'calendar-plus' => ['#34d399', '#059669'],
         'calendar-check' => ['#a78bfa', '#7c3aed'],
     ];
-    $viewBox = $name === 'hero' ? '0 0 340 120' : '0 0 96 96';
+    $viewBox = match ($name) { 'hero' => '0 0 340 120', 'store', 'automation' => '0 0 300 150', default => '0 0 96 96' };
 @endphp
 
 <svg {{ $attributes->merge(['class' => $class]) }} viewBox="{{ $viewBox }}" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
@@ -89,6 +89,39 @@
             <path d="M28 24c4-3 9-4 14-4" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
         </g>
         <path d="M80 12l5-5M84 22l8-1" stroke="#ec4899" stroke-width="3" stroke-linecap="round"/>
+    @elseif ($name === 'store')
+        <ellipse cx="190" cy="140" rx="120" ry="8" fill="#ede9fe"/>
+        <path d="M60 140c0-40 30-62 70-62 10-30 60-42 90-18 36-6 66 20 66 60v20H60Z" fill="#f3f0ff"/>
+        <circle cx="76" cy="24" r="8" fill="#f1edff"/><circle cx="88" cy="22" r="11" fill="#f1edff"/><circle cx="262" cy="26" r="9" fill="#f1edff"/><circle cx="276" cy="24" r="12" fill="#f1edff"/>
+        <g filter="url(#{{ $id }}f)">
+            <rect x="148" y="56" width="104" height="84" rx="4" fill="url(#{{ $id }}w)"/>
+            <path d="M140 24h120l14 34H126l14-34Z" fill="url(#{{ $id }}v)"/>
+            @foreach ([126, 150, 174, 198, 222, 246] as $i => $x)
+                <path d="M{{ $x }} 58a12 12 0 0 0 24 0Z" fill="{{ $i % 2 ? '#ffffff' : '#7c3aed' }}" stroke="#6d28d9" stroke-width="1.5"/>
+            @endforeach
+            <rect x="140" y="18" width="120" height="10" rx="5" fill="#6d28d9"/>
+            <rect x="160" y="84" width="30" height="56" rx="3" fill="#5b21b6"/><rect x="164" y="88" width="22" height="24" rx="2" fill="#a78bfa"/>
+            <rect x="204" y="84" width="36" height="28" rx="3" fill="#7c3aed"/><rect x="208" y="88" width="28" height="20" rx="2" fill="#c4b5fd"/>
+        </g>
+        <g fill="#a78bfa"><path d="M106 140c-4-26 4-46 14-56 6 16 6 38-2 56Z"/><path d="M98 140c-10-14-14-30-10-42 10 8 16 24 16 42Z" opacity=".7"/></g>
+        <rect x="112" y="122" width="16" height="18" rx="3" fill="#8b5cf6"/>
+        <g fill="#a78bfa"><path d="M270 140c4-24-2-44-12-54-6 16-6 36 2 54Z"/><path d="M280 140c10-14 12-28 8-40-10 8-14 22-14 40Z" opacity=".7"/></g>
+        <path d="M58 140V96m-10 44V108m20 32v-26" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round"/>
+    @elseif ($name === 'automation')
+        <path d="M70 120c40-50 160-70 220-20v50H40c0-12 10-22 30-30Z" fill="#f3f0ff"/>
+        <path d="M96 62h40M188 48h40M200 108h-28" stroke="#c4b5fd" stroke-width="2" stroke-dasharray="3 4"/>
+        <g filter="url(#{{ $id }}f)">
+            <rect x="44" y="40" width="50" height="46" rx="12" fill="url(#{{ $id }}w)"/><rect x="54" y="52" width="30" height="22" rx="4" fill="url(#{{ $id }}v)"/><path d="m55 54 14 10 14-10" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            <rect x="238" y="18" width="46" height="44" rx="12" fill="url(#{{ $id }}w)"/><rect x="248" y="30" width="26" height="22" rx="4" fill="#7c3aed"/><path d="M248 37h26" stroke="#fff" stroke-width="2"/><g fill="#fff"><rect x="252" y="41" width="4" height="4" rx="1"/><rect x="259" y="41" width="4" height="4" rx="1"/><rect x="266" y="41" width="4" height="4" rx="1"/></g>
+            <rect x="250" y="92" width="38" height="36" rx="11" fill="url(#{{ $id }}w)"/><circle cx="269" cy="110" r="10" fill="#7c3aed"/><path d="m264 110 4 4 7-8" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            <rect x="160" y="10" width="4" height="16" rx="2" fill="#8b5cf6"/><circle cx="162" cy="9" r="5" fill="url(#{{ $id }}v)"/>
+            <rect x="130" y="24" width="64" height="48" rx="22" fill="url(#{{ $id }}w)"/>
+            <rect x="139" y="33" width="46" height="30" rx="14" fill="#2e1065"/>
+            <path d="M150 50q4-5 8 0M166 50q4-5 8 0" stroke="#a78bfa" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M136 80h52a10 10 0 0 1 10 10v40h-72V90a10 10 0 0 1 10-10Z" fill="url(#{{ $id }}v)"/>
+            <circle cx="162" cy="100" r="6" fill="#ede9fe"/>
+            <g transform="translate(212 92)"><circle r="16" fill="#8b5cf6"/><circle r="6" fill="#ede9fe"/>@foreach (range(0, 315, 45) as $deg)<rect x="-3" y="-21" width="6" height="8" rx="2" fill="#8b5cf6" transform="rotate({{ $deg }})"/>@endforeach</g>
+        </g>
     @elseif ($name === 'check')
         <g filter="url(#{{ $id }}f)">
             <circle cx="48" cy="48" r="28" fill="url(#{{ $id }}v)" opacity=".85"/>
