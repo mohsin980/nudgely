@@ -2,7 +2,7 @@
 <x-settings.shell title="Reminder defaults" description="When new follow-ups are due unless you pick another time.">
     @include('livewire.settings.partials.status')
 
-    <form wire:submit="save" x-data="unsavedChanges" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <form wire:submit="save" x-data="unsavedChanges" class="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
         <div class="grid gap-4 sm:grid-cols-2">
             <div><label for="delay-days" class="block text-sm font-medium text-slate-700">Default delay (days)</label>
                 <input id="delay-days" type="number" min="1" max="60" wire:model="delayDays" class="{{ $field }}">
@@ -13,7 +13,7 @@
                 <p class="mt-1 text-xs text-slate-500">In {{ $organization->timezone() }}.</p>
                 @error('time') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
         </div>
-        <div class="flex justify-end"><button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700">Save</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Save</button></div>
     </form>
 
     @include('livewire.settings.partials.history')

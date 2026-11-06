@@ -1,12 +1,12 @@
-@php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
+@php($card = 'rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]')
 @php($secondary = 'inline-flex justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 disabled:opacity-50')
-@php($primary = 'inline-flex justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50')
+@php($primary = 'inline-flex justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]')
 <x-settings.shell title="Billing" description="Your plan, what happens next, and your payment details. Cards are handled securely by our payment provider.">
     @include('livewire.settings.partials.billing-tabs')
     @include('livewire.settings.partials.status')
 
     <section aria-labelledby="plan-heading" class="{{ $card }}" data-section="current-plan">
-        <h2 id="plan-heading" class="text-sm font-semibold text-slate-500">Current plan</h2>
+        <h2 id="plan-heading" class="text-base font-bold text-slate-900">Current plan</h2>
         <div class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <p class="text-2xl font-semibold text-slate-900" data-plan-name>{{ $plan->name }}</p>
             <p class="text-sm text-slate-500" data-plan-price>{{ $plan->priceLabel() }}</p>
@@ -79,7 +79,7 @@
 
     @if ($organization->billing_customer_id)
         <section aria-labelledby="payment-heading" class="{{ $card }}" data-section="payment">
-            <h2 id="payment-heading" class="text-sm font-semibold text-slate-500">Payment method</h2>
+            <h2 id="payment-heading" class="text-base font-bold text-slate-900">Payment method</h2>
             @if ($payment['error'])
                 <p class="mt-2 text-sm text-slate-500">{{ $payment['error'] }}</p>
             @elseif ($payment['card'])

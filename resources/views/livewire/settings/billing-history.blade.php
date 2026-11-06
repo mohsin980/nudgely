@@ -1,7 +1,7 @@
 <x-settings.shell title="Invoices" description="Your past invoices. Invoices open on our payment provider's secure page.">
     @include('livewire.settings.partials.billing-tabs')
 
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm" data-section="invoices">
+    <section class="rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]" data-section="invoices">
         @if ($error)
             <p class="p-4 text-sm text-slate-500 sm:p-5">{{ $error }}</p>
         @elseif ($invoices === [])

@@ -1,11 +1,11 @@
 @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-@php($card = 'rounded-lg border border-slate-200 bg-white p-5 shadow-sm')
+@php($card = 'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]')
 @php($label = 'block text-sm font-medium text-slate-700')
 <x-settings.shell title="Business Profile" description="How your business appears to customers on estimates and emails.">
     @include('livewire.settings.partials.status')
 
     <form wire:submit="save" x-data="unsavedChanges" class="{{ $card }} space-y-5" aria-labelledby="profile-heading">
-        <h2 id="profile-heading" class="text-sm font-semibold text-slate-500">Business details</h2>
+        <h2 id="profile-heading" class="text-base font-bold text-slate-900">Business details</h2>
         <div class="grid gap-4 sm:grid-cols-2">
             <div><label for="business-name" class="{{ $label }}">Business name</label><input id="business-name" type="text" wire:model="name" maxlength="100" required class="{{ $field }}">@error('name') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
             <div><label for="legal-name" class="{{ $label }}">Legal name <span class="font-normal text-slate-500">(optional)</span></label><input id="legal-name" type="text" wire:model="legalName" maxlength="150" class="{{ $field }}">@error('legalName') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
@@ -29,12 +29,12 @@
         </fieldset>
 
         <div class="flex justify-end">
-            <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">Save</button>
+            <button type="submit" wire:loading.attr="disabled" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Save</button>
         </div>
     </form>
 
     <section aria-labelledby="logo-heading" class="{{ $card }} space-y-4">
-        <h2 id="logo-heading" class="text-sm font-semibold text-slate-500">Logo</h2>
+        <h2 id="logo-heading" class="text-base font-bold text-slate-900">Logo</h2>
         @if ($organization->logoUrl())
             <div class="flex flex-wrap items-center gap-4">
                 <img src="{{ $organization->logoUrl() }}" alt="{{ $organization->name }} logo" class="h-16 max-w-48 rounded border border-slate-200 bg-white object-contain p-1">
@@ -55,7 +55,7 @@
     </section>
 
     <section aria-labelledby="sender-heading" class="{{ $card }} space-y-3">
-        <h2 id="sender-heading" class="text-sm font-semibold text-slate-500">Business email sender</h2>
+        <h2 id="sender-heading" class="text-base font-bold text-slate-900">Business email sender</h2>
         @if ($sender)
             <dl class="grid gap-2 text-sm sm:grid-cols-2">
                 <div><dt class="text-slate-500">From</dt><dd class="font-medium text-slate-900">{{ $sender->sender_email }}</dd></div>
