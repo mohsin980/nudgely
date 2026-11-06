@@ -3,6 +3,9 @@
         $card = 'rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70';
         $heading = 'text-lg font-bold text-slate-900';
         $badge = 'grid size-11 shrink-0 place-items-center rounded-full';
+        $bigBadge = 'grid size-16 shrink-0 place-items-center rounded-full';
+        $pill = 'inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-100 transition hover:bg-violet-100';
+        $row = 'flex items-center justify-between gap-4 py-2.5';
         $link = 'inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded';
         $arrow = '<svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>';
         $button = 'inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500';
@@ -342,15 +345,62 @@
                     </section>
                 </div>
 
+                {{-- Notifications --}}
+                <section id="notifications" aria-labelledby="notifications-heading" class="relative overflow-hidden {{ $card }}">
+                    <div aria-hidden="true" class="pointer-events-none absolute -top-16 left-1/3 h-40 w-72 rounded-full bg-violet-100/50 blur-3xl"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-4">
+                            <span class="{{ $bigBadge }} bg-linear-to-b from-violet-100 to-violet-200/70"><span class="grid size-9 place-items-center rounded-xl bg-linear-to-b from-violet-500 to-violet-700 text-white shadow-[0_6px_14px_-6px_rgba(109,40,217,0.9)]"><x-ui-icon name="clipboard-check" class="size-5 stroke-2" /></span></span>
+                            <div>
+                                <h2 id="notifications-heading" class="{{ $heading }}">Notifications @if ($d->unreadNotifications)<span class="font-normal">({{ $d->unreadNotifications }} unread)</span>@endif</h2>
+                                <p class="text-[15px] text-slate-600">Stay informed about your account activity.</p>
+                            </div>
+                        </div>
+                        @if ($d->unreadNotifications > 1)
+                            <button type="button" wire:click="markAllNotificationsRead" class="{{ $pill }}">Mark all read</button>
+                        @endif
+                    </div>
+                    @if ($d->notifications->isEmpty())
+                        <p class="relative mt-4 flex items-center gap-2.5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-100"><x-ui-icon name="info" class="size-5 shrink-0 text-violet-500" />No new notifications.</p>
+                    @else
+                        <ul role="list" class="relative mt-3 divide-y divide-slate-100" data-section="notifications">
+                            @foreach ($d->notifications as $notification)
+                                <li wire:key="notification-{{ $notification->id }}" class="flex items-start justify-between gap-2 py-2.5 text-sm">
+                                    <div>
+                                        @if (! empty($notification->data['url']))
+                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="font-medium text-slate-900 hover:underline">{{ $notification->data['message'] ?? 'Notification' }}</a>
+                                        @else
+                                            <p class="font-medium text-slate-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
+                                        @endif
+                                        @if (! empty($notification->data['action']) && ! empty($notification->data['url']))
+                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-violet-700 hover:underline">{{ $notification->data['action'] }}</a>
+                                        @endif
+                                        <time class="text-xs text-slate-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                    </div>
+                                    <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-slate-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                                        Dismiss<span class="sr-only"> notification</span>
+                                    </button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </section>
+
                 {{-- Open tasks --}}
-                <section aria-labelledby="tasks-heading" class="{{ $card }}">
-                    <div class="flex items-center gap-3">
-                        <span class="{{ $badge }} bg-violet-600 text-white shadow-[0_8px_18px_-8px_rgba(109,40,217,0.7)]"><x-ui-icon name="clipboard-check" class="size-6" /></span>
-                        <h2 id="tasks-heading" class="{{ $heading }}">Tasks{{ $d->taskCounts['due'] ? ' ('.$d->taskCounts['due'].')' : '' }}</h2>
+                <section aria-labelledby="tasks-heading" class="relative overflow-hidden {{ $card }}">
+                    @if ($d->tasks->isEmpty())
+                        <x-illustration name="calendar-check" class="pointer-events-none absolute top-1/2 right-6 size-24 -translate-y-1/2 opacity-60" />
+                    @endif
+                    <div class="relative flex items-center gap-4">
+                        <span class="{{ $bigBadge }} bg-linear-to-b from-violet-50 to-violet-100 text-violet-600"><x-ui-icon name="bolt" class="size-8" /></span>
+                        <div>
+                            <h2 id="tasks-heading" class="{{ $heading }}">Tasks{{ $d->taskCounts['due'] ? ' ('.$d->taskCounts['due'].')' : '' }}</h2>
+                            @if ($d->tasks->isEmpty())<p class="text-[15px] text-slate-600">No tasks to do today.</p>@endif
+                        </div>
                     </div>
                     @if ($d->tasks->isEmpty())
-                        <div class="mt-3 text-sm text-slate-500" role="status">
-                            <p class="font-medium text-slate-800">No tasks to do today.</p>
+                        <div class="relative mt-1 pl-20 text-sm text-slate-500" role="status">
+                            <p class="sr-only">No tasks to do today.</p>
                             @if ($d->taskCounts['later'])
                                 <p>{{ trans_choice(':count task is scheduled for later.|:count tasks are scheduled for later.', $d->taskCounts['later']) }}</p>
                             @endif
@@ -376,15 +426,15 @@
                 {{-- Automation activity --}}
                 <section aria-labelledby="automation-heading" class="{{ $card }}">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex items-center gap-3">
-                            <span class="{{ $badge }} bg-violet-100 text-violet-600"><x-ui-icon name="bolt" class="size-6" /></span>
+                        <div class="flex items-center gap-4">
+                            <span class="{{ $bigBadge }} bg-linear-to-b from-violet-50 to-violet-100 text-violet-600"><x-ui-icon name="bolt" class="size-8" /></span>
                             <h2 id="automation-heading" class="{{ $heading }}">Automation activity</h2>
                         </div>
                         @can('viewAny', \App\Models\Automation::class)
-                            <a href="{{ route('automations.index') }}" wire:navigate class="{{ $link }}">View Automation Activity</a>
+                            <a href="{{ route('automations.index') }}" wire:navigate class="{{ $link }}">View Automation Activity {!! $arrow !!}</a>
                         @endcan
                     </div>
-                    <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="automation-health">
+                    <dl class="mt-4 grid grid-cols-[1fr_auto] border-t border-slate-100 text-[15px] [&>dd]:pl-4 [&>dd]:border-b [&>dd]:border-slate-100 [&>dd]:py-2.5 [&>dt]:border-b [&>dt]:border-slate-100 [&>dt]:py-2.5" data-section="automation-health">
                         <dt class="text-slate-500">Health</dt>
                         <dd class="text-right font-semibold" data-health="status"><span @class(['text-emerald-700' => $health['status'] === 'healthy', 'text-red-700' => $health['status'] === 'failing', 'text-amber-700' => ! in_array($health['status'], ['healthy', 'failing'], true)])>{{ match ($health['status']) { 'healthy' => 'Running and succeeding', 'failing' => 'Runs are failing', 'no_recent_runs' => 'No completed runs in 7 days', 'email_not_ready' => 'Email sending not ready', default => 'No active automations' } }}</span></dd>
                         <dt class="text-slate-500">Active automations</dt>
@@ -407,7 +457,7 @@
                         </p>
                     @endif
                     @if ($d->automationRuns->isEmpty())
-                        <p class="mt-3 text-sm text-slate-500">No automations have run yet.</p>
+                        <p class="mt-4 flex items-center gap-2.5 rounded-xl bg-violet-50/60 px-4 py-3 text-sm text-slate-700"><x-ui-icon name="info" class="size-5 shrink-0 text-violet-600" />No automations have run yet.</p>
                     @else
                         <ol role="list" class="mt-2 space-y-3" data-section="automation">
                             @foreach ($d->automationRuns as $run)
@@ -528,47 +578,13 @@
                     @endif
                 </section>
 
-                {{-- Notifications --}}
-                <section id="notifications" aria-labelledby="notifications-heading" class="{{ $card }}">
-                    <div class="flex items-center justify-between gap-2">
-                        <h2 id="notifications-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $badge }} bg-violet-100 text-violet-600"><x-ui-icon name="bell" class="size-6" /></span> <span>Notifications @if ($d->unreadNotifications)<span class="font-normal">({{ $d->unreadNotifications }} unread)</span>@endif</span></h2>
-                        @if ($d->unreadNotifications > 1)
-                            <button type="button" wire:click="markAllNotificationsRead" class="{{ $link }}">Mark all read</button>
-                        @endif
-                    </div>
-                    @if ($d->notifications->isEmpty())
-                        <p class="mt-3 text-sm text-slate-500">No new notifications.</p>
-                    @else
-                        <ul role="list" class="mt-2 divide-y divide-slate-100" data-section="notifications">
-                            @foreach ($d->notifications as $notification)
-                                <li wire:key="notification-{{ $notification->id }}" class="flex items-start justify-between gap-2 py-2 text-sm">
-                                    <div>
-                                        @if (! empty($notification->data['url']))
-                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="text-slate-900 hover:underline">{{ $notification->data['message'] ?? 'Notification' }}</a>
-                                        @else
-                                            <p class="text-slate-900">{{ $notification->data['message'] ?? 'Notification' }}</p>
-                                        @endif
-                                        @if (! empty($notification->data['action']) && ! empty($notification->data['url']))
-                                            <a href="{{ $notification->data['url'] }}" wire:navigate class="block text-xs font-semibold text-violet-700 hover:underline">{{ $notification->data['action'] }}</a>
-                                        @endif
-                                        <time class="text-xs text-slate-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
-                                    </div>
-                                    <button type="button" wire:click="markNotificationRead('{{ $notification->id }}')" class="shrink-0 rounded px-1 text-xs font-medium text-slate-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
-                                        Dismiss<span class="sr-only"> notification</span>
-                                    </button>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </section>
-
                 {{-- Estimate pipeline --}}
-                <section aria-labelledby="estimates-heading" class="{{ $card }}">
+                <section aria-labelledby="estimates-heading" class="rounded-2xl bg-linear-to-br from-sky-50 via-white to-violet-50/60 p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-white">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <h2 id="estimates-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $badge }} bg-sky-100 text-sky-600"><x-ui-icon name="document" class="size-6" /></span> Estimate pipeline</h2>
-                        <a href="{{ route('estimates.index') }}" wire:navigate class="{{ $link }}">View Estimates</a>
+                        <h2 id="estimates-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $bigBadge }} bg-linear-to-b from-sky-100 to-sky-200/70 text-sky-600"><x-ui-icon name="document" class="size-8" /></span> Estimate pipeline</h2>
+                        <a href="{{ route('estimates.index') }}" wire:navigate class="{{ $link }}">View Estimates {!! $arrow !!}</a>
                     </div>
-                    <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="estimates">
+                    <dl class="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-3 pl-1 text-[15px] [&>dt]:text-slate-600" data-section="estimates">
                         <dt class="text-slate-500"><a href="{{ route('estimates.index', ['status' => 'awaiting']) }}" wire:navigate class="hover:underline">Awaiting customer</a></dt>
                         <dd class="text-right font-semibold text-slate-900" data-estimates="awaiting">{{ $pipeline['outstanding_count'] }}</dd>
                         <dt class="text-slate-500">Outstanding value</dt>
@@ -584,9 +600,9 @@
                 </section>
 
                 {{-- Today --}}
-                <section aria-labelledby="summary-heading" class="{{ $card }}">
-                    <h2 id="summary-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $badge }} bg-emerald-100 text-emerald-600"><x-ui-icon name="sparkles" class="size-6" /></span> Today's activity</h2>
-                    <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="today-summary">
+                <section aria-labelledby="summary-heading" class="rounded-2xl bg-linear-to-br from-emerald-50 via-white to-emerald-50/40 p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-white">
+                    <h2 id="summary-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $bigBadge }} bg-linear-to-b from-emerald-100 to-emerald-200/70 text-emerald-600"><x-ui-icon name="check" class="size-8 stroke-[2.5]" /></span> Today's activity</h2>
+                    <dl class="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-3 pl-1 text-[15px] [&>dt]:text-slate-600" data-section="today-summary">
                         @foreach ([
                             'new_customers' => 'New customers',
                             'customer_replies' => 'Customer replies',
@@ -603,9 +619,9 @@
                 </section>
 
                 {{-- Conversations --}}
-                <section aria-labelledby="conversations-heading" class="{{ $card }}">
-                    <h2 id="conversations-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $badge }} bg-amber-100 text-amber-600"><x-ui-icon name="chat" class="size-6" /></span> Conversations</h2>
-                    <dl class="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" data-section="conversation-statuses">
+                <section aria-labelledby="conversations-heading" class="rounded-2xl bg-linear-to-br from-amber-50 via-white to-orange-50/50 p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-white">
+                    <h2 id="conversations-heading" class="{{ $heading }} flex items-center gap-3"><span class="{{ $bigBadge }} bg-linear-to-b from-amber-100 to-orange-200/70 text-orange-600"><x-ui-icon name="chat" class="size-8" /></span> Conversations</h2>
+                    <dl class="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-3 pl-1 text-[15px] [&>dt]:text-slate-600" data-section="conversation-statuses">
                         @foreach (\App\Enums\ConversationStatus::cases() as $status)
                             <dt class="text-slate-500">{{ $status === \App\Enums\ConversationStatus::Open ? 'Open' : $status->label() }}</dt>
                             <dd class="text-right font-semibold text-slate-900" data-status="{{ $status->value }}">{{ $d->conversationStatuses[$status->value] ?? 0 }}</dd>

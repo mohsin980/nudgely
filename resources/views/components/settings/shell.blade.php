@@ -1,4 +1,4 @@
-@props(['title', 'description' => null])
+@props(['title', 'description' => null, 'art' => null, 'bare' => false])
 {{-- Settings page frame: a grouped menu (sidebar on desktop, scrolling chips on phones), then the page. --}}
 @php($menu = \App\Support\Settings\SettingsNavigation::for(auth()->user()))
 @php($icons = [
@@ -8,7 +8,9 @@
     'settings.security' => 'lock', 'settings.billing' => 'dollar',
 ])
 @php($current = collect($menu)->pluck('items')->flatten(1)->first(fn ($item) => request()->routeIs($item['route'], $item['route'].'.*')))
-<div class="space-y-6 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-8 lg:space-y-0">
+{{-- $bare: a full-width page with a "Back to Settings" link instead of the settings menu. --}}
+<div @class(['space-y-6', 'lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-8 lg:space-y-0' => ! $bare])>
+    @unless ($bare)
 
     {{-- Phones and tablets: every page as one horizontal row of chips --}}
     <nav aria-label="Settings" class="-mx-4 overflow-x-auto px-4 lg:hidden" x-data x-init="$el.querySelector('[aria-current]')?.scrollIntoView({ inline: 'center', block: 'nearest' })">
@@ -60,15 +62,25 @@
         </div>
     </nav>
 
+    @endunless
+
     <div class="min-w-0 space-y-6">
+        @if ($bare)
+            <a href="{{ route('settings.index') }}" wire:navigate class="-mb-3 inline-flex items-center gap-2 text-[15px] font-semibold text-violet-700 hover:text-violet-800"><x-ui-icon name="arrow-left" class="size-5 stroke-2" /> Back to Settings</a>
+        @endif
         <header class="flex items-start gap-4">
-            <span aria-hidden="true" class="grid size-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-600 ring-1 ring-violet-200/60 ring-inset"><x-ui-icon :name="$icons[$current['route'] ?? ''] ?? 'cog'" class="size-6" /></span>
-            <div class="min-w-0">
-                <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $title }}</h1>
+            @unless ($art)
+                <span aria-hidden="true" class="grid size-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-600 ring-1 ring-violet-200/60 ring-inset"><x-ui-icon :name="$icons[$current['route'] ?? ''] ?? 'cog'" class="size-6" /></span>
+            @endunless
+            <div class="min-w-0 flex-1">
+                <h1 @class(['font-bold tracking-tight text-slate-900', 'text-2xl' => ! $art, 'text-3xl font-extrabold sm:text-[34px]' => $art])>{{ $title }}</h1>
                 @if ($description)
                     <p class="mt-1 text-[15px] text-slate-500">{{ $description }}</p>
                 @endif
             </div>
+            @if ($art)
+                <x-illustration :name="$art" @class(['hidden shrink-0 sm:block', '-my-4 size-28' => ! $bare, '-mt-14 -mb-6 size-36' => $bare]) />
+            @endif
         </header>
         {{ $slot }}
     </div>

@@ -34,22 +34,23 @@
     {{-- Headline numbers. Trend badges compare the last 7 days with the 7 days before, and only show when there is something to compare. --}}
     <section aria-label="Summary" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         @foreach ([
-            ['Active automations', $this->stats['active'], 'users', 'bg-violet-100 text-violet-600', 'from-violet-200/80', null],
-            ['Total runs', $this->stats['runs'], 'envelope', 'bg-sky-100 text-sky-600', 'from-sky-200/80', $this->stats['runs_trend']],
-            ['Successful', $this->stats['successful'], 'check', 'bg-emerald-100 text-emerald-600', 'from-emerald-200/80', $this->stats['successful_trend']],
-            ['Pending', $this->stats['pending'], 'clock', 'bg-orange-100 text-orange-600', 'from-orange-200/80', null],
+            ['Active automations', $this->stats['active'], 'users', 'bg-linear-to-b from-violet-100 to-violet-200/70 text-violet-600', 'from-violet-200/80', null],
+            ['Total runs', $this->stats['runs'], 'envelope', 'bg-linear-to-b from-sky-100 to-sky-200/70 text-sky-600', 'from-sky-200/80', $this->stats['runs_trend']],
+            ['Successful', $this->stats['successful'], 'check', 'bg-linear-to-b from-emerald-100 to-emerald-200/70 text-emerald-600', 'from-emerald-200/80', $this->stats['successful_trend']],
+            ['Pending', $this->stats['pending'], 'clock', 'bg-linear-to-b from-orange-100 to-orange-200/70 text-orange-600', 'from-orange-200/80', null],
         ] as [$label, $value, $icon, $tone, $glow, $trend])
-            <div class="relative flex items-center gap-3.5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-5" data-stat="{{ \Illuminate\Support\Str::slug($label) }}">
+            <a href="#automations-heading" class="group relative flex items-center gap-3.5 overflow-hidden rounded-2xl bg-white p-4 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.2)] ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-12px_rgba(76,29,149,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:p-5" data-stat="{{ \Illuminate\Support\Str::slug($label) }}">
                 <span aria-hidden="true" class="pointer-events-none absolute -right-8 -bottom-14 h-28 w-48 rounded-[100%] bg-linear-to-tl {{ $glow }} to-transparent"></span>
-                <span class="relative grid size-12 shrink-0 place-items-center rounded-2xl {{ $tone }}"><x-ui-icon :name="$icon" class="size-6 stroke-2" /></span>
-                <div class="relative min-w-0">
-                    <p class="text-2xl leading-tight font-bold tracking-tight text-slate-900">{{ number_format($value) }}</p>
-                    <p class="text-[13px] text-slate-500 sm:text-sm">{{ $label }}</p>
+                <span class="relative grid size-14 shrink-0 place-items-center rounded-2xl {{ $tone }} shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"><x-ui-icon :name="$icon" class="size-7 stroke-2" /></span>
+                <div class="relative min-w-0 flex-1">
+                    <p class="text-[28px] leading-tight font-extrabold tracking-tight text-slate-900">{{ number_format($value) }}</p>
+                    <p class="truncate text-[13px] whitespace-nowrap text-slate-500 sm:text-sm">{{ $label }}</p>
                 </div>
                 @if ($trend !== null)
-                    <span class="absolute top-3 right-3 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold {{ $trend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}" title="Last 7 days compared with the 7 days before">{{ $trend >= 0 ? '↑' : '↓' }} {{ abs($trend) }}%</span>
+                    <span class="absolute top-3 right-12 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold {{ $trend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}" title="Last 7 days compared with the 7 days before">{{ $trend >= 0 ? '↑' : '↓' }} {{ abs($trend) }}%</span>
                 @endif
-            </div>
+                <span aria-hidden="true" class="relative grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition group-hover:bg-violet-50 group-hover:text-violet-700"><x-ui-icon name="chevron-right" class="size-5 stroke-2" /></span>
+            </a>
         @endforeach
     </section>
 
@@ -63,12 +64,12 @@
         </div>
 
         @if ($this->automations->isEmpty())
-            <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-                <span class="mx-auto grid size-12 place-items-center rounded-xl bg-violet-50 text-violet-600"><x-automation-icon name="bolt" class="size-6" /></span>
-                <p class="mt-4 text-base font-semibold text-slate-900">Automate repetitive follow-ups and customer tasks.</p>
-                <p class="mt-1 text-sm text-slate-500">Start from a template below, or build your own.</p>
+            <div class="rounded-2xl border-2 border-dashed border-violet-200 bg-white/70 px-6 py-12 text-center">
+                <span class="mx-auto grid size-[72px] place-items-center rounded-full bg-linear-to-b from-violet-100 to-violet-200/60 text-violet-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"><x-automation-icon name="bolt" class="size-9" /></span>
+                <p class="mt-5 text-xl font-bold text-slate-900">Automate repetitive follow-ups and customer tasks.</p>
+                <p class="mt-1.5 text-[17px] text-slate-500">Start from a template below, or build your own.</p>
                 @can('create', \App\Models\Automation::class)
-                <a href="{{ route('automations.create') }}" wire:navigate class="mt-4 inline-flex rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Create Automation</a>
+                <a href="#templates-heading" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-6 py-3 text-[15px] font-semibold text-white shadow-[0_10px_24px_-8px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600">Browse Templates <x-ui-icon name="arrow-right" class="size-5 stroke-2" /></a>
                 @endcan
             </div>
         @else
@@ -106,6 +107,48 @@
                 @endforeach
             </ul>
         @endif
+    </section>
+
+    {{-- Email safety settings (the owner decides; everyone else sees them) --}}
+    <section aria-labelledby="settings-heading" class="rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6">
+        @php($columns = [
+            [['automations_enabled', 'bolt', 'Turn on automations', 'Let QuoteFlow run the automations you have turned on.'],
+             ['require_approval_for_email', 'envelope', 'Ask me before sending any email', 'Recommended. You see every email before it goes to a customer.']],
+            [['automatic_email_enabled', 'envelope', 'Send emails automatically', 'Automations can email customers from your business email address.']],
+        ])
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)_minmax(0,1.3fr)] lg:items-center lg:divide-x lg:divide-slate-100">
+            <div class="flex items-center gap-4">
+                <span class="grid size-16 shrink-0 place-items-center rounded-2xl bg-linear-to-b from-emerald-100 to-emerald-200/70 text-emerald-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"><x-ui-icon name="shield" class="size-8 stroke-[1.8]" /></span>
+                <div>
+                    <h2 id="settings-heading" class="text-lg font-bold text-slate-900">Email safety</h2>
+                    <p class="mt-0.5 text-sm text-slate-500">Control how QuoteFlow handles customer emails.</p>
+                </div>
+            </div>
+            @foreach ($columns as $column)
+                <ul role="list" class="space-y-5 lg:px-6">
+                    @foreach ($column as [$setting, $settingIcon, $label, $help])
+                        @php($item = ['setting' => $setting, 'settingIcon' => $settingIcon, 'label' => $label, 'help' => $help, 'on' => (bool) $organization->{$setting}])
+                        <li class="flex items-start gap-3.5" wire:key="setting-{{ $item['setting'] }}">
+                            <button type="button" role="switch" aria-checked="{{ $item['on'] ? 'true' : 'false' }}" aria-labelledby="setting-{{ $item['setting'] }}"
+                                    @can('manage-email') wire:click="toggleSetting('{{ $item['setting'] }}')" @else disabled title="Only the owner can change this." @endcan data-setting="{{ $item['setting'] }}"
+                                    @class([
+                                        'relative mt-0.5 inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+                                        'bg-linear-to-r from-violet-600 to-violet-500 shadow-[0_6px_14px_-6px_rgba(109,40,217,0.8)]' => $item['on'],
+                                        'bg-slate-200' => ! $item['on'],
+                                    ])>
+                                <span class="sr-only">{{ $item['on'] ? 'On' : 'Off' }}</span>
+                                <span aria-hidden="true" @class(['inline-block size-7 transform rounded-full bg-white shadow transition', 'translate-x-6' => $item['on'], 'translate-x-0' => ! $item['on']])></span>
+                            </button>
+                            <x-ui-icon :name="$item['settingIcon']" class="mt-1 size-5 shrink-0 text-slate-500" />
+                            <div class="min-w-0">
+                                <p class="text-[15px] font-bold text-slate-900" id="setting-{{ $item['setting'] }}">{{ $item['label'] }}</p>
+                                <p class="mt-0.5 text-sm text-slate-500">{{ $item['help'] }}</p>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            @endforeach
+        </div>
     </section>
 
     {{-- Starter templates: tabs and search filter the cards in the browser; nothing is saved until "Use Template" --}}
@@ -153,41 +196,4 @@
     </section>
     @endcan
 
-    {{-- Email safety settings (the owner decides; everyone else sees them) --}}
-    <section aria-labelledby="settings-heading" class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-6">
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:items-center">
-            <div class="flex items-start gap-3.5">
-                <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><x-ui-icon name="shield" class="size-7 stroke-[1.8]" /></span>
-                <div>
-                    <h2 id="settings-heading" class="text-base font-bold text-slate-900">Email safety</h2>
-                    <p class="mt-0.5 text-sm text-slate-500">Control how QuoteFlow handles customer emails.</p>
-                </div>
-            </div>
-            <ul role="list" class="grid gap-5 sm:grid-cols-2">
-                @foreach ([
-                    'automations_enabled' => ['bolt', 'Turn on automations', 'Let QuoteFlow run the automations you have turned on.'],
-                    'automatic_email_enabled' => ['envelope', 'Send emails automatically', 'Automations can email customers from your business email address.'],
-                    'require_approval_for_email' => ['shield', 'Ask me before sending any email', 'Recommended. You see every email before it goes to a customer.'],
-                ] as $setting => [$settingIcon, $label, $help])
-                    @php($on = (bool) $organization->{$setting})
-                    <li class="flex items-start gap-3" wire:key="setting-{{ $setting }}">
-                        <button type="button" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}" aria-labelledby="setting-{{ $setting }}"
-                                @can('manage-email') wire:click="toggleSetting('{{ $setting }}')" @else disabled title="Only the owner can change this." @endcan data-setting="{{ $setting }}"
-                                @class([
-                                    'relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
-                                    'bg-violet-600' => $on,
-                                    'bg-slate-300' => ! $on,
-                                ])>
-                            <span class="sr-only">{{ $on ? 'On' : 'Off' }}</span>
-                            <span aria-hidden="true" @class(['inline-block h-5 w-5 transform rounded-full bg-white shadow transition', 'translate-x-5' => $on, 'translate-x-0' => ! $on])></span>
-                        </button>
-                        <div class="min-w-0">
-                            <p class="flex items-center gap-1.5 text-sm font-semibold text-slate-900" id="setting-{{ $setting }}"><x-ui-icon :name="$settingIcon" class="size-4 text-slate-500" />{{ $label }}</p>
-                            <p class="mt-0.5 text-[13px] text-slate-500">{{ $help }}</p>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </div>
-    </section>
 </div>
