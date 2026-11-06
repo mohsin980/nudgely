@@ -30,7 +30,7 @@
                 $user && $user->can('viewAny', \App\Models\Automation::class) ? ['Automations', 'automations.index', 'automations.*', 'bolt', 0] : null,
             ]));
             $link = fn (bool $active) => 'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 '
-                .($active ? 'bg-violet-100/70 text-violet-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
+                .($active ? 'relative bg-violet-100/70 font-semibold text-violet-700 before:absolute before:-left-3 before:inset-y-1.5 before:w-1 before:rounded-r-full before:bg-violet-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
             $icon = fn (bool $active) => 'size-5 shrink-0 '.($active ? 'text-violet-600' : 'text-slate-400 group-hover:text-slate-600');
             $initials = $user ? collect(preg_split('/\s+/', trim($user->name)))->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('') : '';
             $tabs = ['dashboard', 'customers.index', 'inbox.index', 'estimates.index'];
@@ -70,13 +70,28 @@
                             @endforeach
                         </ul>
 
-                        <p class="mt-6 mb-2 px-3 text-xs font-semiboldr text-slate-400">More</p>
+                        <p class="mt-6 mb-2 px-3 text-xs font-semibold text-slate-400">More</p>
                         @php($active = request()->routeIs('settings.*'))
                         <a href="{{ route('settings.index') }}" @if ($active) aria-current="page" @endif class="{{ $link($active) }}">
                             <x-ui-icon name="cog" class="{{ $icon($active) }}" />
                             Settings
                         </a>
                     </nav>
+
+                    {{-- A friendly nudge: upgrade for the billing manager, reminders for everyone else. --}}
+                    @php($promo = $user->can('manage-billing')
+                        ? ['rocket', 'Grow your business', 'Automate follow-ups and win more customers.', 'Upgrade plan', route('settings.billing.plans')]
+                        : ['bell', 'Stay on track', 'Never miss a follow-up with smart reminders.', 'Open reminders', route('follow-ups.index')])
+                    <div class="hidden px-4 pb-4 lg:block [@media(max-height:760px)]:hidden" data-sidebar-promo>
+                        <div class="relative overflow-hidden rounded-2xl bg-linear-to-b from-violet-50 to-white px-4 pt-2 pb-4 text-center ring-1 ring-violet-100 shadow-[0_10px_30px_-12px_rgba(91,33,182,0.25)]">
+                            <x-illustration :name="$promo[0]" class="mx-auto size-16" />
+                            <p class="mt-1 text-[15px] font-bold text-slate-900">{{ $promo[1] }}</p>
+                            <p class="mt-1 text-[13px] leading-snug text-slate-500">{{ $promo[2] }}</p>
+                            <a href="{{ $promo[4] }}" wire:navigate class="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_18px_-6px_rgba(109,40,217,0.6)] transition hover:from-violet-700 hover:to-violet-600">
+                                {{ $promo[3] }} <x-ui-icon name="arrow-right" class="size-4 stroke-2" />
+                            </a>
+                        </div>
+                    </div>
 
                     <div class="border-t border-slate-200 p-3">
                         <div class="flex items-center gap-3 rounded-lg px-2 py-2">
@@ -113,9 +128,17 @@
                     @endcan
                 @endauth
 
-                <main id="main" class="mx-auto min-w-0 max-w-screen-2xl px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:py-10">
-                    {{ $slot }}
-                </main>
+                <div class="relative isolate">
+                    {{-- Soft lavender wash behind the page heading. --}}
+                    <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] overflow-hidden [mask-image:linear-gradient(to_bottom,black_45%,transparent)]">
+                        <div class="absolute inset-0 bg-linear-to-b from-violet-100/80 via-violet-50/40 to-transparent"></div>
+                        <div class="absolute -top-24 right-[-6rem] size-[34rem] rounded-full bg-violet-200/40 blur-3xl"></div>
+                        <div class="absolute -top-32 left-1/3 size-80 rounded-full bg-fuchsia-100/50 blur-3xl"></div>
+                    </div>
+                    <main id="main" class="mx-auto min-w-0 max-w-screen-2xl px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:py-10">
+                        {{ $slot }}
+                    </main>
+                </div>
             </div>
 
             {{-- Mobile bottom tabs: the four things people do most, plus More --}}
