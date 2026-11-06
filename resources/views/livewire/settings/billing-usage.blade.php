@@ -1,8 +1,8 @@
 <x-settings.shell title="Usage" :description="'How much of your '.$plan->name.' plan you are using.'">
     @include('livewire.settings.partials.billing-tabs')
 
-    <section aria-labelledby="usage-heading" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <h2 id="usage-heading" class="text-sm font-semibold text-slate-500">This billing period</h2>
+    <section aria-labelledby="usage-heading" class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
+        <h2 id="usage-heading" class="text-base font-bold text-slate-900">This billing period</h2>
         <p class="mt-1 text-xs text-slate-500" data-period>Emails and estimates: {{ $organization->formatDate($periodStart) }} – {{ $organization->formatDate($periodEnd) }}. Other limits count what you have now.</p>
 
         <ul role="list" class="mt-4 space-y-5" data-section="usage">

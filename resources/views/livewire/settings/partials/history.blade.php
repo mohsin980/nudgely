@@ -1,6 +1,6 @@
 {{-- Who changed what, when. Expects $history (OrganizationActivity collection) and $organization. --}}
-<section aria-labelledby="history-heading" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-    <h2 id="history-heading" class="text-sm font-semibold text-slate-500">Change history</h2>
+<section aria-labelledby="history-heading" class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
+    <h2 id="history-heading" class="text-base font-bold text-slate-900">Change history</h2>
     @if ($history->isEmpty())
         <p class="mt-2 text-sm text-slate-500">No changes yet.</p>
     @else

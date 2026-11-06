@@ -1,14 +1,14 @@
 <x-settings.shell title="Roles & Permissions" description="Three fixed roles keep things simple. The owner changes someone's role under Team Members.">
     <div class="grid gap-4 sm:grid-cols-3">
         @foreach ($roles as $role)
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5" data-role="{{ $role->value }}">
+            <div class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]" data-role="{{ $role->value }}">
                 <p class="font-semibold text-slate-900">{{ $role->label() }} <span class="text-sm font-normal text-slate-500">· {{ $counts[$role->value] ?? 0 }} active</span></p>
                 <p class="mt-1 text-sm text-slate-500">{{ $role->description() }}</p>
             </div>
         @endforeach
     </div>
 
-    <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+    <div class="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
         <table class="min-w-full divide-y divide-slate-200 text-sm" data-section="matrix">
             <caption class="sr-only">What each role can do</caption>
             <thead class="bg-slate-50">

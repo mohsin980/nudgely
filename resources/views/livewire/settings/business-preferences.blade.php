@@ -1,11 +1,11 @@
 @php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-@php($card = 'rounded-lg border border-slate-200 bg-white p-5 shadow-sm')
+@php($card = 'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]')
 @php($label = 'block text-sm font-medium text-slate-700')
 <x-settings.shell title="Business Preferences" description="Timezone, currency and formats used across QuoteFollow, and your opening hours.">
     @include('livewire.settings.partials.status')
 
     <form wire:submit="save" x-data="unsavedChanges" class="{{ $card }} space-y-4" aria-labelledby="prefs-heading">
-        <h2 id="prefs-heading" class="text-sm font-semibold text-slate-500">Regional settings</h2>
+        <h2 id="prefs-heading" class="text-base font-bold text-slate-900">Regional settings</h2>
         <div class="grid gap-4 sm:grid-cols-2">
             <div class="sm:col-span-2">
                 <label for="timezone" class="{{ $label }}">Timezone</label>
@@ -34,12 +34,12 @@
                 <select id="time-format" wire:model="timeFormat" class="{{ $field }}">@foreach ($timeFormats as $format => $name)<option value="{{ $format }}">{{ $name }}</option>@endforeach</select>
                 @error('timeFormat') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
         </div>
-        <div class="flex justify-end"><button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700">Save</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Save</button></div>
     </form>
 
     <form wire:submit="saveHours" x-data="unsavedChanges" class="{{ $card }} space-y-4" aria-labelledby="hours-heading">
         <div>
-            <h2 id="hours-heading" class="text-sm font-semibold text-slate-500">Business hours</h2>
+            <h2 id="hours-heading" class="text-base font-bold text-slate-900">Business hours</h2>
             <p class="mt-1 text-sm text-slate-500">Your opening hours in {{ $organization->timezone() }}. Stored for scheduling; automations don't move sends into these hours yet.</p>
         </div>
         <ul role="list" class="divide-y divide-slate-100">
@@ -61,7 +61,7 @@
                 </li>
             @endforeach
         </ul>
-        <div class="flex justify-end"><button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700">Save hours</button></div>
+        <div class="flex justify-end"><button type="submit" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Save hours</button></div>
     </form>
 
     @include('livewire.settings.partials.history')

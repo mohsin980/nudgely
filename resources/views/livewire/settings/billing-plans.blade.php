@@ -1,5 +1,5 @@
 @php($secondary = 'w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 disabled:opacity-50')
-@php($primary = 'w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50')
+@php($primary = 'w-full rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]')
 <x-settings.shell title="Plans" description="Compare plans and change yours. Prices are per month in USD; limits are what each plan includes.">
     @include('livewire.settings.partials.billing-tabs')
     @include('livewire.settings.partials.status')

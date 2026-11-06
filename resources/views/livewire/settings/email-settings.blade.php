@@ -30,7 +30,7 @@
     @endphp
     <section aria-labelledby="accounts-heading" class="space-y-4">
         <div>
-            <h2 id="accounts-heading" class="text-sm font-semibold text-slate-500">Connect your email account</h2>
+            <h2 id="accounts-heading" class="text-base font-bold text-slate-900">Connect your email account</h2>
             <p class="mt-1 text-sm text-slate-500">Send from the mailbox you already use. No domain or DNS setup is needed.</p>
         </div>
 
@@ -39,7 +39,7 @@
                 <p class="text-base font-semibold text-slate-900">Gmail</p>
                 <p class="mt-1 flex-1 text-sm text-slate-500">Gmail or Google Workspace. You approve access with Google; we never see your password.</p>
                 @if ($googleReady)
-                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'gmail']) }}" class="mt-4 inline-flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Connect Google</a>
+                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'gmail']) }}" class="mt-4 inline-flex items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Connect Google</a>
                 @else
                     <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Not set up on this server yet.</p>
                 @endif
@@ -49,7 +49,7 @@
                 <p class="text-base font-semibold text-slate-900">Outlook or Hotmail</p>
                 <p class="mt-1 flex-1 text-sm text-slate-500">Outlook.com, Hotmail or Microsoft 365. You approve access with Microsoft.</p>
                 @if ($microsoftReady)
-                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'microsoft']) }}" class="mt-4 inline-flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">Connect Microsoft</a>
+                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'microsoft']) }}" class="mt-4 inline-flex items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Connect Microsoft</a>
                 @else
                     <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Not set up on this server yet.</p>
                 @endif
@@ -105,7 +105,7 @@
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
                     <button type="button" wire:click="cancelSmtpForm" class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Cancel</button>
-                    <button type="submit" wire:loading.attr="disabled" wire:target="connectSmtp" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-violet-700 disabled:opacity-60">
+                    <button type="submit" wire:loading.attr="disabled" wire:target="connectSmtp" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                         <span wire:loading.remove wire:target="connectSmtp">Test and connect</span>
                         <span wire:loading wire:target="connectSmtp" role="status">Testing…</span>
                     </button>
@@ -187,10 +187,10 @@
     {{-- Section 1: current sending email(s) --}}
     <section aria-labelledby="connections-heading" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="connections-heading" class="text-sm font-semibold text-slate-500">Your business domain</h2>
+            <h2 id="connections-heading" class="text-base font-bold text-slate-900">Your business domain</h2>
 
             @if ($this->domainConnections->isNotEmpty() && ! $showForm)
-                <button type="button" wire:click="create" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
+                <button type="button" wire:click="create" class="inline-flex items-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                     Add Business Email
                 </button>
             @endif
@@ -204,7 +204,7 @@
                 </p>
 
                 @unless ($showForm)
-                    <button type="button" wire:click="create" class="mt-6 inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
+                    <button type="button" wire:click="create" class="mt-6 inline-flex items-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                         Add Business Email
                     </button>
                 @endunless
@@ -218,7 +218,7 @@
                         $registered = $connection->isRegisteredWithProvider();
                         $showingRecords = $registered && $showingDnsRecordsFor === $connection->id;
                     @endphp
-                    <li wire:key="connection-{{ $connection->id }}" class="rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <li wire:key="connection-{{ $connection->id }}" class="rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
                         <div class="p-5">
                             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 {{-- What this sender is: name, address, domain and whether it can be used. --}}
@@ -244,7 +244,7 @@
                                                 wire:click="openTestEmail({{ $connection->id }})"
                                                 @disabled(! $states['test']['allowed'])
                                                 @unless ($states['test']['allowed']) aria-describedby="test-reason-{{ $connection->id }}" @endunless
-                                                class="inline-flex flex-1 items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
+                                                class="inline-flex flex-1 items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                                             Send Test Email
                                         </button>
                                     @endif
@@ -294,7 +294,7 @@
                                         @enderror
                                     </div>
                                     <div class="flex shrink-0 gap-2">
-                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                                        <button type="submit" wire:loading.attr="disabled" wire:target="sendTestEmail" class="inline-flex items-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                                             <span wire:loading.remove wire:target="sendTestEmail">Send Test Email</span>
                                             <span wire:loading wire:target="sendTestEmail" role="status">Sending…</span>
                                         </button>
@@ -354,7 +354,7 @@
                                                     wire:loading.attr="disabled"
                                                     wire:target="checkVerification({{ $connection->id }})"
                                                     @disabled(! $this->verificationConfigured)
-                                                    class="inline-flex flex-1 items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none">
+                                                    class="inline-flex flex-1 items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:flex-none shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                                                 <span wire:loading.remove wire:target="checkVerification({{ $connection->id }})">Check Verification</span>
                                                 <span wire:loading wire:target="checkVerification({{ $connection->id }})" role="status">Checking…</span>
                                             </button>
@@ -364,7 +364,7 @@
                                                     wire:loading.attr="disabled"
                                                     wire:target="startVerification({{ $connection->id }})"
                                                     @disabled(! $this->verificationConfigured)
-                                                    class="inline-flex w-full items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto">
+                                                    class="inline-flex w-full items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:w-auto shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                                                 <span wire:loading.remove wire:target="startVerification({{ $connection->id }})">{{ $failed ? 'Try Again' : 'Verify Domain' }}</span>
                                                 <span wire:loading wire:target="startVerification({{ $connection->id }})" role="status">Connecting…</span>
                                             </button>
@@ -475,7 +475,7 @@
 
     {{-- Section 2: add / edit form --}}
     @if ($showForm)
-        <section aria-labelledby="form-heading" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <section aria-labelledby="form-heading" class="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
             <h2 id="form-heading" class="text-base font-semibold text-slate-900">
                 {{ $editingConnectionId ? 'Edit business email' : 'Add business email' }}
             </h2>
@@ -510,7 +510,7 @@
                 @endforeach
 
                 <div class="flex flex-wrap gap-3 pt-2">
-                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
+                    <button type="submit" wire:loading.attr="disabled" wire:target="save" class="inline-flex items-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">
                         <span wire:loading.remove wire:target="save">Save</span>
                         <span wire:loading wire:target="save">Saving…</span>
                     </button>

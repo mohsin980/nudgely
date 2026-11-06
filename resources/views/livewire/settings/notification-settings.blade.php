@@ -1,8 +1,8 @@
-@php($card = 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs')
+@php($card = 'overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]')
 @php($header = 'flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6')
 @php($body = 'px-3 py-1 sm:px-4')
 @php($footer = 'flex justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-3 sm:px-6')
-@php($save = 'rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2')
+@php($save = 'rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]')
 <x-settings.shell title="Notifications" description="Choose what you hear about, in QuoteFollow and by email.">
     @include('livewire.settings.partials.status')
 
