@@ -11,6 +11,11 @@ use RuntimeException;
  */
 class EmailSendingNotAllowedException extends RuntimeException
 {
+    public static function customerInactive(): self
+    {
+        return new self('This customer is marked inactive, so they are not emailed. Mark them active to email them again.');
+    }
+
     public static function connectionUnavailable(): self
     {
         return new self('This email account is disconnected or needs to be connected again. Reconnect it in Email settings.');

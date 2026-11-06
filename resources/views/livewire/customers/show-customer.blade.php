@@ -19,6 +19,9 @@
                 <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
                     <span class="text-slate-500">Status:</span>
                     <span @class(['rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', 'bg-green-50 text-green-700 ring-green-600/20' => $this->customer->isActive(), 'bg-slate-100 text-slate-500 ring-gray-500/20' => ! $this->customer->isActive()])>{{ $this->customer->status->label() }}</span>
+                    @unless ($this->customer->isActive())
+                        <span class="text-xs text-slate-500" data-inactive-reason>{{ $this->customer->inactive_reason === \App\Services\Customers\CustomerActivityService::REASON_NO_REPLY ? 'No reply after follow-ups. Not emailed until they reply or you mark them active.' : 'Not emailed until you mark them active.' }}</span>
+                    @endunless
                     @if ($this->customer->hasOptedOutOfEmail())
                         <span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset" data-opt-out>Opted out of email{{ $this->customer->email_opted_out_source === 'link' ? ' (unsubscribed from a link)' : '' }}</span>
                         <button type="button" wire:click="allowEmailing" wire:confirm="Only email this customer if they asked you to. Allow email again?" class="text-xs font-medium text-violet-700 hover:underline">Allow email again</button>

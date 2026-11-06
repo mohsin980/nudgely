@@ -139,7 +139,13 @@ class FollowUpService
         $limit = $settings->followUpAttempts();
         $key = 'repeat|'.$sent->id;
 
-        if ($attempt >= $limit || FollowUp::query()->where('idempotency_key', $key)->exists()) {
+        if ($attempt >= $limit) {
+            $sent->forceFill(['final_attempt' => true])->save(); // the last email of the chain: no reply after it can make the customer inactive
+
+            return null;
+        }
+
+        if (FollowUp::query()->where('idempotency_key', $key)->exists()) {
             return null;
         }
 

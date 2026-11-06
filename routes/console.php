@@ -10,6 +10,7 @@ use App\Models\WebhookEvent;
 use App\Services\Automation\AutomationEngine;
 use App\Services\Billing\BillingLifecycle;
 use App\Services\Billing\BillingService;
+use App\Services\Customers\CustomerActivityService;
 use App\Services\Email\Bounces\MailboxBounceScanner;
 use App\Services\Email\EmailService;
 use App\Services\Estimates\EstimateService;
@@ -29,6 +30,10 @@ Artisan::command('inspire', function () {
 Artisan::command('follow-ups:process-due', function (FollowUpProcessor $followUps) {
     $this->info($followUps->markDue().' follow-up(s) marked due and queued.');
 })->purpose('Mark due follow-ups and queue them for processing');
+
+Artisan::command('customers:mark-unresponsive', function (CustomerActivityService $activity) {
+    $this->info($activity->markUnresponsive().' customer(s) marked inactive after no reply.');
+})->purpose('Mark customers inactive when they have not replied for a while after the last follow-up email');
 
 Artisan::command('follow-ups:notify-overdue', function (FollowUpProcessor $followUps) {
     $this->info($followUps->notifyOverdue().' overdue follow-up notification(s) sent.');
@@ -97,6 +102,7 @@ Artisan::command('reliability:report', function (OperationsReport $report) {
 // uses the cache lock, which the database cache store supports).
 Schedule::command('follow-ups:process-due')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('follow-ups:notify-overdue')->hourly()->withoutOverlapping()->onOneServer();
+Schedule::command('customers:mark-unresponsive')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('estimates:expire')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('automations:resume-waiting')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('automations:recover-stalled')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();

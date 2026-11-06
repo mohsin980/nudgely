@@ -300,6 +300,10 @@ class FollowUpProcessor
             return FollowUpSkipReason::CustomerUnavailable;
         }
 
+        if (! $customer->isActive()) {
+            return FollowUpSkipReason::CustomerInactive;
+        }
+
         $conversation = $followUp->conversation_id === null ? null : $organization->conversations()->find($followUp->conversation_id);
 
         if ($conversation === null || $conversation->customer_id !== $customer->id) {

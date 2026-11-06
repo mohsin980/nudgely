@@ -37,6 +37,7 @@ class FollowUp extends Model
     {
         return [
             'type' => FollowUpType::class,
+            'final_attempt' => 'boolean',
             'status' => FollowUpStatus::class,
             'skip_reason' => FollowUpSkipReason::class,
             'cancelled_reason' => FollowUpCancelReason::class,

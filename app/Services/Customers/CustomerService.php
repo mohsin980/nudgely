@@ -69,7 +69,18 @@ class CustomerService
         }
 
         try {
-            DB::transaction(fn () => $customer->update($data));
+            DB::transaction(function () use ($customer, $data) {
+                $customer->fill($data);
+
+                if ($customer->isDirty('status')) {
+                    $customer->forceFill([
+                        'status_changed_at' => now(),
+                        'inactive_reason' => $customer->status === CustomerStatus::Inactive ? CustomerActivityService::REASON_MANUAL : null,
+                    ]);
+                }
+
+                $customer->save();
+            });
         } catch (UniqueConstraintViolationException) {
             throw new DuplicateCustomerException(Customer::query()->where('organization_id', $customer->organization_id)->where('email', $data['email'])->firstOrFail());
         }

@@ -266,6 +266,8 @@ class TimelineService
             'reopened' => ($event->data['by'] ?? null) === 'message' ? 'Conversation reopened by a customer reply' : 'Conversation reopened'.($by ? " by {$by}" : ''),
             'status_changed' => 'Status changed to '.str_replace('_', ' ', $event->data['to'] ?? '').($by ? " by {$by}" : ''),
             'classification_changed' => 'Classification corrected'.($by ? " by {$by}" : ''),
+            'customer_inactive' => 'Customer marked inactive: no reply '.($event->data['days'] ?? config('follow_ups.inactive_after_days')).' days after the last follow-up',
+            'customer_reactivated' => 'Customer active again after replying',
             default => Str::headline($event->type),
         };
     }

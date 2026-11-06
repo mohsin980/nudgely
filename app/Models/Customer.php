@@ -38,6 +38,7 @@ class Customer extends Model
             'is_demo' => 'boolean',
             'last_activity_at' => 'datetime',
             'status' => CustomerStatus::class,
+            'status_changed_at' => 'datetime',
         ];
     }
 
