@@ -46,6 +46,30 @@ enum NotificationType: string
     }
 
     /**
+     * One line under the label in notification settings.
+     */
+    public function description(): string
+    {
+        return match ($this) {
+            self::CustomerReply => 'Get notified when a customer replies to your message.',
+            self::EstimateAccepted => 'Know when your estimate is accepted.',
+            self::EstimateDeclined => 'Get notified when an estimate is declined.',
+            self::AutomationFailed => 'Be alerted if an automation fails.',
+            self::FollowUpDue => 'Get reminded about upcoming follow-ups.',
+            self::TaskAssigned => 'Know when a task is assigned to you.',
+            self::TrialEnding => 'Know when your trial is about to end.',
+            self::PaymentFailed => 'Get notified about failed payments.',
+            self::PaymentRecovered => 'Be informed when a failed payment is recovered.',
+            self::TrialEnded => 'Know when your trial has ended.',
+            self::SubscriptionCancelling => 'Get notified when a cancellation is scheduled.',
+            self::SubscriptionEnded => 'Be informed when your subscription ends.',
+            self::SubscriptionRenewed => 'Know when your subscription renews.',
+            self::BillingRestricted => 'Know when paid features are paused.',
+            self::EmailAccountNeedsReconnect => 'Know when your business email needs to be connected again.',
+        };
+    }
+
+    /**
      * Built-in default when neither the organization nor the person chose.
      * Replies already have their own dashboard section, so they don't notify in-app by default.
      */

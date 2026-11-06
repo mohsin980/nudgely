@@ -70,14 +70,17 @@
         @endif
         <header class="flex items-start gap-4">
             @unless ($art)
-                <span aria-hidden="true" class="grid size-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-600 ring-1 ring-violet-200/60 ring-inset"><x-ui-icon :name="$icons[$current['route'] ?? ''] ?? 'cog'" class="size-6" /></span>
+                <span aria-hidden="true" class="grid size-16 shrink-0 place-items-center rounded-2xl bg-linear-to-b from-violet-100 to-violet-200/60 text-violet-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"><x-ui-icon name="cog" class="size-8 stroke-[1.8]" /></span>
             @endunless
             <div class="min-w-0 flex-1">
-                <h1 @class(['font-bold tracking-tight text-slate-900', 'text-2xl' => ! $art, 'text-3xl font-extrabold sm:text-[34px]' => $art])>{{ $title }}</h1>
+                <h1 @class(['font-bold tracking-tight text-slate-900', 'text-[28px] leading-tight' => ! $art, 'text-3xl font-extrabold sm:text-[34px]' => $art])>{{ $title }}</h1>
                 @if ($description)
                     <p class="mt-1 text-[15px] text-slate-500">{{ $description }}</p>
                 @endif
             </div>
+            @isset($actions)
+                <div class="shrink-0">{{ $actions }}</div>
+            @endisset
             @if ($art)
                 <x-illustration :name="$art" @class(['hidden shrink-0 sm:block', '-my-4 size-28' => ! $bare, '-mt-14 -mb-6 size-36' => $bare]) />
             @endif
