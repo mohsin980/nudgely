@@ -324,6 +324,12 @@ class FollowUpProcessor
             return FollowUpSkipReason::EstimateClosed;
         }
 
+        // A check-in that isn't about an estimate (e.g. a new lead) isn't needed once the business sends one:
+        // that estimate's own follow-ups take over.
+        if ($estimate === null && $organization->estimates()->where('customer_id', $customer->id)->where('sent_at', '>', $followUp->created_at)->exists()) {
+            return FollowUpSkipReason::EstimateSent;
+        }
+
         if ($customer->hasOptedOutOfEmail()) {
             return FollowUpSkipReason::OptedOut;
         }

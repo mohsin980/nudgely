@@ -54,7 +54,8 @@ final class ActionRegistry
                 new Field('subject', 'Email subject', 'template', required: true, showWhen: ['kind' => 'email'], max: SendEmailAction::MAX_SUBJECT),
                 new Field('body', 'Email message', 'template_body', required: true, showWhen: ['kind' => 'email'], max: SendEmailAction::MAX_BODY),
             ],
-                requires: fn (array $c) => ($c['kind'] ?? 'email') === 'reminder' ? [Subject::Customer] : [Subject::Customer, Subject::Conversation],
+                // Email follow-ups use the customer's open conversation, or start one, so a customer is enough.
+                requires: fn (array $c) => [Subject::Customer],
                 rules: fn (array $c, ActionValidation $v) => ($v->choice($c, 'kind', ['email', 'reminder'], 'email') === 'reminder')
                     ? [
                         'kind' => 'reminder',

@@ -22,6 +22,7 @@ enum AutomationConditionType: string
     case CustomerReplied = 'customer_replied';
     case CustomerHasEmail = 'customer_has_email';
     case CustomerHasPhone = 'customer_has_phone';
+    case CustomerHasEstimate = 'customer_has_estimate';
     case CustomerEmail = 'customer_email';
     case CustomerCompany = 'customer_company';
     case ConversationPriority = 'conversation_priority';

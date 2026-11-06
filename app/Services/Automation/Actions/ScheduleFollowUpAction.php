@@ -3,10 +3,13 @@
 namespace App\Services\Automation\Actions;
 
 use App\Contracts\Automation\AutomationActionInterface;
+use App\Enums\ConversationStatus;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Models\AutomationRun;
+use App\Models\Conversation;
+use App\Models\Customer;
 use App\Services\Automation\AutomationActionResult;
 use App\Services\Automation\AutomationContext;
 use App\Services\Automation\EmailTemplateRenderer;
@@ -21,6 +24,9 @@ use App\Services\FollowUps\FollowUpService;
  * Configuration: delay_days (1–60), subject and body (email templates with {{variables}}).
  * Creates an automated FollowUp (Task 8). When due, FollowUpProcessor re-checks everything;
  * a customer reply first skips it. Idempotent per action and event through follow_ups.idempotency_key.
+ *
+ * Events without a conversation (e.g. "Customer created") use the customer's open conversation,
+ * or start one, so the email and the customer's reply have somewhere to live.
  */
 class ScheduleFollowUpAction implements AutomationActionInterface
 {
@@ -61,7 +67,7 @@ class ScheduleFollowUpAction implements AutomationActionInterface
             return AutomationActionResult::failed($e->getMessage());
         }
 
-        $conversation = $context->conversation();
+        $conversation = $context->conversation() ?? ($customer === null ? null : $this->conversationFor($customer, $context, $subject));
 
         if ($conversation === null || $customer === null || $conversation->customer_id !== $customer->id) {
             return AutomationActionResult::failed('A follow-up needs a conversation and customer in this organization.');
@@ -134,5 +140,40 @@ class ScheduleFollowUpAction implements AutomationActionInterface
             ->where('event_type', $context->triggerType)
             ->where('event_id', $context->eventId)
             ->value('id');
+    }
+
+    /**
+     * The customer's latest open conversation, or a new one titled like the follow-up email.
+     * Reusing an open one also means a retried action doesn't start a second conversation.
+     */
+    private function conversationFor(Customer $customer, AutomationContext $context, string $subject): Conversation
+    {
+        $open = Conversation::query()
+            ->where('organization_id', $customer->organization_id)
+            ->where('customer_id', $customer->id)
+            ->where('status', '!=', ConversationStatus::Closed)
+            ->latest('id')
+            ->first();
+
+        if ($open !== null) {
+            return $open;
+        }
+
+        try {
+            $title = trim($context->render($subject));
+        } catch (InvalidEmailTemplateException) {
+            $title = $subject;
+        }
+
+        $conversation = new Conversation;
+        $conversation->forceFill([
+            'organization_id' => $customer->organization_id,
+            'customer_id' => $customer->id,
+            'subject' => mb_substr($title !== '' ? $title : 'Your enquiry', 0, 200),
+            'status' => ConversationStatus::Open,
+            'last_message_at' => now(),
+        ])->save();
+
+        return $conversation;
     }
 }

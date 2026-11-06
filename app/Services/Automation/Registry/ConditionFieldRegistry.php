@@ -41,6 +41,8 @@ final class ConditionFieldRegistry
             new F(C::CustomerStatusEquals, 'Customer status', 'Customer', F::ENUM, $customer, $options(CustomerStatus::class)),
             new F(C::CustomerHasEmail, 'Customer has an email address', 'Customer', F::BOOLEAN, $customer),
             new F(C::CustomerHasPhone, 'Customer has a phone number', 'Customer', F::BOOLEAN, $customer),
+            new F(C::CustomerHasEstimate, 'Customer has an estimate', 'Customer', F::BOOLEAN, $customer,
+                help: 'Any estimate, draft or sent. Use "is false" to reach new leads only.', failureReason: 'The customer already has an estimate.'),
             new F(C::CustomerEmail, 'Customer email', 'Customer', F::STRING, $customer),
             new F(C::CustomerCompany, 'Customer company', 'Customer', F::STRING, $customer),
             // Conversation
