@@ -2,23 +2,23 @@
     @php($button = 'inline-flex items-center justify-center rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-xs ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
     {{-- Presentation for each starter template: its icon, the tab it appears under, and two short tags. --}}
     @php($templateMeta = [
-        'follow_up_after_estimate' => ['icon' => 'mail', 'tab' => 'Follow-ups', 'tags' => ['Follow-up', '3 days']],
-        'ready_to_book' => ['icon' => 'calendar', 'tab' => 'Sales', 'tags' => ['Sales', 'High priority']],
-        'estimate_accepted' => ['icon' => 'check', 'tab' => 'Sales', 'tags' => ['Sales', 'Task']],
-        'interested' => ['icon' => 'bolt', 'tab' => 'Sales', 'tags' => ['Sales', '2 days']],
-        'price_objection' => ['icon' => 'tag', 'tab' => 'Sales', 'tags' => ['Sales', 'Priority']],
-        'wants_callback' => ['icon' => 'phone', 'tab' => 'Support', 'tags' => ['Support', 'Callback']],
-        'estimate_follow_up' => ['icon' => 'calendar', 'tab' => 'Reminders', 'tags' => ['Reminders', '3 days']],
-        'estimate_declined' => ['icon' => 'filter', 'tab' => 'Sales', 'tags' => ['Sales', 'High priority']],
+        'follow_up_after_estimate' => ['icon' => 'mail', 'tone' => 'bg-violet-100 text-violet-600', 'tab' => 'Follow-ups', 'tags' => ['Follow-up', '3 days']],
+        'ready_to_book' => ['icon' => 'bell', 'tone' => 'bg-sky-100 text-sky-600', 'tab' => 'Sales', 'tags' => ['Sales', 'High priority']],
+        'estimate_accepted' => ['icon' => 'check', 'tone' => 'bg-emerald-100 text-emerald-600', 'tab' => 'Sales', 'tags' => ['Sales', 'Task']],
+        'interested' => ['icon' => 'refresh', 'tone' => 'bg-orange-100 text-orange-600', 'tab' => 'Sales', 'tags' => ['Sales', '2 days']],
+        'price_objection' => ['icon' => 'tag', 'tone' => 'bg-blue-100 text-blue-600', 'tab' => 'Sales', 'tags' => ['Sales', 'Priority']],
+        'wants_callback' => ['icon' => 'phone', 'tone' => 'bg-teal-100 text-teal-600', 'tab' => 'Support', 'tags' => ['Support', 'Callback']],
+        'estimate_follow_up' => ['icon' => 'calendar', 'tone' => 'bg-amber-100 text-amber-600', 'tab' => 'Reminders', 'tags' => ['Reminders', '3 days']],
+        'estimate_declined' => ['icon' => 'x', 'tone' => 'bg-rose-100 text-rose-600', 'tab' => 'Sales', 'tags' => ['Sales', 'High priority']],
     ])
 
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Automations</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Automations</h1>
             <p class="mt-1 text-[15px] text-slate-500">Do things automatically, like following up with customers at the right time.</p>
         </div>
         @can('create', \App\Models\Automation::class)
-        <a href="{{ route('automations.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"><x-ui-icon name="plus" class="size-4" />Create Automation</a>
+        <a href="{{ route('automations.create') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(109,40,217,0.7)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2" style="background: linear-gradient(90deg, #6a2cf2, #8b5cf6);"><x-ui-icon name="plus" class="size-4 stroke-2" />Create Automation</a>
         @endcan
     </div>
 
@@ -30,20 +30,24 @@
         </div>
     @endif
 
-    {{-- Headline numbers --}}
+    {{-- Headline numbers. Trend badges compare the last 7 days with the 7 days before, and only show when there is something to compare. --}}
     <section aria-label="Summary" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         @foreach ([
-            ['Active automations', $this->stats['active'], 'bolt', 'bg-violet-50 text-violet-600'],
-            ['Total runs', $this->stats['runs'], 'envelope', 'bg-sky-50 text-sky-600'],
-            ['Successful runs', $this->stats['successful'], 'check', 'bg-emerald-50 text-emerald-600'],
-            ['Failed (7 days)', $this->stats['failed'], 'exclamation', 'bg-amber-50 text-amber-600'],
-        ] as [$label, $value, $icon, $tone])
-            <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-                <span class="grid size-12 shrink-0 place-items-center rounded-xl {{ $tone }}"><x-ui-icon :name="$icon" class="size-6" /></span>
-                <div class="min-w-0">
-                    <p class="text-2xl font-semibold tracking-tight text-slate-900">{{ $value }}</p>
-                    <p class="text-sm text-slate-500">{{ $label }}</p>
+            ['Active automations', $this->stats['active'], 'users', 'bg-violet-100 text-violet-600', 'from-violet-200/80', null],
+            ['Total runs', $this->stats['runs'], 'envelope', 'bg-sky-100 text-sky-600', 'from-sky-200/80', $this->stats['runs_trend']],
+            ['Successful', $this->stats['successful'], 'check', 'bg-emerald-100 text-emerald-600', 'from-emerald-200/80', $this->stats['successful_trend']],
+            ['Pending', $this->stats['pending'], 'clock', 'bg-orange-100 text-orange-600', 'from-orange-200/80', null],
+        ] as [$label, $value, $icon, $tone, $glow, $trend])
+            <div class="relative flex items-center gap-3.5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-5" data-stat="{{ \Illuminate\Support\Str::slug($label) }}">
+                <span aria-hidden="true" class="pointer-events-none absolute -right-8 -bottom-14 h-28 w-48 rounded-[100%] bg-linear-to-tl {{ $glow }} to-transparent"></span>
+                <span class="relative grid size-12 shrink-0 place-items-center rounded-2xl {{ $tone }}"><x-ui-icon :name="$icon" class="size-6 stroke-2" /></span>
+                <div class="relative min-w-0">
+                    <p class="text-2xl leading-tight font-bold tracking-tight text-slate-900">{{ number_format($value) }}</p>
+                    <p class="text-[13px] text-slate-500 sm:text-sm">{{ $label }}</p>
                 </div>
+                @if ($trend !== null)
+                    <span class="absolute top-3 right-3 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold {{ $trend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}" title="Last 7 days compared with the 7 days before">{{ $trend >= 0 ? '↑' : '↓' }} {{ abs($trend) }}%</span>
+                @endif
             </div>
         @endforeach
     </section>
@@ -51,7 +55,7 @@
     {{-- Automations --}}
     <section aria-labelledby="automations-heading" class="space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="automations-heading" class="text-base font-semibold text-slate-900">Your automations</h2>
+            <h2 id="automations-heading" class="text-base font-bold text-slate-900">Your automations</h2>
             @if ($this->archivedCount > 0)
                 <label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" wire:model.live="showArchived" class="rounded border-slate-300"> Show archived ({{ $this->archivedCount }})</label>
             @endif
@@ -69,7 +73,7 @@
         @else
             <ul role="list" class="grid gap-4 sm:grid-cols-2" data-section="automations">
                 @foreach ($this->automations as $automation)
-                    <li wire:key="automation-{{ $automation->id }}" class="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                    <li wire:key="automation-{{ $automation->id }}" class="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] transition hover:border-violet-200">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex min-w-0 items-start gap-3">
                                 <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600"><x-automation-icon name="bolt" class="size-6" /></span>
@@ -103,92 +107,86 @@
         @endif
     </section>
 
-    {{-- Starter templates: tabs and search filter the cards in the browser; nothing is saved until "Use template" --}}
+    {{-- Starter templates: tabs and search filter the cards in the browser; nothing is saved until "Use Template" --}}
     @can('create', \App\Models\Automation::class)
-    <section aria-labelledby="templates-heading" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6" x-data="{ tab: 'All', query: '' }">
+    <section aria-labelledby="templates-heading" class="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-5" x-data="{ tab: 'All', query: '' }">
+        <h2 id="templates-heading" class="sr-only">Starter templates</h2>
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 id="templates-heading" class="text-base font-semibold text-slate-900">Starter templates</h2>
-                <p class="mt-1 text-sm text-slate-500">Each template is added as a draft: nothing runs until you review and activate it.</p>
+            <div role="tablist" aria-label="Template categories" class="flex flex-wrap gap-2">
+                @foreach (['All' => 'All Templates', 'Follow-ups' => 'Follow-ups', 'Reminders' => 'Reminders', 'Sales' => 'Sales', 'Support' => 'Support', 'Custom' => 'Custom'] as $tabName => $tabLabel)
+                    <button type="button" role="tab" @click="tab = '{{ $tabName }}'" :aria-selected="tab === '{{ $tabName }}'" :class="tab === '{{ $tabName }}' ? 'bg-violet-600 text-white shadow-[0_8px_18px_-8px_rgba(109,40,217,0.8)]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                            class="rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">{{ $tabLabel }}</button>
+                @endforeach
             </div>
-            <div class="relative w-full sm:w-72">
+            <div class="relative w-full sm:w-64">
                 <label for="template-search" class="sr-only">Search templates</label>
                 <x-ui-icon name="search" class="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-slate-400" />
-                <input id="template-search" type="search" x-model="query" placeholder="Search templates…" class="block w-full rounded-xl border-0 bg-white py-2.5 pr-3.5 pl-10 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset">
+                <input id="template-search" type="search" x-model="query" placeholder="Search templates…" class="block h-10 w-full rounded-xl border-0 bg-white pr-3.5 pl-10 text-sm text-slate-900 shadow-none ring-1 ring-slate-200 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500">
             </div>
         </div>
 
-        <div role="tablist" aria-label="Template categories" class="flex flex-wrap gap-2">
-            @foreach (['All', 'Follow-ups', 'Reminders', 'Sales', 'Support', 'Custom'] as $tabName)
-                <button type="button" role="tab" @click="tab = '{{ $tabName }}'" :aria-selected="tab === '{{ $tabName }}'" :class="tab === '{{ $tabName }}' ? 'bg-violet-600 text-white ring-violet-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50'"
-                        class="rounded-full px-4 py-1.5 text-sm font-medium ring-1 ring-inset transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">{{ $tabName }}</button>
-            @endforeach
-        </div>
-
-        <ul role="list" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-section="templates">
+        <ul role="list" class="grid gap-4 lg:grid-cols-2" data-section="templates">
             @foreach (collect($this->templates)->sortBy(fn ($t, $key) => in_array($key, $starters, true) ? array_search($key, $starters, true) : 100) as $key => $template)
-                @php($meta = $templateMeta[$key] ?? ['icon' => 'bolt', 'tab' => 'Custom', 'tags' => []])
-                <li wire:key="template-{{ $key }}" class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+                @php($meta = $templateMeta[$key] ?? ['icon' => 'bolt', 'tone' => 'bg-violet-100 text-violet-600', 'tab' => 'Custom', 'tags' => []])
+                <li wire:key="template-{{ $key }}" class="flex gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 transition hover:border-violet-200 hover:shadow-[0_10px_28px_-14px_rgba(76,29,149,0.35)] sm:p-5"
                     data-template="{{ $key }}" data-tab="{{ $meta['tab'] }}" data-name="{{ strtolower($template['name']) }}"
                     x-show="(tab === 'All' || tab === '{{ $meta['tab'] }}') && $el.dataset.name.includes(query.trim().toLowerCase())">
-                    <div class="flex items-start gap-4">
-                        <span class="grid size-14 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600"><x-automation-icon :name="$meta['icon']" class="size-7" /></span>
-                        <div class="min-w-0">
-                            <p class="text-base font-semibold text-slate-900">{{ $template['name'] }}</p>
-                            <p class="mt-1 text-sm text-slate-500">{{ $template['description'] }}</p>
+                    <span class="grid size-14 shrink-0 place-items-center rounded-2xl {{ $meta['tone'] }}"><x-automation-icon :name="$meta['icon']" class="size-7" /></span>
+                    <div class="flex min-w-0 flex-1 flex-col">
+                        <p class="text-base font-bold text-slate-900">{{ $template['name'] }}</p>
+                        <p class="mt-1 text-sm leading-relaxed text-slate-500">{{ $template['description'] }}</p>
+                        <div class="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($meta['tags'] as $tag)
+                                    <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 ring-inset">{{ $tag }}</span>
+                                @endforeach
+                            </div>
+                            <button type="button" wire:click="installTemplate('{{ $key }}')" title="When: {{ \App\Services\Automation\Registry\TriggerRegistry::get($template['trigger_type'])->label }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-semibold whitespace-nowrap text-violet-700 ring-1 ring-violet-300 ring-inset transition hover:bg-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Use template <x-ui-icon name="arrow-right" class="size-4 stroke-2" /></button>
                         </div>
-                    </div>
-                    @if ($meta['tags'])
-                        <div class="flex flex-wrap gap-2">
-                            @foreach ($meta['tags'] as $tag)
-                                <span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{{ $tag }}</span>
-                            @endforeach
-                        </div>
-                    @endif
-                    <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                        <p class="text-xs text-slate-500">When: {{ \App\Services\Automation\Registry\TriggerRegistry::get($template['trigger_type'])->label }}</p>
-                        <button type="button" wire:click="installTemplate('{{ $key }}')" class="shrink-0 whitespace-nowrap rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-violet-700 shadow-xs ring-1 ring-violet-200 ring-inset transition hover:bg-violet-50">Use template</button>
                     </div>
                 </li>
             @endforeach
         </ul>
         <p x-show="tab === 'Custom'" class="text-sm text-slate-500" x-cloak>Build your own automation from scratch with Create Automation.</p>
+        <p class="text-xs text-slate-500">Each template is added as a draft: nothing runs until you review and activate it.</p>
     </section>
     @endcan
 
     {{-- Email safety settings (the owner decides; everyone else sees them) --}}
-    <section aria-labelledby="settings-heading" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
-        <div class="flex items-center gap-3">
-            <span class="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><x-ui-icon name="check" class="size-6" /></span>
-            <div>
-                <h2 id="settings-heading" class="text-base font-semibold text-slate-900">Email safety</h2>
-                <p class="text-sm text-slate-500">Control how QuoteFlow handles customer emails.</p>
+    <section aria-labelledby="settings-heading" class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-6">
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:items-center">
+            <div class="flex items-start gap-3.5">
+                <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><x-ui-icon name="shield" class="size-7 stroke-[1.8]" /></span>
+                <div>
+                    <h2 id="settings-heading" class="text-base font-bold text-slate-900">Email safety</h2>
+                    <p class="mt-0.5 text-sm text-slate-500">Control how QuoteFlow handles customer emails.</p>
+                </div>
             </div>
+            <ul role="list" class="grid gap-5 sm:grid-cols-2">
+                @foreach ([
+                    'automations_enabled' => ['bolt', 'Turn on automations', 'Let QuoteFlow run the automations you have turned on.'],
+                    'automatic_email_enabled' => ['envelope', 'Send emails automatically', 'Automations can email customers from your business email address.'],
+                    'require_approval_for_email' => ['shield', 'Ask me before sending any email', 'Recommended. You see every email before it goes to a customer.'],
+                ] as $setting => [$settingIcon, $label, $help])
+                    @php($on = (bool) $organization->{$setting})
+                    <li class="flex items-start gap-3" wire:key="setting-{{ $setting }}">
+                        <button type="button" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}" aria-labelledby="setting-{{ $setting }}"
+                                @can('manage-email') wire:click="toggleSetting('{{ $setting }}')" @else disabled title="Only the owner can change this." @endcan data-setting="{{ $setting }}"
+                                @class([
+                                    'relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+                                    'bg-violet-600' => $on,
+                                    'bg-slate-300' => ! $on,
+                                ])>
+                            <span class="sr-only">{{ $on ? 'On' : 'Off' }}</span>
+                            <span aria-hidden="true" @class(['inline-block h-5 w-5 transform rounded-full bg-white shadow transition', 'translate-x-5' => $on, 'translate-x-0' => ! $on])></span>
+                        </button>
+                        <div class="min-w-0">
+                            <p class="flex items-center gap-1.5 text-sm font-semibold text-slate-900" id="setting-{{ $setting }}"><x-ui-icon :name="$settingIcon" class="size-4 text-slate-500" />{{ $label }}</p>
+                            <p class="mt-0.5 text-[13px] text-slate-500">{{ $help }}</p>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
         </div>
-        <ul role="list" class="mt-5 grid gap-4 md:grid-cols-3">
-            @foreach ([
-                'automations_enabled' => ['Turn on automations', 'Let QuoteFlow run the automations you have turned on.'],
-                'automatic_email_enabled' => ['Send emails automatically', 'Automations can email customers from your business email address.'],
-                'require_approval_for_email' => ['Ask me before sending any email', 'Recommended. You see every email before it goes to a customer.'],
-            ] as $setting => [$label, $help])
-                @php($on = (bool) $organization->{$setting})
-                <li class="flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-4" wire:key="setting-{{ $setting }}">
-                    <div class="min-w-0">
-                        <p class="text-[15px] font-medium text-slate-900" id="setting-{{ $setting }}">{{ $label }}</p>
-                        <p class="mt-1 text-sm text-slate-500">{{ $help }}</p>
-                    </div>
-                    <button type="button" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}" aria-labelledby="setting-{{ $setting }}"
-                            @can('manage-email') wire:click="toggleSetting('{{ $setting }}')" @else disabled title="Only the owner can change this." @endcan data-setting="{{ $setting }}"
-                            @class([
-                                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2',
-                                'bg-violet-600' => $on,
-                                'bg-slate-300' => ! $on,
-                            ])>
-                        <span class="sr-only">{{ $on ? 'On' : 'Off' }}</span>
-                        <span aria-hidden="true" @class(['inline-block h-5 w-5 transform rounded-full bg-white shadow transition', 'translate-x-5' => $on, 'translate-x-0' => ! $on])></span>
-                    </button>
-                </li>
-            @endforeach
-        </ul>
     </section>
 </div>
