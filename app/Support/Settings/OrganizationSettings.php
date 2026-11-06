@@ -21,9 +21,11 @@ use App\Enums\Team\NotificationType;
  */
 final class OrganizationSettings
 {
+    public const MAX_FOLLOW_UP_ATTEMPTS = 5;
+
     public const KEYS = [
         'estimate_valid_days', 'estimate_notes', 'estimate_tax_rate',
-        'follow_up_delay_days', 'follow_up_time', 'task_priority',
+        'follow_up_delay_days', 'follow_up_time', 'follow_up_attempts', 'task_priority',
         'automation_owner_id', 'task_assignee_id', 'notify_user_id',
         'business_hours', 'notifications',
     ];
@@ -84,6 +86,15 @@ final class OrganizationSettings
     public function followUpDelayDays(): int
     {
         return $this->int('follow_up_delay_days', 1, 60) ?? 3;
+    }
+
+    /**
+     * How many automated follow-up emails a customer gets in a row when they don't reply (1 = no repeats).
+     * Repeats are spaced by the default delay.
+     */
+    public function followUpAttempts(): int
+    {
+        return $this->int('follow_up_attempts', 1, self::MAX_FOLLOW_UP_ATTEMPTS) ?? 1;
     }
 
     /**

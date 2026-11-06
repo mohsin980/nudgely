@@ -13,6 +13,16 @@
                 <p class="mt-1 text-xs text-slate-500">In {{ $organization->timezone() }}.</p>
                 @error('time') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
         </div>
+        <div class="border-t border-slate-100 pt-4">
+            <label for="follow-up-attempts" class="block text-sm font-medium text-slate-700">Follow-up emails if the customer doesn't reply</label>
+            <select id="follow-up-attempts" wire:model="attempts" class="{{ $field }} sm:max-w-xs">
+                @foreach (range(1, \App\Support\Settings\OrganizationSettings::MAX_FOLLOW_UP_ATTEMPTS) as $n)
+                    <option value="{{ $n }}">{{ $n === 1 ? '1 email (no repeats)' : $n.' emails' }}</option>
+                @endforeach
+            </select>
+            <p class="mt-1 text-xs text-slate-500">After an automatic follow-up email, if there's no reply the next one goes out after the default delay, until this many have been sent. It stops as soon as the customer replies, the estimate is accepted, declined or expires, or they unsubscribe.</p>
+            @error('attempts') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+        </div>
         <div class="flex justify-end"><button type="submit" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Save</button></div>
     </form>
 

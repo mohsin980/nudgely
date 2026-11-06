@@ -407,6 +407,10 @@ class FollowUpProcessor
         $this->followUps->record($locked, $this->followUps->event('email_sent', $actor, $outcome));
         $locked->save();
 
+        if (! $alreadySent) {
+            $this->followUps->scheduleRepeat($locked); // no reply yet: the next attempt, if the business wants more than one
+        }
+
         Log::info('Follow-up email sent.', ['organization_id' => $locked->organization_id, 'follow_up_id' => $locked->id, 'message_id' => $messageId]);
 
         return $alreadySent ? [self::ALREADY_PROCESSED, 'This follow-up was already sent.'] : [self::SENT, $outcome];

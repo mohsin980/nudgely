@@ -177,11 +177,13 @@ class BusinessSettingsService
         $data = Validator::make($input, [
             'delay_days' => ['required', 'integer', 'between:1,60'],
             'time' => ['required', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
-        ], ['time.regex' => 'Enter a time like 10:00.'], ['delay_days' => 'default delay'])->validate();
+            'attempts' => ['sometimes', 'integer', 'between:1,'.OrganizationSettings::MAX_FOLLOW_UP_ATTEMPTS],
+        ], ['time.regex' => 'Enter a time like 10:00.'], ['delay_days' => 'default delay', 'attempts' => 'follow-up emails'])->validate();
+        $attempts = (int) ($data['attempts'] ?? $actor->organization->businessSettings()->followUpAttempts());
 
-        return $this->saveSettings($actor, ['follow_up_delay_days' => (int) $data['delay_days'], 'follow_up_time' => $data['time']],
-            fn (OrganizationSettings $s) => ['follow_up_delay_days' => $s->followUpDelayDays(), 'follow_up_time' => $s->followUpTime()],
-            ['follow_up_delay_days' => 'Default follow-up delay (days)', 'follow_up_time' => 'Default follow-up time'],
+        return $this->saveSettings($actor, ['follow_up_delay_days' => (int) $data['delay_days'], 'follow_up_time' => $data['time'], 'follow_up_attempts' => $attempts],
+            fn (OrganizationSettings $s) => ['follow_up_delay_days' => $s->followUpDelayDays(), 'follow_up_time' => $s->followUpTime(), 'follow_up_attempts' => $s->followUpAttempts()],
+            ['follow_up_delay_days' => 'Default follow-up delay (days)', 'follow_up_time' => 'Default follow-up time', 'follow_up_attempts' => 'Follow-up emails if no reply'],
             'follow_up_defaults_updated');
     }
 

@@ -10,6 +10,7 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\FollowUp;
 use App\Models\Message;
+use App\Models\Organization;
 use App\Notifications\FollowUpNotification;
 use App\Services\Email\EmailService;
 use App\Services\FollowUps\FollowUpProcessor;
@@ -359,4 +360,78 @@ test('a follow-up\'s reminders are cleared once it is dealt with', function () {
 
     expect($unread($sent))->toBe(0)->and($unread($rescheduled))->toBe(0)
         ->and($this->admin->notifications()->count())->toBe(2); // kept as history, just read
+});
+
+// Repeated follow-up emails when the customer doesn't reply
+
+function followUpAttempts(Organization $organization, int $attempts, int $delayDays = 2): void
+{
+    $organization->forceFill(['settings' => array_merge($organization->settings ?? [], ['follow_up_attempts' => $attempts, 'follow_up_delay_days' => $delayDays])])->save();
+}
+
+test('by default a follow-up email is sent once and not repeated', function () {
+    Queue::fake([SendEmailJob::class]);
+    allowAutomaticFollowUpEmail($this->organization);
+    $followUp = automatedFollowUp($this->conversation);
+
+    makeDue($followUp);
+
+    expect($followUp->fresh()->status)->toBe(FollowUpStatus::Completed)
+        ->and(FollowUp::count())->toBe(1)
+        ->and(outboundEmails())->toBe(1);
+});
+
+test('an unanswered follow-up is repeated after the default delay until the chosen number of emails', function () {
+    Queue::fake([SendEmailJob::class]);
+    allowAutomaticFollowUpEmail($this->organization);
+    followUpAttempts($this->organization, 3, 2);
+    $first = automatedFollowUp($this->conversation);
+
+    makeDue($first);
+    $second = FollowUp::where('metadata->repeat_of', $first->id)->sole();
+    expect($second->status)->toBe(FollowUpStatus::Pending)
+        ->and($second->metadata['attempt'])->toBe(2)
+        ->and($second->subject)->toBe($first->subject)
+        ->and($second->conversation_id)->toBe($first->conversation_id)
+        ->and($second->due_at->greaterThan(now()->addDay()))->toBeTrue();
+
+    makeDue($second);
+    $third = FollowUp::where('metadata->repeat_of', $second->id)->sole();
+    expect($third->metadata['attempt'])->toBe(3);
+
+    makeDue($third);
+
+    expect(FollowUp::where('metadata->repeat_of', $third->id)->exists())->toBeFalse()
+        ->and(FollowUp::where('status', FollowUpStatus::Completed)->count())->toBe(3)
+        ->and(outboundEmails())->toBe(3);
+});
+
+test('a reply stops the repeats', function () {
+    Queue::fake([SendEmailJob::class]);
+    allowAutomaticFollowUpEmail($this->organization);
+    followUpAttempts($this->organization, 3);
+    $first = automatedFollowUp($this->conversation);
+
+    makeDue($first);
+    $second = FollowUp::where('metadata->repeat_of', $first->id)->sole();
+    $this->travel(1)->day();
+    customerReply($this->conversation);
+    makeDue($second);
+
+    expect($second->fresh()->skip_reason)->toBe(FollowUpSkipReason::CustomerReplied)
+        ->and(FollowUp::where('metadata->repeat_of', $second->id)->exists())->toBeFalse()
+        ->and(outboundEmails())->toBe(1);
+});
+
+test('a repeat is never due sooner than the minimum gap between follow-up emails', function () {
+    Queue::fake([SendEmailJob::class]);
+    allowAutomaticFollowUpEmail($this->organization);
+    followUpAttempts($this->organization, 2, 1);
+    $first = automatedFollowUp($this->conversation);
+
+    makeDue($first);
+    $sentAt = $first->fresh()->completed_at;
+    $second = FollowUp::where('metadata->repeat_of', $first->id)->sole();
+
+    expect($second->due_at->greaterThanOrEqualTo($sentAt->copy()->addHours((int) config('follow_ups.limits.min_interval_hours'))))->toBeTrue();
 });
