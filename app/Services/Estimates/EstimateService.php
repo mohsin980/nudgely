@@ -260,6 +260,10 @@ class EstimateService
                     throw new EstimateException('Unable to send estimate: this customer has opted out of email.');
                 }
 
+                if (! $customer->isActive()) {
+                    throw new EstimateException('Unable to send estimate: this customer is marked inactive. Mark them active to email them again.');
+                }
+
                 if ($this->versions($locked)->contains(fn (Estimate $v) => $v->status === EstimateStatus::Accepted)) {
                     throw new EstimateException('The customer already accepted another version of this estimate.');
                 }

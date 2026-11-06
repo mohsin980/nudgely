@@ -42,6 +42,7 @@ class ImportFollowUpActivation
         'no_email' => 'No email address',
         'opted_out' => 'Customer opted out of email',
         'suppressed' => 'Email address bounced or complained',
+        'inactive' => 'Customer is marked inactive',
     ];
 
     public function __construct(private readonly FollowUpService $followUps) {}
@@ -191,6 +192,10 @@ class ImportFollowUpActivation
 
         if ($customer->isEmailSuppressed()) {
             return 'suppressed';
+        }
+
+        if (! $customer->isActive()) {
+            return 'inactive';
         }
 
         return null;

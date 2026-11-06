@@ -24,12 +24,15 @@ class FollowUpDefaults extends Component
 
     public string $time = '10:00';
 
+    public string $attempts = '1';
+
     public function mount(): void
     {
         $this->authorize(Permission::ManageBusinessDefaults->value);
         $defaults = $this->organization()->businessSettings();
         $this->delayDays = (string) $defaults->followUpDelayDays();
         $this->time = $defaults->followUpTime();
+        $this->attempts = (string) $defaults->followUpAttempts();
     }
 
     public function save(BusinessSettingsService $settings): void
@@ -37,7 +40,7 @@ class FollowUpDefaults extends Component
         $this->authorize(Permission::ManageBusinessDefaults->value);
 
         try {
-            $settings->updateFollowUpDefaults($this->user(), ['delay_days' => $this->delayDays, 'time' => $this->time]);
+            $settings->updateFollowUpDefaults($this->user(), ['delay_days' => $this->delayDays, 'time' => $this->time, 'attempts' => $this->attempts]);
         } catch (ValidationException $e) {
             $this->showErrors($e, ['delay_days' => 'delayDays']);
 

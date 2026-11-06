@@ -122,6 +122,70 @@ class FollowUpService
     }
 
     /**
+     * An automated follow-up email was just sent: schedule the next one, up to the business's
+     * "follow-up emails if no reply" setting. Repeats send the same email, spaced by the default
+     * delay; the usual stop rules (reply, estimate closed, opt-out, closed conversation) apply when
+     * each one is due. Called while the sent follow-up is locked, so it runs once per follow-up.
+     */
+    public function scheduleRepeat(FollowUp $sent): ?FollowUp
+    {
+        if ($sent->type !== FollowUpType::Automated || $sent->conversation_id === null || $sent->subject === null || $sent->body === null) {
+            return null;
+        }
+
+        $organization = $sent->organization;
+        $settings = $organization->businessSettings();
+        $attempt = (int) ($sent->metadata['attempt'] ?? 1);
+        $limit = $settings->followUpAttempts();
+        $key = 'repeat|'.$sent->id;
+
+        if ($attempt >= $limit) {
+            $sent->forceFill(['final_attempt' => true])->save(); // the last email of the chain: no reply after it can make the customer inactive
+
+            return null;
+        }
+
+        if (FollowUp::query()->where('idempotency_key', $key)->exists()) {
+            return null;
+        }
+
+        $next = $attempt + 1;
+        $dueAt = $this->parseLocal($organization, now($organization->timezone())->addDays($settings->followUpDelayDays())->toDateString(), $settings->followUpTime());
+
+        // Never sooner than the minimum gap between automated emails to one customer, or it would be skipped.
+        while ($dueAt->lt(now()->addHours((int) config('follow_ups.limits.min_interval_hours')))) {
+            $dueAt = $dueAt->addDay();
+        }
+
+        $followUp = new FollowUp;
+        $followUp->forceFill([
+            'organization_id' => $sent->organization_id,
+            'customer_id' => $sent->customer_id,
+            'conversation_id' => $sent->conversation_id,
+            'estimate_id' => $sent->estimate_id,
+            'automation_id' => $sent->automation_id,
+            'automation_action_id' => $sent->automation_action_id,
+            'assigned_to' => $sent->assigned_to,
+            'type' => FollowUpType::Automated,
+            'status' => FollowUpStatus::Pending,
+            'due_at' => $dueAt->utc(),
+            'subject' => $sent->subject,
+            'body' => $sent->body,
+            'idempotency_key' => $key,
+            'metadata' => [
+                'reason' => $sent->metadata['reason'] ?? null,
+                'attempt' => $next,
+                'repeat_of' => $sent->id,
+                'history' => [$this->event('scheduled', null, "No reply yet: follow-up email {$next} of {$limit}")],
+            ],
+        ])->save();
+
+        Log::info('Follow-up repeat scheduled.', ['organization_id' => $followUp->organization_id, 'follow_up_id' => $followUp->id, 'repeat_of' => $sent->id, 'attempt' => $next]);
+
+        return $followUp;
+    }
+
+    /**
      * An automation schedules a reminder for the team (a manual-type follow-up: the scheduler
      * notifies people when it is due; nothing is emailed). Idempotent per key.
      *

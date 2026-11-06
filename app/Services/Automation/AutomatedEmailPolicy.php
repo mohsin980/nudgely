@@ -74,6 +74,10 @@ class AutomatedEmailPolicy
             return AutomationActionResult::skipped('Email not sent: the address bounced or complained.', ['reason' => 'suppressed']);
         }
 
+        if (! $customer->isActive()) {
+            return AutomationActionResult::skipped('Email not sent: the customer is marked inactive.', ['reason' => 'inactive']);
+        }
+
         try {
             $this->email->assertCanSendFrom($organization->emailConnections()->default()->first(), $organization->id);
         } catch (EmailSendingNotAllowedException $e) {

@@ -80,7 +80,7 @@ class EmailService
 
     /**
      * Queue an email to a conversation's customer with a fresh secure Reply-To address,
-     * so the customer's reply is routed back into this conversation. Customers who opted out are never emailed.
+     * so the customer's reply is routed back into this conversation. Customers who opted out or are inactive are never emailed.
      *
      * @param  array<string, string>  $metadata
      *
@@ -93,6 +93,10 @@ class EmailService
 
         if ($customer->hasOptedOutOfEmail()) {
             throw EmailSendingNotAllowedException::optedOut();
+        }
+
+        if (! $customer->isActive()) {
+            throw EmailSendingNotAllowedException::customerInactive();
         }
 
         if ($customer->isEmailSuppressed()) {

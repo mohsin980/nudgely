@@ -48,4 +48,9 @@ return [
     'overdue_after_hours' => 24,
     'max_days_ahead' => 365,
 
+    /*
+    | inactive_after_days: a customer who hasn't replied this many days after the last follow-up
+    | email of a chain is marked inactive. A reply makes them active again.
+    */
+    'inactive_after_days' => (int) env('FOLLOW_UPS_INACTIVE_AFTER_DAYS', 10),
 ];

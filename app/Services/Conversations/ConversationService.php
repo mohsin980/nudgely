@@ -237,6 +237,10 @@ class ConversationService
             throw new ConversationActionException('Unable to send email: this customer has opted out of email.');
         }
 
+        if (! $customer->isActive()) {
+            throw new ConversationActionException('Unable to send email: this customer is marked inactive. Mark them active to email them again.');
+        }
+
         try {
             return $this->email->sendToConversation(
                 $conversation,

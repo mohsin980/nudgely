@@ -300,6 +300,10 @@ class FollowUpProcessor
             return FollowUpSkipReason::CustomerUnavailable;
         }
 
+        if (! $customer->isActive()) {
+            return FollowUpSkipReason::CustomerInactive;
+        }
+
         $conversation = $followUp->conversation_id === null ? null : $organization->conversations()->find($followUp->conversation_id);
 
         if ($conversation === null || $conversation->customer_id !== $customer->id) {
@@ -406,6 +410,10 @@ class FollowUpProcessor
         ]);
         $this->followUps->record($locked, $this->followUps->event('email_sent', $actor, $outcome));
         $locked->save();
+
+        if (! $alreadySent) {
+            $this->followUps->scheduleRepeat($locked); // no reply yet: the next attempt, if the business wants more than one
+        }
 
         Log::info('Follow-up email sent.', ['organization_id' => $locked->organization_id, 'follow_up_id' => $locked->id, 'message_id' => $messageId]);
 

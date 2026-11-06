@@ -167,6 +167,18 @@ test('42. follow-up defaults pre-fill new follow-ups', function () {
         ->assertSet('scheduleTime', '08:30');
 });
 
+test('42b. the number of follow-up emails when a customer does not reply defaults to 1 and is limited', function () {
+    expect($this->owner->organization->businessSettings()->followUpAttempts())->toBe(1);
+
+    Livewire::actingAs($this->owner)->test(FollowUpDefaults::class)
+        ->assertSet('attempts', '1')
+        ->set('attempts', '9')->call('save')->assertHasErrors('attempts')
+        ->set('attempts', '3')->call('save')->assertHasNoErrors();
+
+    expect($this->owner->organization->fresh()->businessSettings()->followUpAttempts())->toBe(3)
+        ->and(OrganizationActivity::where('action', 'follow_up_defaults_updated')->latest('id')->first()->data['changes']['Follow-up emails if no reply'])->toEqual(['from' => 1, 'to' => 3]);
+});
+
 test('43. explicit values override the defaults', function () {
     app(BusinessSettingsService::class)->updateEstimateDefaults($this->owner, ['valid_days' => 45, 'notes' => 'Default note', 'tax_rate' => '8.25']);
 
