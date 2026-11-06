@@ -2,92 +2,113 @@
     @php($counts = $this->sectionCounts)
     @php($tabs = ['' => 'All', 'overdue' => 'Overdue', 'today' => 'Due today'])
     @php($kpis = [
-        ['overdue', 'Overdue', route('follow-ups.index', ['filter' => 'overdue']), $counts['overdue'] > 0 ? 'text-red-600' : 'text-slate-900', $counts['overdue'] > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500', 'exclamation'],
-        ['due_today', 'Due today', route('follow-ups.index', ['filter' => 'today']), 'text-slate-900', 'bg-violet-50 text-violet-600', 'clock'],
-        ['upcoming', 'Coming up', route('follow-ups.index'), 'text-slate-900', 'bg-violet-50 text-violet-600', 'bell'],
+        ['overdue', 'Overdue', route('follow-ups.index', ['filter' => 'overdue']), 'bg-linear-to-b from-rose-100 to-rose-50 text-rose-600', 'exclamation'],
+        ['due_today', 'Due today', route('follow-ups.index', ['filter' => 'today']), 'bg-linear-to-b from-violet-100 to-violet-50 text-violet-600', 'clock'],
+        ['upcoming', 'Coming up', route('follow-ups.index'), 'bg-linear-to-b from-emerald-100 to-emerald-50 text-emerald-600', 'bell'],
     ])
 
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Reminders</h1>
+            <a href="{{ route('dashboard') }}" wire:navigate class="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-800">
+                <x-ui-icon name="arrow-left" class="size-4 stroke-2" /> Back to Dashboard
+            </a>
+            <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-[34px]">Reminders</h1>
             <p class="mt-1 text-[15px] text-slate-500">Who to contact, and when. Times in {{ $organization->timezone() }}.</p>
         </div>
-        @unless ($showScheduleForm)
-            <button type="button" wire:click="openScheduleForm" class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700">Schedule Follow-Up</button>
-        @endunless
+        <div class="flex items-center gap-4">
+            @unless ($showScheduleForm)
+                <button type="button" wire:click="openScheduleForm" class="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-5 py-3 text-[15px] font-semibold text-white shadow-[0_10px_24px_-8px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600">
+                    <x-ui-icon name="calendar" class="size-5" /> Schedule Follow-Up
+                </button>
+                <x-illustration name="calendar-clock" class="hidden size-24 -my-4 sm:block" />
+            @endunless
+        </div>
     </div>
 
     <section aria-label="Summary">
-        <ul role="list" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            @foreach ($kpis as [$key, $label, $url, $valueTone, $iconTone, $icon])
+        <ul role="list" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            @foreach ($kpis as [$key, $label, $url, $iconTone, $icon])
                 <li>
                     <a href="{{ $url }}" wire:navigate data-reminder-kpi="{{ $key }}"
-                       class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition hover:border-slate-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
-                        <span class="grid size-11 shrink-0 place-items-center rounded-xl {{ $iconTone }}"><x-ui-icon :name="$icon" class="size-6" /></span>
-                        <span>
-                            <span class="block text-2xl leading-none font-semibold tracking-tight {{ $valueTone }}">{{ $counts[$key] }}</span>
-                            <span class="mt-1 block text-sm text-slate-500">{{ $label }}</span>
+                       class="group flex items-center gap-4 rounded-2xl border border-white bg-white/90 p-5 shadow-[0_8px_30px_-12px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-12px_rgba(76,29,149,0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+                        <span class="grid size-14 shrink-0 place-items-center rounded-2xl {{ $iconTone }}"><x-ui-icon :name="$icon" class="size-7" /></span>
+                        <span class="flex-1">
+                            <span class="block text-3xl leading-none font-extrabold tracking-tight text-slate-900">{{ $counts[$key] }}</span>
+                            <span class="mt-1.5 block text-[15px] text-slate-500">{{ $label }}</span>
                         </span>
+                        <span class="grid size-9 place-items-center rounded-full bg-slate-50 text-slate-500 transition group-hover:bg-violet-100 group-hover:text-violet-700"><x-ui-icon name="chevron-right" class="size-4 stroke-2" /></span>
                     </a>
                 </li>
             @endforeach
         </ul>
     </section>
 
-    <nav aria-label="Filter reminders" class="-mx-1 flex gap-1 overflow-x-auto px-1">
+    <nav aria-label="Filter reminders" class="-mx-1 flex gap-2 overflow-x-auto px-1">
         @foreach ($tabs as $key => $label)
             <a href="{{ $key === '' ? route('follow-ups.index') : route('follow-ups.index', ['filter' => $key]) }}" wire:navigate
                @if ($filter === $key) aria-current="page" @endif
                @class([
-                   'shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ring-1 ring-inset transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
-                   'bg-violet-600 text-white ring-violet-600' => $filter === $key,
-                   'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => $filter !== $key,
-               ])>{{ $label }}</a>
+                   'shrink-0 whitespace-nowrap rounded-full px-5 py-2 text-[15px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                   'bg-linear-to-r from-violet-600 to-violet-500 text-white shadow-[0_8px_18px_-8px_rgba(109,40,217,0.7)]' => $filter === $key,
+                   'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50' => $filter !== $key,
+               ])>{{ $label }}@if ($key === '') ({{ array_sum($counts) }})@endif</a>
         @endforeach
     </nav>
 
     @include('follow-ups.flash')
 
     @if ($showScheduleForm)
-        @include('follow-ups.schedule-form', ['customers' => $this->customers])
+        @include('follow-ups.schedule-form', ['customers' => $this->customers, 'withTips' => true])
     @endif
 
     @if ($filter !== '')
         <p class="text-sm text-slate-500">Showing {{ $filter === 'overdue' ? 'overdue' : 'today’s' }} follow-ups only. <a href="{{ route('follow-ups.index') }}" wire:navigate class="font-medium text-violet-700 hover:underline">Show all follow-ups</a></p>
     @endif
 
-    @foreach (array_filter(['overdue' => 'Overdue', 'due_today' => 'Due today', 'upcoming' => 'Upcoming'], fn ($heading, $key) => $filter === '' || ['overdue' => 'overdue', 'today' => 'due_today'][$filter] === $key, ARRAY_FILTER_USE_BOTH) as $key => $heading)
-        <section aria-labelledby="{{ $key }}-heading" class="space-y-2" data-section="{{ $key }}">
-            <h2 id="{{ $key }}-heading" @class(['text-base font-semibold text-slate-900', 'text-red-600' => $key === 'overdue', 'text-slate-900' => $key !== 'overdue'])>
-                {{ $heading }} <span class="font-normal">({{ $this->sectionCounts[$key] }})</span>
-            </h2>
-            @if ($this->sections[$key]->isEmpty())
-                <p class="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-500">{{ $key === 'overdue' ? 'Nothing overdue.' : 'Nothing here.' }}</p>
-            @else
-                <ul role="list" @class(['divide-y divide-slate-100 rounded-2xl border bg-white shadow-xs', 'border-red-200' => $key === 'overdue', 'border-slate-200' => $key !== 'overdue'])>
-                    @foreach ($this->sections[$key] as $followUp)
-                        @include('follow-ups.item')
-                    @endforeach
-                </ul>
-                @if ($this->sectionCounts[$key] > $this->sections[$key]->count())
-                    <p class="text-xs text-slate-500">Showing the {{ $this->sections[$key]->count() }} soonest of {{ $this->sectionCounts[$key] }}.</p>
-                @endif
-            @endif
-        </section>
-    @endforeach
+    @php($look = [
+        'overdue' => ['Overdue', 'Nothing overdue.', 'exclamation', 'bg-rose-100 text-rose-600', 'from-rose-50', 'calendar-alert'],
+        'due_today' => ['Due today', 'Nothing due today.', 'clock', 'bg-violet-100 text-violet-600', 'from-violet-50', 'calendar-clock'],
+        'upcoming' => ['Upcoming', 'Nothing upcoming.', 'arrow-path', 'bg-emerald-100 text-emerald-600', 'from-emerald-50', 'calendar-plus'],
+        'completed' => ['Completed', 'Nothing yet.', 'check', 'bg-slate-100 text-slate-500', 'from-slate-100', 'check'],
+        'closed' => ['Cancelled & skipped', 'Nothing yet.', 'close', 'bg-slate-100 text-slate-500', 'from-slate-100', null],
+    ])
+    @php($open = array_filter(['overdue', 'due_today', 'upcoming'], fn ($key) => $filter === '' || ['overdue' => 'overdue', 'today' => 'due_today'][$filter] === $key))
+    @php($history = $filter === '' ? ['completed' => $this->completed, 'closed' => $this->closed] : [])
 
-    @foreach ($filter === '' ? ['completed' => ['Completed', $this->completed], 'closed' => ['Cancelled & skipped', $this->closed]] : [] as $key => [$heading, $items])
-        <section aria-labelledby="{{ $key }}-heading" class="space-y-2" data-section="{{ $key }}">
-            <h2 id="{{ $key }}-heading" class="text-base font-semibold text-slate-900">{{ $heading }}</h2>
-            @if ($items->isEmpty())
-                <p class="text-sm text-slate-500">Nothing yet.</p>
-            @else
-                <ul role="list" class="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white shadow-xs">
-                    @foreach ($items as $followUp)
-                        @include('follow-ups.item')
-                    @endforeach
-                </ul>
-            @endif
-        </section>
-    @endforeach
+    <div class="space-y-4">
+        @foreach (array_merge(array_fill_keys($open, null), $history) as $key => $historyItems)
+            @php([$heading, $empty, $icon, $iconTone, $wash, $art] = $look[$key])
+            @php($items = $historyItems ?? $this->sections[$key])
+            @php($total = $historyItems === null ? $this->sectionCounts[$key] : null)
+            @continue($key === 'closed' && $items->isEmpty())
+            <section aria-labelledby="{{ $key }}-heading" data-section="{{ $key }}"
+                     class="overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70">
+                <div class="relative flex items-center gap-4 bg-linear-to-l {{ $wash }} via-white to-white px-5 py-4 sm:px-6">
+                    <span class="grid size-14 shrink-0 place-items-center rounded-full {{ $iconTone }}"><x-ui-icon :name="$icon" class="size-7 stroke-2" /></span>
+                    <div class="min-w-0 flex-1">
+                        <h2 id="{{ $key }}-heading" class="text-lg font-bold text-slate-900">{{ $heading }}@if ($total !== null) <span>({{ $total }})</span>@endif</h2>
+                        <p class="text-[15px] text-slate-500">
+                            @if ($items->isEmpty())
+                                {{ $empty }}
+                            @elseif ($total !== null && $total > $items->count())
+                                Showing the {{ $items->count() }} soonest of {{ $total }}.
+                            @else
+                                {{ trans_choice(':count follow-up|:count follow-ups', $items->count()) }}
+                            @endif
+                        </p>
+                    </div>
+                    @if ($art)
+                        <x-illustration :name="$art" class="hidden size-16 shrink-0 sm:block" />
+                    @endif
+                </div>
+                @if ($items->isNotEmpty())
+                    <ul role="list" class="divide-y divide-slate-100 border-t border-slate-100">
+                        @foreach ($items as $followUp)
+                            @include('follow-ups.item')
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+        @endforeach
+    </div>
 </div>
