@@ -52,6 +52,26 @@
             <textarea id="customer-notes" wire:model="notes" rows="3" maxlength="2000" placeholder="Add any notes about this customer…" class="{{ $field }} mt-1.5"></textarea>
             @error('notes') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
         </div>
+        @if (auth()->user()->organization?->businessSettings()->usesChannel(\App\Enums\MessageChannel::WhatsApp))
+            <div class="sm:col-span-2 grid gap-4 rounded-2xl bg-emerald-50/50 p-4 ring-1 ring-emerald-100 sm:grid-cols-2" data-section="customer-channel">
+                <div>
+                    <label for="customer-channel" class="block text-sm font-semibold text-slate-800">Follow up by</label>
+                    <select id="customer-channel" wire:model="preferred_channel" class="{{ $field }} mt-1.5">
+                        <option value="">Business default</option>
+                        <option value="email">Email</option>
+                        <option value="whatsapp">WhatsApp</option>
+                    </select>
+                    @error('preferred_channel') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                </div>
+                <label class="flex items-start gap-3 sm:pt-7">
+                    <input type="checkbox" wire:model="whatsapp_consent" class="mt-0.5 size-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" data-whatsapp-consent>
+                    <span class="text-sm">
+                        <span class="block font-semibold text-slate-800">Customer agreed to WhatsApp messages</span>
+                        <span class="block text-slate-500">Required before QuoteFlow messages them on WhatsApp. Add the country code to the phone number if they live outside your country.</span>
+                    </span>
+                </label>
+            </div>
+        @endif
         @if ($withStatus ?? false)
             <div>
                 <label for="customer-status" class="block text-sm font-semibold text-slate-800">Status</label>

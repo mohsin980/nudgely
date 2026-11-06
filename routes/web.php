@@ -14,6 +14,7 @@ use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
+use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Livewire\Automations\AutomationForm;
 use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Automations\AutomationLogs;
@@ -45,6 +46,7 @@ use App\Livewire\Settings\FollowUpDefaults;
 use App\Livewire\Settings\NotificationSettings;
 use App\Livewire\Settings\RolesPermissions;
 use App\Livewire\Settings\TeamMembers;
+use App\Livewire\Settings\WhatsAppSettings;
 use App\Livewire\Team\AcceptInvitation;
 use App\Models\Automation;
 use App\Models\Customer;
@@ -102,6 +104,7 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
     Route::get('/email', EmailSettings::class)
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');
+    Route::get('/whatsapp', WhatsAppSettings::class)->middleware('can:manage-email')->name('whatsapp');
     Route::get('/notifications', NotificationSettings::class)->name('notifications');
 
     // Connect Google / Microsoft: the provider sends the business back with a code (see EmailOAuthController).
@@ -178,6 +181,8 @@ Route::redirect('/inbox', '/conversations', 301);
 Route::get('/inbox/{conversationId}', fn (int $conversationId) => redirect()->route('inbox.show', $conversationId, 301))->whereNumber('conversationId');
 
 // Called by Stripe: authenticated by its signature, not by user sessions.
+Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:email-webhooks')->name('webhooks.whatsapp.verify');
+Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->middleware('throttle:email-webhooks')->name('webhooks.whatsapp');
 Route::post('/webhooks/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.stripe');
 
 // Called by email providers: authenticated by the provider handler, not by user sessions.

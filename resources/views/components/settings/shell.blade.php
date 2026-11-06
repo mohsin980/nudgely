@@ -3,7 +3,7 @@
 @php($menu = \App\Support\Settings\SettingsNavigation::for(auth()->user()))
 @php($icons = [
     'settings.business' => 'building', 'settings.preferences' => 'cog', 'settings.team' => 'users', 'settings.roles' => 'shield',
-    'settings.email' => 'envelope', 'settings.notifications' => 'bell',
+    'settings.email' => 'envelope', 'settings.whatsapp' => 'chat', 'settings.notifications' => 'bell',
     'settings.estimates' => 'document', 'settings.follow-ups' => 'clock', 'settings.automation' => 'bolt',
     'settings.security' => 'lock', 'settings.billing' => 'dollar',
 ])

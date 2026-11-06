@@ -8,6 +8,7 @@ use App\Enums\Automation\AutomationConditionType;
 use App\Enums\Automation\AutomationStatus;
 use App\Enums\Automation\AutomationTriggerType;
 use App\Enums\CustomerStatus;
+use App\Enums\MessageChannel;
 use App\Enums\Onboarding\OnboardingStep;
 use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Estimates\EstimateException;
@@ -19,6 +20,7 @@ use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Models\WhatsAppConnection;
 use App\Services\Automation\AutomationBuilder;
 use App\Services\Automation\AutomationTemplates;
 use App\Services\Billing\EntitlementService;
@@ -83,7 +85,7 @@ class OnboardingService
         $steps = [];
         $current = OnboardingStep::Completed;
 
-        foreach (OnboardingStep::working() as $step) {
+        foreach ($this->steps($organization) as $step) {
             $status = $this->isDone($organization, $step) ? 'done' : (($progress[$step->value] ?? null) === 'skipped' ? 'skipped' : 'pending');
             $steps[$step->value] = $status;
 
@@ -100,13 +102,32 @@ class OnboardingService
         return new OnboardingState($steps, $current);
     }
 
+    /**
+     * The steps this business goes through: the email step only if it follows up by email, the WhatsApp
+     * step only if it chose WhatsApp (email until it chooses).
+     *
+     * @return list<OnboardingStep>
+     */
+    public function steps(Organization $organization): array
+    {
+        $settings = $organization->businessSettings();
+
+        return array_values(array_filter(OnboardingStep::working(), fn (OnboardingStep $step) => match ($step) {
+            OnboardingStep::EmailConnection => $settings->usesChannel(MessageChannel::Email),
+            OnboardingStep::WhatsAppConnection => $settings->usesChannel(MessageChannel::WhatsApp),
+            default => true,
+        }));
+    }
+
     private function isDone(Organization $organization, OnboardingStep $step): bool
     {
         return match ($step) {
             OnboardingStep::BusinessProfile => filled($organization->business_type),
             OnboardingStep::BusinessPreferences => ($organization->onboarding_progress[$step->value] ?? null) === 'done',
+            OnboardingStep::FollowUpChannels => $organization->businessSettings()->hasChosenChannels(),
             // A connection that needs reconnecting is not working, so the step is not done.
             OnboardingStep::EmailConnection => $organization->emailConnections()->default()->verified()->where('connection_status', EmailConnection::STATUS_ACTIVE)->exists(),
+            OnboardingStep::WhatsAppConnection => $organization->whatsappConnection()->where('status', WhatsAppConnection::STATUS_ACTIVE)->exists(),
             OnboardingStep::FirstCustomer => $organization->customers()->where('is_demo', false)->exists(),
             OnboardingStep::FirstEstimate => $organization->estimates()->exists(),
             OnboardingStep::FirstAutomation => $organization->automations()->where('status', '!=', AutomationStatus::Archived)->exists(),
@@ -145,6 +166,20 @@ class OnboardingService
         ]);
 
         return $saved;
+    }
+
+    /**
+     * Email, WhatsApp or both: decides which connection steps follow.
+     *
+     * @param  array{channels?: string, primary?: string}  $input
+     *
+     * @throws AuthorizationException|ValidationException
+     */
+    public function saveFollowUpChannels(User $actor, array $input): Organization
+    {
+        $this->ownerOrganization($actor);
+
+        return $this->settings->updateFollowUpChannels($actor, $input);
     }
 
     /**
@@ -504,7 +539,8 @@ class OnboardingService
         $state = $this->state($organization);
         $items = [
             ['label' => 'Business profile', 'done' => $state->isDone(OnboardingStep::BusinessProfile), 'url' => route('onboarding.show')],
-            ['label' => 'Email connected', 'done' => $state->isDone(OnboardingStep::EmailConnection), 'url' => route('settings.email')],
+            ...($state->has(OnboardingStep::EmailConnection) ? [['label' => 'Email connected', 'done' => $state->isDone(OnboardingStep::EmailConnection), 'url' => route('settings.email')]] : []),
+            ...($state->has(OnboardingStep::WhatsAppConnection) ? [['label' => 'WhatsApp connected', 'done' => $state->isDone(OnboardingStep::WhatsAppConnection), 'url' => route('settings.whatsapp')]] : []),
             ['label' => 'First customer', 'done' => $state->isDone(OnboardingStep::FirstCustomer), 'url' => route('customers.create')],
             ['label' => 'First estimate', 'done' => $state->isDone(OnboardingStep::FirstEstimate), 'url' => route('estimates.create')],
             ['label' => 'Create an automation', 'done' => $state->isDone(OnboardingStep::FirstAutomation), 'url' => route('automations.index')],

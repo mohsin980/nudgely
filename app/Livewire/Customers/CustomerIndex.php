@@ -6,6 +6,7 @@ use App\Enums\ConversationStatus;
 use App\Enums\CustomerStatus;
 use App\Enums\FollowUpStatus;
 use App\Enums\LeadStage;
+use App\Enums\MessageChannel;
 use App\Models\Customer;
 use App\Services\Customers\CustomerDirectory;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +36,9 @@ class CustomerIndex extends Component
     public string $stage = '';
 
     #[Url(except: '')]
+    public string $channel = '';
+
+    #[Url(except: '')]
     public string $conversation = '';
 
     #[Url(as: 'follow_up', except: '')]
@@ -56,7 +60,7 @@ class CustomerIndex extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['search', 'status', 'stage', 'conversation', 'followUp', 'intent', 'sort', 'perPage'], true)) {
+        if (in_array($property, ['search', 'status', 'stage', 'channel', 'conversation', 'followUp', 'intent', 'sort', 'perPage'], true)) {
             $this->resetPage();
         }
     }
@@ -89,7 +93,7 @@ class CustomerIndex extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status', 'stage', 'conversation', 'followUp', 'intent', 'sort', 'perPage');
+        $this->reset('search', 'status', 'stage', 'channel', 'conversation', 'followUp', 'intent', 'sort', 'perPage');
         $this->resetPage();
     }
 
@@ -103,6 +107,7 @@ class CustomerIndex extends Component
                 'search' => $this->search,
                 'status' => $this->status,
                 'stage' => $this->stage,
+                'channel' => $this->channel,
                 'conversation' => $this->conversation,
                 'follow_up' => $this->followUp,
                 'intent' => $this->intent,
@@ -110,9 +115,10 @@ class CustomerIndex extends Component
                 'per_page' => $this->perPage,
             ]),
             'hasAnyCustomer' => $organization->customers()->exists(),
-            'filtering' => ($this->search.$this->status.$this->stage.$this->conversation.$this->followUp.$this->intent) !== '',
+            'filtering' => ($this->search.$this->status.$this->stage.$this->channel.$this->conversation.$this->followUp.$this->intent) !== '',
             'customerStatuses' => CustomerStatus::cases(),
             'leadStages' => LeadStage::cases(),
+            'usesWhatsApp' => $organization->businessSettings()->usesChannel(MessageChannel::WhatsApp),
             'stageCounts' => $organization->customers()->toBase()->selectRaw('lead_stage, count(*) as total')->groupBy('lead_stage')->pluck('total', 'lead_stage'),
             'conversationStatuses' => ConversationStatus::cases(),
             'intents' => CustomerDirectory::INTENTS,

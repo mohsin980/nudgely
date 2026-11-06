@@ -41,7 +41,7 @@ class CustomerDirectory
     ];
 
     /**
-     * @param  array{search?: string, status?: string, stage?: string, conversation?: string, follow_up?: string, intent?: string, sort?: string, per_page?: int}  $filters
+     * @param  array{search?: string, status?: string, stage?: string, channel?: string, conversation?: string, follow_up?: string, intent?: string, sort?: string, per_page?: int}  $filters
      * @return LengthAwarePaginator<int, Customer>
      */
     public function paginate(Organization $organization, array $filters): LengthAwarePaginator
@@ -51,13 +51,20 @@ class CustomerDirectory
 
         $query = Customer::query()
             ->where('customers.organization_id', $organization->id)
-            ->select(['customers.id', 'customers.organization_id', 'customers.name', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone', 'customers.company', 'customers.status', 'customers.lead_stage', 'customers.last_activity_at', 'customers.created_at'])
+            ->select(['customers.id', 'customers.organization_id', 'customers.name', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone', 'customers.company', 'customers.status', 'customers.lead_stage', 'customers.preferred_channel', 'customers.whatsapp_opt_in_at', 'customers.phone_e164', 'customers.last_activity_at', 'customers.created_at'])
             // The most recently active conversation's status and intent, and the next open follow-up.
             ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at is null, last_message_at desc')->limit(1)->select('status'), 'conversation_status')
             ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at is null, last_message_at desc')->limit(1)->select('latest_intent'), 'latest_intent')
             ->selectSub(fn ($q) => $q->from('follow_ups')->whereColumn('follow_ups.customer_id', 'customers.id')->whereIn('status', ['pending', 'due'])->selectRaw('min(due_at)'), 'next_follow_up_at');
 
         $this->search($query, (string) ($filters['search'] ?? ''));
+
+        // "whatsapp": can be messaged on WhatsApp (consent and a usable number); "email": everyone else.
+        match ($filters['channel'] ?? '') {
+            'whatsapp' => $query->whereNotNull('customers.whatsapp_opt_in_at')->whereNotNull('customers.phone_e164'),
+            'email' => $query->where(fn ($q) => $q->whereNull('customers.whatsapp_opt_in_at')->orWhereNull('customers.phone_e164')),
+            default => null,
+        };
 
         if ($stage = LeadStage::tryFrom((string) ($filters['stage'] ?? ''))) {
             $query->where('customers.lead_stage', $stage);

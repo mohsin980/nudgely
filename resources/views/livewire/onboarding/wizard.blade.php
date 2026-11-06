@@ -216,6 +216,71 @@
                 </div>
             </form>
 
+        @elseif ($step === \App\Enums\Onboarding\OnboardingStep::FollowUpChannels)
+            <h1 class="relative {{ $title }}">How do you want to follow up?</h1>
+            <p class="relative {{ $lead }}">Choose how QuoteFlow contacts your customers. You can change this any time, and pick a channel per customer.</p>
+            <form wire:submit="saveChannels" class="relative mt-8 space-y-6" novalidate>
+                <div class="grid gap-4 md:grid-cols-3" role="radiogroup" aria-label="Follow-up channels" data-channel-choices>
+                    @foreach ([
+                        'email' => ['envelope', 'Email', 'Follow up from your business email address.'],
+                        'whatsapp' => ['chat', 'WhatsApp', 'Follow up from your WhatsApp Business number.'],
+                        'both' => ['arrows-right-left', 'Both', 'Some customers by email, some on WhatsApp.'],
+                    ] as $value => [$icon, $optionLabel, $help])
+                        <label @class(['flex cursor-pointer flex-col gap-3 rounded-2xl p-5 ring-1 transition', 'bg-violet-50/70 ring-2 ring-violet-400 shadow-[0_12px_30px_-18px_rgba(109,40,217,0.5)]' => $channelChoice === $value, 'bg-white ring-slate-200 hover:ring-violet-200' => $channelChoice !== $value])>
+                            <span class="flex items-center justify-between">
+                                <span @class(['grid size-14 place-items-center rounded-2xl', 'bg-linear-to-b from-violet-500 to-violet-700 text-white' => $channelChoice === $value, 'bg-violet-50 text-violet-600' => $channelChoice !== $value])><x-ui-icon :name="$icon" class="size-7" /></span>
+                                <input type="radio" wire:model.live="channelChoice" value="{{ $value }}" class="size-5 border-slate-300 text-violet-600 focus:ring-violet-500" data-channel="{{ $value }}">
+                            </span>
+                            <span class="text-xl font-bold text-slate-900">{{ $optionLabel }}</span>
+                            <span class="text-[15px] text-slate-600">{{ $help }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('channels') <p class="text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
+                @if ($channelChoice === 'both')
+                    <div class="sm:max-w-sm">
+                        <label for="primaryChannel" class="{{ $label }}">Main channel</label>
+                        <select id="primaryChannel" wire:model="primaryChannel" class="{{ $input }}">
+                            <option value="email">Email</option>
+                            <option value="whatsapp">WhatsApp</option>
+                        </select>
+                        <p class="mt-1.5 text-sm text-slate-500">For customers who haven't picked one. Email is used when WhatsApp isn't possible for a customer.</p>
+                    </div>
+                @endif
+                @if (in_array($channelChoice, ['whatsapp', 'both'], true))
+                    <p class="flex items-start gap-2.5 rounded-2xl bg-emerald-50 p-4 text-[15px] text-emerald-900 ring-1 ring-emerald-100"><x-ui-icon name="info" class="mt-0.5 size-5 shrink-0 stroke-2" />WhatsApp uses your own WhatsApp Business number on Meta, which bills you directly for messages. Customers must agree to WhatsApp messages first.</p>
+                @endif
+                <div class="flex flex-col gap-3 pt-2 sm:flex-row">
+                    <button type="submit" wire:loading.attr="disabled" wire:target="saveChannels" class="{{ $primary }}"><span wire:loading.remove wire:target="saveChannels" class="inline-flex items-center gap-2.5">Continue <x-ui-icon name="arrow-right" class="size-5 stroke-2" /></span><span wire:loading wire:target="saveChannels">Saving…</span></button>
+                    <button type="button" wire:click="skip('follow_up_channels')" wire:loading.attr="disabled" class="{{ $secondary }}">Skip (use email)</button>
+                </div>
+            </form>
+
+        @elseif ($step === \App\Enums\Onboarding\OnboardingStep::WhatsAppConnection)
+            @php($waActive = $whatsappConnection?->isActive() ?? false)
+            <h1 class="relative {{ $title }}">Connect your WhatsApp number</h1>
+            <p class="relative {{ $lead }}">Use your own WhatsApp Business number. It takes about 20 minutes once, and our guide walks you through it.</p>
+            <div class="relative mt-6 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                <span aria-hidden="true" @class(['mt-0.5 grid size-6 shrink-0 place-items-center rounded-full', 'bg-emerald-500 text-white' => $waActive, 'bg-amber-100 text-amber-700' => ! $waActive])>@if ($waActive){!! $check !!}@else<span class="size-2 rounded-full bg-current"></span>@endif</span>
+                <p class="text-[15px] text-slate-700" data-whatsapp-status>
+                    @if ($waActive)
+                        Connected: <span class="font-semibold text-slate-900">{{ $whatsappConnection->display_phone_number ?? $whatsappConnection->phone_number_id }}</span>
+                    @elseif ($whatsappConnection)
+                        Not working yet. {{ $whatsappConnection->last_error }}
+                    @else
+                        Status: <span class="font-semibold text-slate-900">Not connected</span>
+                    @endif
+                </p>
+            </div>
+            <div class="relative mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <a href="{{ route('settings.whatsapp') }}" class="{{ $primary }}">Connect WhatsApp <x-ui-icon name="arrow-right" class="size-5 stroke-2" /></a>
+                <button type="button" wire:click="recheckWhatsApp" wire:loading.attr="disabled" class="{{ $secondary }}">I've connected it, check again</button>
+                <button type="button" wire:click="skip('whatsapp_connection')" wire:loading.attr="disabled" class="{{ $secondary }}">Skip for now</button>
+            </div>
+            @unless ($waActive)
+                <p class="relative mt-4 flex items-start gap-2 text-sm text-slate-500">Until WhatsApp is connected, follow-ups go by email when the customer has an email address.</p>
+            @endunless
+
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::EmailConnection)
             <h1 class="relative {{ $title }}">Connect your business email</h1>
             <p class="relative {{ $lead }}">Connect the email address your business uses to communicate with customers.</p>

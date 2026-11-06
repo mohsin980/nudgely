@@ -26,6 +26,7 @@ final class SettingsNavigation
             ]],
             'Customers & messages' => ['icon' => 'chat', 'items' => [
                 ['Email', 'settings.email', Permission::ManageEmail],
+                ['WhatsApp', 'settings.whatsapp', Permission::ManageEmail],
                 ['Notifications', 'settings.notifications', null],
             ]],
             'Quotes & reminders' => ['icon' => 'document', 'items' => [

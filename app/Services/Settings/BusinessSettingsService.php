@@ -188,6 +188,31 @@ class BusinessSettingsService
     }
 
     /**
+     * How the business follows up: email, WhatsApp or both, and which one is used for customers who haven't picked.
+     *
+     * @param  array<string, mixed>  $input  channels ('email', 'whatsapp' or 'both'), primary ('email' or 'whatsapp', for both)
+     *
+     * @throws AuthorizationException|ValidationException
+     */
+    public function updateFollowUpChannels(User $actor, array $input): Organization
+    {
+        $this->authorize($actor, Permission::ManageBusinessDefaults);
+
+        $data = Validator::make($input, [
+            'channels' => ['required', Rule::in(['email', 'whatsapp', 'both'])],
+            'primary' => ['nullable', Rule::in(['email', 'whatsapp'])],
+        ], ['channels.required' => 'Choose how you want to follow up.'], ['channels' => 'follow-up channels'])->validate();
+
+        $channels = $data['channels'] === 'both' ? 'email,whatsapp' : $data['channels'];
+        $primary = $data['channels'] === 'both' ? ($data['primary'] ?? 'email') : $data['channels'];
+
+        return $this->saveSettings($actor, ['follow_up_channels' => $channels, 'primary_channel' => $primary],
+            fn (OrganizationSettings $s) => ['follow_up_channels' => $s->hasChosenChannels() ? implode(',', array_map(fn ($c) => $c->value, $s->followUpChannels())) : null, 'primary_channel' => $s->primaryChannel()->value],
+            ['follow_up_channels' => 'Follow-up channels', 'primary_channel' => 'Main follow-up channel'],
+            'follow_up_channels_updated');
+    }
+
+    /**
      * Defaults for who automations act for, assign tasks to and notify. Only active members.
      *
      * @param  array<string, mixed>  $input  automation_owner_id, task_assignee_id, notify_user_id ('' = none)

@@ -28,6 +28,20 @@
                         @endforeach
                     </div>
                 </div>
+                @php($bizSettings = $this->customer->organization->businessSettings())
+                @if ($bizSettings->usesChannel(\App\Enums\MessageChannel::WhatsApp))
+                    <p class="mt-1 flex flex-wrap items-center gap-2 text-sm" data-section="customer-channel">
+                        <span class="text-slate-500">Follow up by:</span>
+                        <span class="font-medium text-slate-800">{{ $this->customer->preferred_channel?->label() ?? $bizSettings->primaryChannel()->label().' (business default)' }}</span>
+                        @if ($this->customer->canReceiveWhatsApp())
+                            <span class="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset" data-whatsapp-ready>WhatsApp consent · {{ $this->customer->organization->formatDate($this->customer->whatsapp_opt_in_at) }}</span>
+                        @elseif ($this->customer->whatsapp_opt_in_at && ! $this->customer->phone_e164)
+                            <span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset">Consent given, but no usable phone number</span>
+                        @else
+                            <span class="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">No WhatsApp consent</span>
+                        @endif
+                    </p>
+                @endif
                 <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
                     <span class="text-slate-500">Status:</span>
                     <span @class(['rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', 'bg-green-50 text-green-700 ring-green-600/20' => $this->customer->isActive(), 'bg-slate-100 text-slate-500 ring-gray-500/20' => ! $this->customer->isActive()])>{{ $this->customer->status->label() }}</span>
