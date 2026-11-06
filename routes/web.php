@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Billing\PaymentMethodController;
@@ -74,6 +75,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:login');
     Route::get('/register', [RegistrationController::class, 'create'])->name('register');
     Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:login');
+    Route::get('/forgot-password', [PasswordResetController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'store'])->middleware('throttle:login')->name('password.email');
+    Route::get('/new-password/{token}', [PasswordResetController::class, 'edit'])->name('password.reset');
+    Route::post('/new-password', [PasswordResetController::class, 'update'])->middleware('throttle:login')->name('password.update');
 });
 Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
 
