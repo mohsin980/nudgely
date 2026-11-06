@@ -22,6 +22,29 @@
             <a href="{{ route('customers.create') }}" wire:navigate class="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-700"><x-ui-icon name="plus" class="size-4 stroke-2" />Add Customer</a>
         </div>
     @else
+        {{-- Summary: the whole business, not only the filtered rows --}}
+        <section aria-label="Summary" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" data-section="customer-summary">
+            @foreach ([
+                ['Total customers', $this->summary['total'], 'users', 'bg-violet-100 text-violet-600', 'text-violet-500', 'total'],
+                ['Active', $this->summary['active'], 'check', 'bg-emerald-100 text-emerald-600', 'text-emerald-500', 'active'],
+                ['With follow-up', $this->summary['follow_up'], 'clock', 'bg-sky-100 text-sky-600', 'text-sky-500', 'follow-up'],
+                ['No follow-up', $this->summary['no_follow_up'], 'bell', 'bg-amber-100 text-amber-700', 'text-amber-500', 'no-follow-up'],
+                ['Inactive', $this->summary['inactive'], 'user', 'bg-slate-100 text-slate-500', 'text-slate-400', 'inactive'],
+            ] as [$cardLabel, $count, $icon, $tone, $wave, $key])
+                <div @class(['relative flex items-center gap-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 pb-6 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:gap-3.5 sm:p-4 sm:pb-7', 'col-span-2 sm:col-span-1' => $loop->first]) data-summary="{{ $key }}">
+                    <span class="relative z-10 grid size-10 shrink-0 place-items-center rounded-full sm:size-11 {{ $tone }}"><x-ui-icon :name="$icon" class="size-5 sm:size-6" /></span>
+                    <div class="relative z-10 min-w-0">
+                        <p class="text-2xl leading-tight font-bold tracking-tight text-slate-900">{{ number_format($count) }}</p>
+                        <p class="text-[13px] leading-snug text-slate-500 sm:text-sm">{{ $cardLabel }}</p>
+                    </div>
+                    <svg aria-hidden="true" viewBox="0 0 200 48" preserveAspectRatio="none" class="pointer-events-none absolute inset-x-0 bottom-0 h-6 w-full {{ $wave }}">
+                        <path d="M0 38 C 24 26, 42 42, 64 30 S 104 14, 128 26 S 166 40, 200 12 L 200 48 L 0 48 Z" fill="currentColor" fill-opacity="0.12" />
+                        <path d="M0 38 C 24 26, 42 42, 64 30 S 104 14, 128 26 S 166 40, 200 12" fill="none" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                    </svg>
+                </div>
+            @endforeach
+        </section>
+
         <section aria-label="Search and filters" class="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:p-4">
             <div class="relative">
                 <label for="customer-search" class="sr-only">Search customers</label>
