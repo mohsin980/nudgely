@@ -28,6 +28,9 @@
                         <span class="text-[4.6cqw] leading-none font-bold tracking-tight">{{ config('app.name', 'QuoteFollow') }}</span>
                     </div>
 
+                    @isset($panel)
+                        <div class="relative my-[6cqw]">{{ $panel }}</div>
+                    @else
                     <div class="relative my-[6cqw]">
                         {{-- Illustration: an estimate card going out by WhatsApp and SMS, with automation. --}}
                         <svg aria-hidden="true" class="pointer-events-none absolute top-[-12.1cqw] left-[63.3cqw] w-[25.2cqw]" viewBox="680 110 240 390" fill="none">
@@ -142,6 +145,7 @@
                             </li>
                         </ul>
                     </div>
+                    @endisset
 
                     <div>
                         <span aria-hidden="true" class="block h-px w-[42cqw] bg-white/25"></span>
@@ -170,5 +174,7 @@
                 </div>
             </main>
         </div>
+        {{-- Loads Alpine (bundled with Livewire) for the show/hide password and strength meter. --}}
+        @livewireScripts
     </body>
 </html>
