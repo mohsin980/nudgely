@@ -1,7 +1,7 @@
 <div class="space-y-6">
     @php($field = 'block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-    @php($filterInput = 'mt-0.5 block w-full border-0 bg-transparent p-0 text-sm text-slate-900 focus:ring-0')
-    @php($columns = 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]')
+    @php($filterInput = 'mt-0.5 block w-full border-0 bg-transparent p-0 text-sm text-slate-900 shadow-none ring-0 focus:ring-0')
+    @php($columns = 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_8.5rem]')
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -22,34 +22,22 @@
             <a href="{{ route('estimates.create') }}" wire:navigate class="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700">Create Estimate</a>
         </div>
     @else
-        {{-- Summary: the whole business, not only the filtered rows --}}
-        <section aria-label="Summary" class="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            @foreach ([
-                ['Total estimates', $this->summary['total'], 'document', 'bg-violet-100 text-violet-600', 'text-violet-500'],
-                ['Accepted', $this->summary['accepted'], 'check', 'bg-emerald-100 text-emerald-600', 'text-emerald-500'],
-                ['Sent', $this->summary['sent'], 'paper-airplane', 'bg-sky-100 text-sky-600', 'text-sky-500'],
-                ['Draft', $this->summary['draft'], 'pencil', 'bg-slate-100 text-slate-500', 'text-slate-400'],
-                ['Total value', $this->summary['value'], 'dollar', 'bg-violet-100 text-violet-600', 'text-violet-500'],
-            ] as [$label, $value, $icon, $tone, $wave])
-                <div class="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <span class="grid size-12 shrink-0 place-items-center rounded-full {{ $tone }}"><x-ui-icon :name="$icon" class="size-6" /></span>
-                    <div class="relative min-w-0">
-                        <p class="truncate text-2xl font-semibold tracking-tight text-slate-900">{{ $value }}</p>
-                        <p class="text-sm text-slate-500">{{ $label }}</p>
-                    </div>
-                    <svg aria-hidden="true" viewBox="0 0 200 48" preserveAspectRatio="none" class="pointer-events-none absolute inset-x-0 bottom-0 h-12 w-full {{ $wave }}">
-                        <path d="M0 38 C 24 26, 42 42, 64 30 S 104 14, 128 26 S 166 40, 200 12 L 200 48 L 0 48 Z" fill="currentColor" fill-opacity="0.14" />
-                        <path d="M0 38 C 24 26, 42 42, 64 30 S 104 14, 128 26 S 166 40, 200 12" fill="none" stroke="currentColor" stroke-opacity="0.5" stroke-width="1.5" vector-effect="non-scaling-stroke" />
-                    </svg>
-                </div>
-            @endforeach
-        </section>
-
         <section aria-label="Search and filters" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <div class="relative">
-                <label for="estimate-search" class="sr-only">Search estimates</label>
-                <x-ui-icon name="search" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-slate-400" />
-                <input id="estimate-search" type="search" wire:model.live.debounce.300ms="search" placeholder="Search by estimate number, customer name or email..." class="block w-full rounded-xl border-0 bg-white py-3 pr-4 pl-11 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset">
+            <div class="flex flex-col gap-3 sm:flex-row">
+                <div class="relative flex-1">
+                    <label for="estimate-search" class="sr-only">Search estimates</label>
+                    <x-ui-icon name="search" class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-slate-400" />
+                    <input id="estimate-search" type="search" wire:model.live.debounce.300ms="search" placeholder="Search by estimate number, customer name or email..." class="block w-full rounded-xl border-0 bg-white py-3 pr-4 pl-11 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset">
+                </div>
+                <div class="relative sm:w-56">
+                    <label for="f-range" class="sr-only">Date range</label>
+                    <x-ui-icon name="calendar" class="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-slate-500" />
+                    <select id="f-range" wire:model.live="range" class="block h-full min-h-12 w-full appearance-none rounded-xl border-0 bg-white py-0 pr-9 pl-11 text-[15px] font-medium text-slate-800 shadow-none ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset">
+                        <option value="">{{ $from.$to === '' ? 'All time' : 'Custom dates' }}</option>
+                        @foreach (\App\Livewire\Estimates\EstimateIndex::RANGES as $key => $rangeLabel)<option value="{{ $key }}">{{ $rangeLabel }}</option>@endforeach
+                    </select>
+                    <x-ui-icon name="chevron-down" class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" />
+                </div>
             </div>
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <div class="rounded-xl bg-white px-3 pt-2 pb-1.5 ring-1 ring-slate-300 ring-inset focus-within:ring-2 focus-within:ring-violet-600">
@@ -93,6 +81,29 @@
             @endif
         </section>
 
+        {{-- Summary: the whole business, not only the filtered rows --}}
+        <section aria-label="Summary" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            @foreach ([
+                ['Total estimates', $this->summary['total'], 'document', 'bg-violet-100 text-violet-600', 'text-violet-500'],
+                ['Accepted', $this->summary['accepted'], 'check', 'bg-emerald-100 text-emerald-600', 'text-emerald-500'],
+                ['Sent', $this->summary['sent'], 'paper-airplane', 'bg-sky-100 text-sky-600', 'text-sky-500'],
+                ['Draft', $this->summary['draft'], 'pencil', 'bg-slate-100 text-slate-500', 'text-slate-400'],
+                ['Total value', $this->summary['value'], 'dollar', 'bg-violet-100 text-violet-600', 'text-violet-500'],
+            ] as [$label, $value, $icon, $tone, $wave])
+                <div @class(['relative flex items-center gap-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 pb-6 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)] sm:gap-3.5 sm:p-4 sm:pb-7', 'col-span-2 sm:col-span-1' => $loop->first])>
+                    <span class="relative z-10 grid size-10 shrink-0 place-items-center rounded-full sm:size-11 {{ $tone }}"><x-ui-icon :name="$icon" class="size-5 sm:size-6" /></span>
+                    <div class="relative z-10 min-w-0">
+                        <p class="truncate text-2xl leading-tight font-bold tracking-tight text-slate-900">{{ $value }}</p>
+                        <p class="text-[13px] leading-snug text-slate-500 sm:text-sm">{{ $label }}</p>
+                    </div>
+                    <svg aria-hidden="true" viewBox="0 0 200 48" preserveAspectRatio="none" class="pointer-events-none absolute inset-x-0 bottom-0 h-6 w-full {{ $wave }}">
+                        <path d="M0 38 C 24 26, 42 42, 64 30 S 104 14, 128 26 S 166 40, 200 12 L 200 48 L 0 48 Z" fill="currentColor" fill-opacity="0.14" />
+                        <path d="M0 38 C 24 26, 42 42, 64 30 S 104 14, 128 26 S 166 40, 200 12" fill="none" stroke="currentColor" stroke-opacity="0.5" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                    </svg>
+                </div>
+            @endforeach
+        </section>
+
         <div wire:loading.delay.class="opacity-60" class="transition-opacity">
             @if ($estimates->isEmpty())
                 <p class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">No estimates match your search or filters.</p>
@@ -109,20 +120,20 @@
                     </div>
                     <ul role="list" class="divide-y divide-slate-100">
                         @foreach ($estimates as $estimate)
-                            <li wire:key="estimate-{{ $estimate->id }}" class="grid gap-3 px-5 py-4 lg:items-center lg:gap-4 {{ $columns }}">
-                                <div class="min-w-0">
+                            <li wire:key="estimate-{{ $estimate->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-2.5 px-5 py-4 transition-colors hover:bg-violet-50/40 lg:grid lg:gap-4 {{ $columns }}">
+                                <div class="w-full min-w-0 lg:w-auto">
                                     <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="font-semibold text-slate-900 hover:text-violet-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">{{ $estimate->displayNumber() }}</a>
-                                    <p class="truncate text-sm text-slate-500 lg:hidden">{{ $estimate->customer?->name }}</p>
+                                    <p class="truncate text-sm text-slate-500 lg:hidden">{{ $estimate->customer?->name }}@if ($estimate->customer?->email) · {{ $estimate->customer->email }}@endif</p>
                                 </div>
                                 <div class="hidden min-w-0 lg:block">
                                     <p class="truncate font-medium text-slate-900">{{ $estimate->customer?->name }}</p>
                                     <p class="truncate text-sm text-slate-500">{{ $estimate->customer?->email }}</p>
                                 </div>
-                                <div><x-estimate-status-badge :status="$estimate->status" /></div>
-                                <p class="font-medium text-slate-900">{{ $estimate->money('total') }}</p>
-                                <p class="text-sm text-slate-700">{{ $organization->formatDateTime($estimate->created_at) }}</p>
-                                <p class="text-sm text-slate-700">{{ $estimate->valid_until ? $organization->formatCalendarDate($estimate->valid_until) : '—' }}</p>
-                                <div class="flex items-center justify-end gap-2">
+                                <div><x-estimate-status-badge :status="$estimate->status" :icon="true" /></div>
+                                <p class="font-semibold text-slate-900">{{ $estimate->money('total') }}</p>
+                                <div class="text-sm"><p class="text-slate-700"><span class="text-slate-500 lg:hidden">Created </span>{{ $organization->formatDate($estimate->created_at) }}</p><p class="hidden text-xs text-slate-500 lg:block">{{ $organization->formatTime($estimate->created_at) }}</p></div>
+                                <p @class(['text-sm text-slate-700', 'hidden lg:block' => ! $estimate->valid_until])><span class="text-slate-500 lg:hidden">Expires </span>{{ $estimate->valid_until ? $organization->formatCalendarDate($estimate->valid_until) : '—' }}</p>
+                                <div class="ml-auto flex items-center justify-end gap-2 lg:ml-0">
                                     <a href="{{ route('estimates.show', $estimate->id) }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-800 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"><x-ui-icon name="eye" class="size-4" />View</a>
                                     <details class="relative">
                                         <summary aria-label="More actions for {{ $estimate->displayNumber() }}" class="grid size-9 cursor-pointer list-none place-items-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-300 ring-inset transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden"><x-ui-icon name="ellipsis" class="size-5" /></summary>

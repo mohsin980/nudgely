@@ -357,3 +357,12 @@ test('the estimate activity shows the customer\'s replies since it was sent, wit
         ->and($entries->first()->body)->toBe("Thanks, I'll think about it.")
         ->and($entries->pluck('body')->all())->not->toContain('Can you quote an AC install?');
 });
+
+test('a date range shortcut fills in the created dates, and editing a date makes it a custom range', function () {
+    $list = Livewire::actingAs($this->admin)->test(EstimateIndex::class)->set('range', '7');
+    $today = now($this->admin->organization->timezone())->toDateString();
+
+    $list->assertSet('from', now($this->admin->organization->timezone())->subDays(6)->toDateString())->assertSet('to', $today)
+        ->set('from', '2026-01-01')->assertSet('range', '')
+        ->set('range', 'nonsense')->assertSet('range', '')->assertSet('from', '')->assertSet('to', '');
+});
