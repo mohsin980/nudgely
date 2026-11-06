@@ -10,7 +10,7 @@
                 ['Add your first customer', 'Name and email are enough.'],
                 ['Send an estimate', 'Follow-ups run until the customer replies.'],
             ] as $index => [$stepTitle, $stepText])
-                <li class="relative flex items-start gap-[2.3cqw] @if (! $loop->last) pb-[5.4cqw] @endif">
+                <li class="auth-fade-up relative flex items-start gap-[2.3cqw] @if (! $loop->last) pb-[5.4cqw] @endif" style="--d: {{ 350 + $index * 160 }}ms;">
                     @unless ($loop->last)
                         <span aria-hidden="true" class="absolute top-[6.7cqw] bottom-[0.8cqw] left-[2.85cqw] w-[0.26cqw] rounded-full bg-white/25"></span>
                     @endunless
