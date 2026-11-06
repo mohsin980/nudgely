@@ -265,7 +265,7 @@ test('a new customer reply to a closed conversation is kept and reopens it', fun
         ->and($conversation->closed_at)->toBeNull()
         ->and(Conversation::count())->toBe(1)
         ->and($conversation->messages()->where('direction', 'inbound')->sole()->body_text)->toContain('still interested')
-        ->and($conversation->events()->pluck('type')->all())->toBe(['closed', 'reopened']);
+        ->and($conversation->events()->where('type', '!=', 'lead_stage_changed')->pluck('type')->all())->toBe(['closed', 'reopened']);
 });
 
 // Email

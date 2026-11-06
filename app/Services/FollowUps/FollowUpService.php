@@ -2,12 +2,14 @@
 
 namespace App\Services\FollowUps;
 
+use App\Enums\Automation\AutomationActionType;
 use App\Enums\FollowUpCancelReason;
 use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\FollowUpType;
 use App\Exceptions\FollowUps\InvalidFollowUpException;
 use App\Models\Automation;
+use App\Models\AutomationAction;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Estimate;
@@ -139,7 +141,9 @@ class FollowUpService
         $limit = $settings->followUpAttempts();
         $key = 'repeat|'.$sent->id;
 
-        if ($attempt >= $limit) {
+        // A multi-step sequence (several follow-up emails in one automation) has its own next steps,
+        // so its emails aren't repeated as well. Pending later steps keep the customer active.
+        if ($attempt >= $limit || $this->isSequenceStep($sent)) {
             $sent->forceFill(['final_attempt' => true])->save(); // the last email of the chain: no reply after it can make the customer inactive
 
             return null;
@@ -183,6 +187,20 @@ class FollowUpService
         Log::info('Follow-up repeat scheduled.', ['organization_id' => $followUp->organization_id, 'follow_up_id' => $followUp->id, 'repeat_of' => $sent->id, 'attempt' => $next]);
 
         return $followUp;
+    }
+
+    private function isSequenceStep(FollowUp $sent): bool
+    {
+        if ($sent->automation_id === null || $sent->automation_action_id === null) {
+            return false;
+        }
+
+        return AutomationAction::query()
+            ->where('automation_id', $sent->automation_id)
+            ->where('type', AutomationActionType::ScheduleFollowUp)
+            ->get(['configuration'])
+            ->filter(fn (AutomationAction $action) => ($action->configuration['kind'] ?? 'email') === 'email')
+            ->count() > 1;
     }
 
     /**

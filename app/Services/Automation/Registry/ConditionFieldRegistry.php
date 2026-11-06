@@ -9,6 +9,7 @@ use App\Enums\CustomerReplyIntent;
 use App\Enums\CustomerStatus;
 use App\Enums\EstimateStatus;
 use App\Enums\FollowUpStatus;
+use App\Enums\LeadStage;
 use App\Services\Automation\Registry\ConditionFieldDefinition as F;
 
 /**
@@ -43,6 +44,7 @@ final class ConditionFieldRegistry
             new F(C::CustomerHasPhone, 'Customer has a phone number', 'Customer', F::BOOLEAN, $customer),
             new F(C::CustomerHasEstimate, 'Customer has an estimate', 'Customer', F::BOOLEAN, $customer,
                 help: 'Any estimate, draft or sent. Use "is false" to reach new leads only.', failureReason: 'The customer already has an estimate.'),
+            new F(C::CustomerLeadStage, 'Lead stage', 'Customer', F::ENUM, $customer, $options(LeadStage::class)),
             new F(C::CustomerEmail, 'Customer email', 'Customer', F::STRING, $customer),
             new F(C::CustomerCompany, 'Customer company', 'Customer', F::STRING, $customer),
             // Conversation

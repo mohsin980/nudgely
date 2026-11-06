@@ -36,7 +36,7 @@ class AutomationEnumsTest extends TestCase
         $this->assertSame([
             'intent_equals', 'confidence_greater_than', 'customer_status_equals',
             'estimate_status_equals', 'days_since_last_message', 'conversation_status_equals',
-            'customer_replied', 'customer_has_email', 'customer_has_phone', 'customer_has_estimate', 'customer_email', 'customer_company',
+            'customer_replied', 'customer_has_email', 'customer_has_phone', 'customer_has_estimate', 'customer_lead_stage', 'customer_email', 'customer_company',
             'conversation_priority', 'conversation_intent', 'conversation_subject', 'estimate_total', 'estimate_title',
             'estimate_valid_until', 'follow_up_status', 'follow_up_due_at',
         ], $this->values(AutomationConditionType::class));

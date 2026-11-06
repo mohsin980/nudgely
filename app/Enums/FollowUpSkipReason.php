@@ -21,6 +21,7 @@ enum FollowUpSkipReason: string
     case EmailSuppressed = 'email_suppressed';
     case CustomerInactive = 'customer_inactive';
     case EstimateSent = 'estimate_sent';
+    case LeadClosed = 'lead_closed';
 
     public function label(): string
     {
@@ -39,6 +40,7 @@ enum FollowUpSkipReason: string
             self::EmailSuppressed => 'The customer\'s email address bounced or complained.',
             self::CustomerInactive => 'The customer is marked inactive.',
             self::EstimateSent => 'An estimate was sent to the customer, so this check-in is no longer needed.',
+            self::LeadClosed => 'The lead was marked won or lost, so this check-in is no longer needed.',
         };
     }
 }

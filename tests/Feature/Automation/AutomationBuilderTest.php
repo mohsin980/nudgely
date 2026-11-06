@@ -341,7 +341,7 @@ class AutomationBuilderTest extends TestCase
         $page->call('installTemplate', 'give_discount')->assertNotFound();
 
         $automations = Automation::with(['conditions', 'actions'])->orderBy('id')->get()->keyBy(fn ($a) => $a->name);
-        $this->assertSame(['Follow up after estimate', 'Ready to book alert', 'Estimate accepted', 'Interested customer follow-up', 'Price objection', 'Customer wants callback', 'Estimate follow-up (scheduled)', 'Estimate declined', 'New lead follow-up'], $automations->keys()->all());
+        $this->assertSame(['Follow up after estimate', 'Ready to book alert', 'Estimate accepted', 'Interested customer follow-up', 'Price objection', 'Customer wants callback', 'Estimate follow-up (scheduled)', 'Estimate declined', 'New lead sequence', 'New lead follow-up'], $automations->keys()->all());
         $this->assertTrue($automations->every(fn ($a) => $a->organization_id === $this->admin->organization_id && $a->status === AutomationStatus::Draft));
 
         [$followUp, $ready, $accepted, $interested, $price, $callback, $estimateFollowUp, $declined] = $automations->values()->all();
@@ -373,7 +373,7 @@ class AutomationBuilderTest extends TestCase
         foreach ($automations as $automation) {
             app(AutomationBuilder::class)->activate($automation, $this->admin);
         }
-        $this->assertSame(9, Automation::where('status', 'active')->count());
+        $this->assertSame(10, Automation::where('status', 'active')->count());
     }
 
     // Run log and timeline

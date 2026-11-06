@@ -330,6 +330,10 @@ class FollowUpProcessor
             return FollowUpSkipReason::EstimateSent;
         }
 
+        if ($estimate === null && $customer->lead_stage->isClosed()) {
+            return FollowUpSkipReason::LeadClosed;
+        }
+
         if ($customer->hasOptedOutOfEmail()) {
             return FollowUpSkipReason::OptedOut;
         }
