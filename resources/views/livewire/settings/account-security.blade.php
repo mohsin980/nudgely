@@ -1,45 +1,112 @@
-@php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-@php($card = 'rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]')
-<x-settings.shell title="Account & Security" description="Your sign-in details and where you're signed in.">
+@php($field = 'mt-1.5 block w-full rounded-xl border-0 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-xs ring-1 ring-slate-200 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($card = 'rounded-2xl bg-white p-5 sm:p-6 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70')
+@php($badge = 'grid size-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-600')
+@php($label = 'block text-[15px] font-semibold text-slate-800')
+@php($eye = 'absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500')
+<x-settings.shell title="Account & Security" description="Manage your account details, change your password, and review active sessions." art="shield" bare>
     @include('livewire.settings.partials.status')
 
     <section aria-labelledby="account-heading" class="{{ $card }}">
-        <h2 id="account-heading" class="text-base font-semibold text-slate-900">Account</h2>
-        <dl class="mt-2 grid gap-3 text-sm sm:grid-cols-2">
-            <div><dt class="text-slate-500">Name</dt><dd class="font-medium text-slate-900">{{ $user->name }}</dd></div>
-            <div><dt class="text-slate-500">Email</dt><dd class="font-medium text-slate-900">{{ $user->email }}</dd></div>
-        </dl>
-        <h3 class="mt-4 text-sm font-medium text-slate-900">Organization membership</h3>
-        <p class="mt-1 text-sm text-slate-700" data-membership>{{ $organization->name }} · {{ $user->role->label() }} · {{ $user->status->label() }} since {{ $organization->formatDate($user->created_at) }}</p>
+        <div class="flex items-center gap-4 border-b border-slate-100 pb-4">
+            <span class="{{ $badge }}"><x-ui-icon name="user" class="size-6 stroke-2" /></span>
+            <div>
+                <h2 id="account-heading" class="text-lg font-bold text-slate-900">Account Details</h2>
+                <p class="text-sm text-slate-500">Your sign-in details and organization information.</p>
+            </div>
+        </div>
+        <div class="mt-5 grid gap-6 md:grid-cols-2 md:divide-x md:divide-slate-100">
+            <dl class="space-y-4 text-sm">
+                <div><dt class="font-medium text-slate-600">Account Name</dt><dd class="mt-0.5 text-base font-bold text-slate-900">{{ $user->name }}</dd></div>
+                <div><dt class="font-medium text-slate-600">Organization</dt><dd class="mt-0.5 font-medium text-slate-900" data-membership>{{ $organization->name }} · {{ $user->role->label() }} · {{ $user->status->label() }} since {{ $organization->formatDate($user->created_at) }}</dd></div>
+            </dl>
+            <div class="flex items-start gap-3.5 md:pl-6">
+                <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-violet-600 shadow-xs ring-1 ring-slate-200"><x-ui-icon name="envelope" class="size-6" /></span>
+                <dl class="min-w-0 text-sm">
+                    <dt class="font-medium text-slate-600">Email Address</dt>
+                    <dd class="mt-0.5 flex flex-wrap items-center gap-2">
+                        <span class="truncate text-base font-bold text-slate-900">{{ $user->email }}</span>
+                        @if ($user->email_verified_at)
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"><x-ui-icon name="check-circle" class="size-4 stroke-2" />Verified</span>
+                        @endif
+                    </dd>
+                </dl>
+            </div>
+        </div>
     </section>
 
-    <form wire:submit="changePassword" x-data="unsavedChanges" class="{{ $card }} space-y-4" aria-labelledby="password-heading">
-        <h2 id="password-heading" class="text-base font-semibold text-slate-900">Change password</h2>
-        <div class="grid gap-4 sm:grid-cols-3">
-            <div><label for="current-password" class="block text-sm font-medium text-slate-700">Current password</label><input id="current-password" type="password" wire:model="currentPassword" autocomplete="current-password" class="{{ $field }}">@error('currentPassword') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div><label for="new-password" class="block text-sm font-medium text-slate-700">New password</label><input id="new-password" type="password" wire:model="newPassword" autocomplete="new-password" class="{{ $field }}">@error('newPassword') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div><label for="new-password-confirmation" class="block text-sm font-medium text-slate-700">Confirm new password</label><input id="new-password-confirmation" type="password" wire:model="newPasswordConfirmation" autocomplete="new-password" class="{{ $field }}"></div>
+    <form wire:submit="changePassword" x-data="unsavedChanges" class="{{ $card }}" aria-labelledby="password-heading">
+        <div class="flex items-center gap-4">
+            <span class="{{ $badge }}"><x-ui-icon name="lock" class="size-6 stroke-2" /></span>
+            <div>
+                <h2 id="password-heading" class="text-lg font-bold text-slate-900">Change Password</h2>
+                <p class="text-sm text-slate-500">Keep your account secure with a strong password.</p>
+            </div>
         </div>
-        <div class="flex justify-end"><button type="submit" class="inline-flex items-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Change password</button></div>
+        <div x-data="{ show: false }" class="mt-5 grid gap-4 md:grid-cols-3 md:items-end xl:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+            @foreach ([
+                ['current-password', 'currentPassword', 'Current Password', 'current-password', 'Enter your current password'],
+                ['new-password', 'newPassword', 'New Password', 'new-password', 'Enter your new password'],
+                ['new-password-confirmation', 'newPasswordConfirmation', 'Confirm New Password', 'new-password', 'Confirm your new password'],
+            ] as [$inputId, $property, $inputLabel, $autocomplete, $placeholder])
+                <div>
+                    <label for="{{ $inputId }}" class="{{ $label }}">{{ $inputLabel }}</label>
+                    <div class="relative">
+                        <input id="{{ $inputId }}" :type="show ? 'text' : 'password'" type="password" wire:model="{{ $property }}" autocomplete="{{ $autocomplete }}" placeholder="{{ $placeholder }}" class="{{ $field }} pr-12">
+                        <button type="button" x-on:click="show = ! show" :aria-label="show ? 'Hide passwords' : 'Show passwords'" aria-label="Show passwords" class="{{ $eye }} mt-[3px]">
+                            <x-ui-icon name="eye" class="size-5" x-show="! show" />
+                            <x-ui-icon name="eye-slash" class="size-5" x-show="show" x-cloak />
+                        </button>
+                    </div>
+                    @error($property) <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                </div>
+            @endforeach
+            <button type="submit" class="inline-flex h-[50px] items-center justify-center gap-2 justify-self-end rounded-xl bg-linear-to-r md:col-span-3 xl:col-span-1 from-violet-600 to-violet-500 px-5 text-[15px] font-semibold whitespace-nowrap text-white shadow-[0_10px_22px_-8px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600">
+                <x-ui-icon name="lock" class="size-5" /> Change Password <x-ui-icon name="arrow-right" class="size-4 stroke-2" />
+            </button>
+        </div>
     </form>
 
-    <section aria-labelledby="sessions-heading" class="{{ $card }} space-y-3">
-        <h2 id="sessions-heading" class="text-base font-semibold text-slate-900">Active sessions</h2>
-        <ul role="list" class="divide-y divide-slate-100 text-sm" data-section="sessions">
+    <section aria-labelledby="sessions-heading" class="{{ $card }}" x-data="{ confirming: {{ $errors->has('sessionsPassword') ? 'true' : 'false' }} }">
+        <div class="flex items-center gap-4 border-b border-slate-100 pb-4">
+            <span class="{{ $badge }}"><x-ui-icon name="computer" class="size-6 stroke-2" /></span>
+            <div>
+                <h2 id="sessions-heading" class="text-lg font-bold text-slate-900">Active Sessions</h2>
+                <p class="text-sm text-slate-500">Manage your active sessions across devices.</p>
+            </div>
+        </div>
+        <ul role="list" class="divide-y divide-slate-100" data-section="sessions">
             @forelse ($sessions as $session)
-                <li class="py-2">
-                    <p class="text-slate-900">{{ $session->agent ?: 'Unknown browser' }} @if ($session->current)<span class="ml-1 rounded bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">This browser</span>@endif</p>
-                    <p class="text-xs text-slate-500">{{ $session->ip ?? 'Unknown IP' }} · last active {{ $organization->formatDateTime($session->last_active) }}</p>
+                <li class="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_13rem_14rem] sm:items-center">
+                    <div class="flex items-center gap-3.5">
+                        @include('livewire.settings.partials.browser-logo', ['browser' => $session->device['browser']])
+                        <div class="min-w-0">
+                            <p class="font-semibold text-slate-900" title="{{ $session->agent ?: 'Unknown browser' }}">{{ $session->device['label'] }}</p>
+                            <p class="text-sm text-slate-500">{{ $session->ip ?? 'Unknown IP' }}{{ $session->current ? ' · Current session' : '' }}</p>
+                        </div>
+                        @if ($session->current)<span class="ml-2 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Active<span class="sr-only"> (this browser)</span></span>@endif
+                    </div>
+                    <div class="text-sm">
+                        <p class="font-semibold text-slate-800">Last Active</p>
+                        <p class="text-slate-500">{{ $organization->formatDateTime($session->last_active) }}</p>
+                    </div>
+                    <div class="sm:text-right">
+                        @if ($loop->first)
+                            <button type="button" x-show="! confirming" x-on:click="confirming = true; $nextTick(() => $refs.sessionsPassword.focus())" class="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50">
+                                <x-ui-icon name="logout" class="size-[18px]" /> Log out other sessions
+                            </button>
+                        @endif
+                    </div>
                 </li>
             @empty
-                <li class="py-2 text-slate-500">No other sessions.</li>
+                <li class="py-4 text-sm text-slate-500">No other sessions.</li>
             @endforelse
         </ul>
-        <form wire:submit="logoutOtherSessions" class="flex flex-wrap items-end gap-3">
-            <div><label for="sessions-password" class="block text-sm font-medium text-slate-700">Password</label><input id="sessions-password" type="password" wire:model="sessionsPassword" autocomplete="current-password" class="{{ $field }}"></div>
-            <button type="submit" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Log out other sessions</button>
+        <form wire:submit="logoutOtherSessions" x-show="confirming" x-cloak class="flex flex-wrap items-end justify-end gap-3 border-t border-slate-100 pt-4">
+            <div><label for="sessions-password" class="{{ $label }}">Confirm with your password</label><input id="sessions-password" x-ref="sessionsPassword" type="password" wire:model="sessionsPassword" autocomplete="current-password" class="{{ $field }}"></div>
+            <button type="submit" class="inline-flex h-[50px] items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50"><x-ui-icon name="logout" class="size-5" /> Log out other sessions</button>
+            <button type="button" x-on:click="confirming = false" class="h-[50px] rounded-xl px-3 text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
         </form>
-        @error('sessionsPassword') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
+        @error('sessionsPassword') <p role="alert" class="mt-2 text-right text-sm text-red-700">{{ $message }}</p> @enderror
     </section>
 
     @can('transfer-ownership')

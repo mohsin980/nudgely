@@ -78,17 +78,25 @@
                         </a>
                     </nav>
 
-                    {{-- A friendly nudge: upgrade for the billing manager, reminders for everyone else. --}}
-                    @php($promo = $user->can('manage-billing')
-                        ? ['rocket', 'Grow your business', 'Automate follow-ups and win more customers.', 'Upgrade plan', route('settings.billing.plans')]
-                        : ['bell', 'Stay on track', 'Never miss a follow-up with smart reminders.', 'Open reminders', route('follow-ups.index')])
-                    <div class="hidden px-4 pb-4 lg:block [@media(max-height:760px)]:hidden" data-sidebar-promo>
-                        <div class="relative overflow-hidden rounded-2xl bg-linear-to-b from-violet-50 to-white px-4 pt-2 pb-4 text-center ring-1 ring-violet-100 shadow-[0_10px_30px_-12px_rgba(91,33,182,0.25)]">
-                            <x-illustration :name="$promo[0]" class="mx-auto size-16" />
-                            <p class="mt-1 text-[15px] font-bold text-slate-900">{{ $promo[1] }}</p>
-                            <p class="mt-1 text-[13px] leading-snug text-slate-500">{{ $promo[2] }}</p>
-                            <a href="{{ $promo[4] }}" wire:navigate class="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_18px_-6px_rgba(109,40,217,0.6)] transition hover:from-violet-700 hover:to-violet-600">
-                                {{ $promo[3] }} <x-ui-icon name="arrow-right" class="size-4 stroke-2" />
+                    {{-- A small nudge that fits the page. Viewers can hide it; that choice is kept in their browser only. --}}
+                    @php($promo = match (true) {
+                        request()->routeIs('settings.security') => ['shield', 'Your account is secure', 'Keep your account safe with a strong, unique password.', 'Learn More', route('settings.security').'#password-heading'],
+                        request()->routeIs('automations.*') && $user->can('viewAny', \App\Models\Automation::class) => ['robot', 'Automate your follow-ups', 'Save time and grow your business.', 'Learn More', route('automations.index').'#templates-heading'],
+                        request()->routeIs('settings.billing*') => ['rocket', 'Grow your business', 'Automate follow-ups and get more customers.', 'Upgrade Plan', route('settings.billing.plans')],
+                        default => ['bell', 'Stay on track', 'Never miss a follow-up with smart reminders.', 'Open reminders', route('follow-ups.index')],
+                    })
+                    <div class="hidden px-[18px] pb-5 lg:block [@media(max-height:760px)]:hidden" data-sidebar-promo
+                         x-data="{ key: 'promo-hidden-{{ $promo[0] }}', hidden: false }"
+                         x-init="try { hidden = localStorage.getItem(key) === '1' } catch (e) {}" x-show="! hidden">
+                        <div class="relative rounded-[20px] bg-linear-to-b from-[#f4f1ff] to-[#faf9ff] px-4 pt-5 pb-[22px] text-center shadow-[0_12px_30px_-16px_rgba(91,33,182,0.35)] ring-1 ring-violet-100/80">
+                            <button type="button" x-on:click="hidden = true; try { localStorage.setItem(key, '1') } catch (e) {}" class="absolute top-2.5 left-2.5 grid size-6 place-items-center rounded-full text-slate-300 transition hover:bg-white hover:text-slate-500" title="Hide">
+                                <x-ui-icon name="close" class="size-3.5 stroke-2" /><span class="sr-only">Hide this tip</span>
+                            </button>
+                            <x-illustration :name="$promo[0]" class="mx-auto size-[68px]" />
+                            <p class="mt-2.5 text-[15px] leading-snug font-bold text-slate-900">{{ $promo[1] }}</p>
+                            <p class="mx-auto mt-2 max-w-[11.5rem] text-[12.5px] leading-[1.45] text-slate-600">{{ $promo[2] }}</p>
+                            <a href="{{ $promo[4] }}" wire:navigate class="mt-3.5 inline-flex h-[34px] items-center gap-1.5 rounded-[10px] bg-linear-to-r from-violet-600 to-violet-500 px-3.5 text-[13px] font-semibold text-white shadow-[0_8px_16px_-6px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600">
+                                {{ $promo[3] }} <x-ui-icon name="arrow-right" class="size-3.5 stroke-[2.5]" />
                             </a>
                         </div>
                     </div>

@@ -66,8 +66,8 @@ test('billing actions are refused on the server for anyone but the owner', funct
 });
 
 test('the settings menu lists Billing for the owner only', function () {
-    $this->actingAs($this->owner)->get(route('settings.security'))->assertSee('Billing');
-    $this->actingAs($this->manager)->get(route('settings.security'))->assertDontSee(route('settings.billing'), false);
+    $this->actingAs($this->owner)->get(route('settings.notifications'))->assertSee('Billing');
+    $this->actingAs($this->manager)->get(route('settings.notifications'))->assertDontSee(route('settings.billing'), false);
 });
 
 // ─── Current plan ────────────────────────────────────────────────────────────────────────

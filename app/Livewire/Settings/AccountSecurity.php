@@ -10,6 +10,7 @@ use App\Models\OrganizationActivity;
 use App\Models\User;
 use App\Services\Team\TeamDirectory;
 use App\Services\Team\TeamService;
+use App\Support\UserAgent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -146,6 +147,7 @@ class AccountSecurity extends Component
                 'current' => $s->id === session()->getId(),
                 'ip' => $s->ip_address,
                 'agent' => Str::limit((string) $s->user_agent, 80),
+                'device' => UserAgent::describe($s->user_agent),
                 'last_active' => CarbonImmutable::createFromTimestamp($s->last_activity),
             ]);
     }

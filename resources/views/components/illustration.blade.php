@@ -66,6 +66,29 @@
             <circle cx="293" cy="57" r="3.4" fill="#fff"/><circle cx="305" cy="57" r="3.4" fill="#fff"/><rect x="279" y="53" width="5" height="9" rx="2.5" fill="#7c3aed"/><rect x="314" y="53" width="5" height="9" rx="2.5" fill="#7c3aed"/>
         </g>
         <path d="M322 22l6-6M330 32l8-2" stroke="#ec4899" stroke-width="3" stroke-linecap="round"/>
+    @elseif ($name === 'shield')
+        <g filter="url(#{{ $id }}f)">
+            <path d="M48 8 78 19v24c0 20-13 35-30 43C31 78 18 63 18 43V19L48 8Z" fill="url(#{{ $id }}v)"/>
+            <path d="M48 15 71 24v19c0 16-10 28-23 35-13-7-23-19-23-35V24l23-9Z" fill="#fff" opacity=".22"/>
+            <rect x="35" y="44" width="26" height="21" rx="5" fill="url(#{{ $id }}w)"/>
+            <path d="M40 44v-5a8 8 0 0 1 16 0v5" stroke="#ede9fe" stroke-width="4.5" fill="none"/>
+            <circle cx="48" cy="53" r="3.2" fill="#6d28d9"/><rect x="46.6" y="54" width="2.8" height="6" rx="1.4" fill="#6d28d9"/>
+            <path d="M30 26c4-3 9-5 14-6" stroke="#fff" stroke-opacity=".75" stroke-width="3.5" stroke-linecap="round"/>
+        </g>
+        <circle cx="84" cy="14" r="5" fill="#c4b5fd"/><circle cx="12" cy="40" r="3.5" fill="#ddd6fe"/><circle cx="86" cy="62" r="3" fill="#a78bfa"/>
+    @elseif ($name === 'robot')
+        <g filter="url(#{{ $id }}f)">
+            <rect x="45" y="8" width="6" height="12" rx="3" fill="#8b5cf6"/><circle cx="48" cy="8" r="5" fill="url(#{{ $id }}v)"/>
+            <rect x="20" y="18" width="56" height="44" rx="18" fill="url(#{{ $id }}w)"/>
+            <rect x="27" y="27" width="42" height="26" rx="12" fill="#3b0764"/>
+            <circle cx="39" cy="40" r="5" fill="#a78bfa"/><circle cx="57" cy="40" r="5" fill="#a78bfa"/>
+            <circle cx="40.5" cy="38.5" r="1.6" fill="#fff"/><circle cx="58.5" cy="38.5" r="1.6" fill="#fff"/>
+            <rect x="12" y="34" width="9" height="16" rx="4.5" fill="#8b5cf6"/><rect x="75" y="34" width="9" height="16" rx="4.5" fill="#8b5cf6"/>
+            <path d="M30 66h36a8 8 0 0 1 8 8v10H22V74a8 8 0 0 1 8-8Z" fill="url(#{{ $id }}v)"/>
+            <circle cx="48" cy="75" r="4" fill="#ede9fe"/>
+            <path d="M28 24c4-3 9-4 14-4" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <path d="M80 12l5-5M84 22l8-1" stroke="#ec4899" stroke-width="3" stroke-linecap="round"/>
     @elseif ($name === 'check')
         <g filter="url(#{{ $id }}f)">
             <circle cx="48" cy="48" r="28" fill="url(#{{ $id }}v)" opacity=".85"/>
