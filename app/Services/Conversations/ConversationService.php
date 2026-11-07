@@ -11,6 +11,7 @@ use App\Enums\FollowUpType;
 use App\Enums\MessageDirection;
 use App\Exceptions\Conversations\ConversationActionException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
+use App\Exceptions\WhatsApp\WhatsAppSendException;
 use App\Models\Conversation;
 use App\Models\ConversationEvent;
 use App\Models\Customer;
@@ -20,6 +21,7 @@ use App\Models\MessageClassification;
 use App\Models\User;
 use App\Services\Email\EmailService;
 use App\Services\FollowUps\FollowUpService;
+use App\Services\WhatsApp\WhatsAppMessenger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -54,6 +56,27 @@ class ConversationService
         [$subject, $body] = $this->validEmail($subject, $body);
 
         return $this->send($actor, $conversation, $subject, $body);
+    }
+
+    /**
+     * Reply on WhatsApp in an existing conversation (within 24 hours of the customer's last WhatsApp message).
+     *
+     * @throws ConversationActionException
+     */
+    public function replyOnWhatsApp(User $actor, Conversation $conversation, string $body): Message
+    {
+        $this->assertSameOrganization($actor, $conversation->organization_id);
+        $body = trim($body);
+
+        if ($body === '' || mb_strlen($body) > 4096) {
+            throw new ConversationActionException('Write a message of up to 4096 characters.');
+        }
+
+        try {
+            return app(WhatsAppMessenger::class)->sendText($conversation, $body, ['type' => 'manual', 'sent_by' => (string) $actor->id]);
+        } catch (WhatsAppSendException $e) {
+            throw new ConversationActionException($e->getMessage());
+        }
     }
 
     /**

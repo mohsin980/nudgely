@@ -9,9 +9,6 @@ use App\Models\WhatsAppConnection;
 use App\Support\PhoneNumber;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -29,6 +26,8 @@ use RuntimeException;
  */
 class WhatsAppConnectionService
 {
+    public function __construct(private readonly WhatsAppClient $client) {}
+
     /**
      * Save (or replace) the connection, then check it with Meta.
      *
@@ -85,13 +84,13 @@ class WhatsAppConnectionService
     public function check(WhatsAppConnection $connection): WhatsAppConnection
     {
         try {
-            $response = $this->graph($connection)->get($connection->phone_number_id, ['fields' => 'display_phone_number,verified_name']);
+            $response = $this->client->graph($connection)->get($connection->phone_number_id, ['fields' => 'display_phone_number,verified_name']);
         } catch (ConnectionException) {
             return $this->failed($connection, 'Meta could not be reached. Try again in a minute.');
         }
 
         if (! $response->successful()) {
-            return $this->failed($connection, $this->metaError($response));
+            return $this->failed($connection, WhatsAppClient::metaError($response));
         }
 
         $connection->forceFill([
@@ -127,7 +126,7 @@ class WhatsAppConnectionService
             ?? throw ValidationException::withMessages(['test_to' => 'Enter a mobile number with its country code, e.g. +92 300 1234567.']);
 
         try {
-            $response = $this->graph($connection)->post($connection->phone_number_id.'/messages', [
+            $response = $this->client->graph($connection)->post($connection->phone_number_id.'/messages', [
                 'messaging_product' => 'whatsapp',
                 'to' => ltrim($number, '+'),
                 'type' => 'template',
@@ -138,8 +137,35 @@ class WhatsAppConnectionService
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException('Meta did not send it: '.$this->metaError($response));
+            throw new RuntimeException('Meta did not send it: '.WhatsAppClient::metaError($response));
         }
+    }
+
+    /**
+     * The approved template used for follow-ups outside WhatsApp's 24-hour window. Its {{1}} gets the
+     * customer's first name. Empty name: no template (those follow-ups go by email when possible).
+     *
+     * @param  array<string, mixed>  $input  template, language
+     *
+     * @throws AuthorizationException|ValidationException|RuntimeException
+     */
+    public function saveFollowUpTemplate(User $actor, array $input): WhatsAppConnection
+    {
+        $organization = $this->organizationOf($actor);
+        $connection = $organization->whatsappConnection()->first() ?? throw new RuntimeException('Connect your WhatsApp number first.');
+
+        $data = Validator::make($input, [
+            'template' => ['nullable', 'string', 'max:512', 'regex:/^[a-z0-9_]+$/'],
+            'language' => ['required', 'string', 'regex:/^[a-z]{2,3}(_[A-Z]{2})?$/'],
+        ], [
+            'template.regex' => 'Use the template\'s name exactly as in Meta: lowercase letters, numbers and underscores.',
+            'language.regex' => 'Use a language code like en, en_US or ur.',
+        ])->validate();
+
+        $connection->forceFill(['follow_up_template' => $data['template'] ?: null, 'follow_up_template_language' => $data['language']])->save();
+        OrganizationActivity::record($organization, 'whatsapp_template_updated', $actor, ['template' => $connection->follow_up_template]);
+
+        return $connection;
     }
 
     /**
@@ -155,30 +181,12 @@ class WhatsAppConnectionService
         }
     }
 
-    private function graph(WhatsAppConnection $connection): PendingRequest
-    {
-        return Http::baseUrl(rtrim((string) config('services.whatsapp.graph_url'), '/').'/'.config('services.whatsapp.graph_version'))
-            ->withToken((string) $connection->access_token)
-            ->acceptJson()
-            ->timeout((int) config('services.whatsapp.timeout', 10));
-    }
-
     private function failed(WhatsAppConnection $connection, string $error): WhatsAppConnection
     {
         $connection->forceFill(['status' => WhatsAppConnection::STATUS_FAILED, 'last_error' => mb_substr($error, 0, 500)])->save();
         Log::warning('WhatsApp connection check failed.', ['organization_id' => $connection->organization_id, 'whatsapp_connection_id' => $connection->id]);
 
         return $connection;
-    }
-
-    /**
-     * Meta's own explanation, which is usually specific ("Invalid OAuth access token").
-     */
-    private function metaError(Response $response): string
-    {
-        $message = $response->json('error.message');
-
-        return is_string($message) && $message !== '' ? Str::limit($message, 300) : 'Meta answered with an error (HTTP '.$response->status().'). Check the values and try again.';
     }
 
     /**

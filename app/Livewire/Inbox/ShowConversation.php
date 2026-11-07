@@ -6,6 +6,7 @@ use App\Enums\ConfidenceLevel;
 use App\Enums\ConversationCloseReason;
 use App\Enums\ConversationStatus;
 use App\Enums\CustomerReplyIntent;
+use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Enums\TaskPriority;
 use App\Exceptions\Conversations\ConversationActionException;
@@ -24,6 +25,7 @@ use App\Services\Conversations\TimelineService;
 use App\Services\Email\EmailHtmlSanitizer;
 use App\Services\Tasks\TaskService;
 use App\Services\Team\TeamDirectory;
+use App\Services\WhatsApp\WhatsAppMessenger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -62,6 +64,9 @@ class ShowConversation extends Component
 
     public bool $composerOpen = false;
 
+    /** 'email' or 'whatsapp'. WhatsApp is offered while the customer's last WhatsApp message is under 24 hours old. */
+    public string $replyChannel = 'email';
+
     // Close
     public bool $showCloseForm = false;
 
@@ -93,6 +98,7 @@ class ShowConversation extends Component
         $subject = (string) $this->conversation->subject;
         $this->replySubject = $subject === '' ? '' : (str_starts_with(strtolower($subject), 're:') ? $subject : 'Re: '.$subject);
         $this->composerOpen = request()->boolean('compose');
+        $this->replyChannel = $this->whatsAppReply()['allowed'] && ($this->conversation->messages()->latest('id')->value('channel') === MessageChannel::WhatsApp || blank($this->conversation->customer->email)) ? 'whatsapp' : 'email';
         // New tasks: the business's default priority, assigned to me unless I choose someone else.
         $this->taskPriority = $this->conversation->organization->businessSettings()->taskPriority()->value;
         $this->taskAssignee = (string) Auth::id();
@@ -231,8 +237,12 @@ class ShowConversation extends Component
         $this->authorize('update', $this->conversation);
         $this->resetErrorBag();
 
+        $whatsapp = $this->replyChannel === 'whatsapp';
+
         try {
-            $conversations->reply(Auth::user(), $this->conversation, $this->replySubject, $this->replyBody);
+            $whatsapp
+                ? $conversations->replyOnWhatsApp(Auth::user(), $this->conversation, $this->replyBody)
+                : $conversations->reply(Auth::user(), $this->conversation, $this->replySubject, $this->replyBody);
         } catch (ConversationActionException $e) {
             $this->failWith($e, 'reply');
 
@@ -241,7 +251,7 @@ class ShowConversation extends Component
 
         $this->replyBody = '';
         $this->composerOpen = false;
-        $this->flash('Email sent to '.$this->conversation->customer->email.'.', 'success');
+        $this->flash($whatsapp ? 'WhatsApp message sent to '.$this->conversation->customer->phone_e164.'.' : 'Email sent to '.$this->conversation->customer->email.'.', 'success');
         unset($this->conversation);
         $this->resetFeed();
     }
@@ -442,6 +452,27 @@ class ShowConversation extends Component
             'intents' => CustomerReplyIntent::cases(),
             'statuses' => ConversationStatus::cases(),
         ])->title(($this->conversation->subject ?? 'Conversation').' · Conversations');
+    }
+
+    /**
+     * Whether the business can reply on WhatsApp here, and why not.
+     *
+     * @return array{shown: bool, allowed: bool, reason: ?string}
+     */
+    public function whatsAppReply(): array
+    {
+        $organization = $this->conversation->organization;
+        $customer = $this->conversation->customer;
+
+        if (! $organization->businessSettings()->usesChannel(MessageChannel::WhatsApp) || $customer === null) {
+            return ['shown' => false, 'allowed' => false, 'reason' => null];
+        }
+
+        $messenger = app(WhatsAppMessenger::class);
+        $reason = $messenger->unavailableReason($customer)
+            ?? ($messenger->windowOpen($customer) ? null : 'WhatsApp replies are possible for 24 hours after the customer\'s last WhatsApp message.');
+
+        return ['shown' => true, 'allowed' => $reason === null, 'reason' => $reason];
     }
 
     private function resetFeed(): void

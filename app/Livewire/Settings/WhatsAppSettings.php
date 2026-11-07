@@ -37,6 +37,10 @@ class WhatsAppSettings extends Component
 
     public string $testTo = '';
 
+    public string $followUpTemplate = '';
+
+    public string $templateLanguage = 'en';
+
     public function mount(): void
     {
         $settings = $this->organization()->businessSettings();
@@ -47,6 +51,8 @@ class WhatsAppSettings extends Component
         if ($connection = $this->organization()->whatsappConnection()->first()) {
             $this->phoneNumberId = $connection->phone_number_id;
             $this->businessAccountId = $connection->business_account_id;
+            $this->followUpTemplate = (string) $connection->follow_up_template;
+            $this->templateLanguage = $connection->follow_up_template_language ?: 'en';
         }
     }
 
@@ -114,6 +120,18 @@ class WhatsAppSettings extends Component
             $this->saved('Test message sent. It should arrive on WhatsApp in a few seconds.');
         } catch (ValidationException $e) {
             $this->showErrors($e, ['test_to' => 'testTo']);
+        } catch (AuthorizationException|RuntimeException $e) {
+            $this->failed($e->getMessage());
+        }
+    }
+
+    public function saveTemplate(WhatsAppConnectionService $whatsapp): void
+    {
+        try {
+            $whatsapp->saveFollowUpTemplate($this->user(), ['template' => trim($this->followUpTemplate), 'language' => trim($this->templateLanguage)]);
+            $this->saved('Follow-up template saved.');
+        } catch (ValidationException $e) {
+            $this->showErrors($e, ['template' => 'followUpTemplate', 'language' => 'templateLanguage']);
         } catch (AuthorizationException|RuntimeException $e) {
             $this->failed($e->getMessage());
         }
