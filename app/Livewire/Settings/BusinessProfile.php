@@ -5,6 +5,7 @@ namespace App\Livewire\Settings;
 use App\Enums\Team\Permission;
 use App\Livewire\Settings\Concerns\SettingsPage;
 use App\Services\Settings\BusinessSettingsService;
+use App\Support\Countries;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -118,7 +119,8 @@ class BusinessProfile extends Component
 
         return view('livewire.settings.business-profile', [
             'organization' => $organization,
-            'countries' => BusinessSettingsService::COUNTRIES,
+            'countries' => Countries::names(),
+            'regionLabel' => Countries::regionLabel($this->country),
             'sender' => $organization->emailConnections()->where('is_default', true)->first(),
             'history' => $this->history(['business_profile_updated', 'logo_updated', 'logo_removed']),
         ]);

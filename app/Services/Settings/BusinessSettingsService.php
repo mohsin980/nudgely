@@ -7,6 +7,7 @@ use App\Enums\Team\Permission;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\User;
+use App\Support\Countries;
 use App\Support\Settings\BusinessHours;
 use App\Support\Settings\OrganizationSettings;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -26,8 +27,6 @@ use Illuminate\Validation\ValidationException;
  */
 class BusinessSettingsService
 {
-    public const COUNTRIES = ['US' => 'United States', 'CA' => 'Canada'];
-
     public const LOGO_MAX_KB = 2048;
 
     /** Detected image type → file extension. No SVG: it can carry scripts. */
@@ -60,12 +59,13 @@ class BusinessSettingsService
             'address_line2' => ['nullable', 'string', 'max:150'],
             'city' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:50'],
-            'postal_code' => ['nullable', 'string', 'max:20', $input['country'] === 'US' ? 'regex:/^\d{5}(-\d{4})?$/' : ($input['country'] === 'CA' ? 'regex:/^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$/' : 'string')],
-            'country' => ['required', Rule::in(array_keys(self::COUNTRIES))],
+            'postal_code' => ['nullable', 'string', 'max:20', ($postal = Countries::postal($input['country']))[0] === null ? 'string' : 'regex:'.$postal[0]],
+            'country' => ['required', Rule::in(array_keys(Countries::names()))],
         ], [
             'phone.regex' => 'Enter a phone number, e.g. (214) 555-1234.',
             'website.url' => 'Enter a full web address, e.g. https://dallashvac.com.',
-            'postal_code.regex' => $input['country'] === 'US' ? 'Enter a 5-digit ZIP code.' : 'Enter a postal code like A1A 1A1.',
+            'postal_code.regex' => $input['country'] === 'US' ? 'Enter a 5-digit ZIP code.' : 'Enter a postal code like '.$postal[1].'.',
+            'country.in' => 'Choose a country from the list.',
         ], ['email' => 'business email', 'address_line1' => 'address line 1'])->validate();
 
         $data = array_map(fn ($v) => $v === '' ? null : $v, $data);
@@ -87,7 +87,7 @@ class BusinessSettingsService
 
         $data = Validator::make($input, [
             'timezone' => ['required', 'string', 'timezone:all'],
-            'currency' => ['required', Rule::in(array_keys(Organization::CURRENCIES))],
+            'currency' => ['required', Rule::in(array_keys(Countries::CURRENCIES))],
             'date_format' => ['required', Rule::in(array_keys(Organization::DATE_FORMATS))],
             'time_format' => ['required', Rule::in(array_keys(Organization::TIME_FORMATS))],
             'task_priority' => ['required', Rule::enum(TaskPriority::class)],

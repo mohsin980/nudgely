@@ -187,17 +187,17 @@
                 <div class="grid gap-4 sm:grid-cols-3">
                     <div>
                         <label for="country" class="{{ $label }}">Country</label>
-                        <select id="country" wire:model="country" class="{{ $input }}">@foreach ($countries as $code => $name)<option value="{{ $code }}">{{ $name }}</option>@endforeach</select>
+                        <select id="country" wire:model.live="country" class="{{ $input }}">@foreach ($countries as $code => $name)<option value="{{ $code }}">{{ $name }}</option>@endforeach</select>
                         @error('country') <p class="mt-1 text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label for="state" class="{{ $label }}">State</label>
-                        <input id="state" type="text" wire:model.live.debounce.500ms="stateCode" maxlength="50" placeholder="TX" class="{{ $input }}" autocomplete="address-level1">
+                        <label for="state" class="{{ $label }}">{{ $regionLabel }} <span class="font-normal text-slate-400">(optional)</span></label>
+                        <input id="state" type="text" wire:model.live.debounce.500ms="stateCode" maxlength="50" placeholder="{{ $country === 'US' ? 'TX' : '' }}" class="{{ $input }}" autocomplete="address-level1">
                         @error('stateCode') <p class="mt-1 text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="city" class="{{ $label }}">City</label>
-                        <input id="city" type="text" wire:model="city" placeholder="Dallas" class="{{ $input }}" autocomplete="address-level2">
+                        <input id="city" type="text" wire:model="city" placeholder="{{ $country === 'US' ? 'Dallas' : '' }}" class="{{ $input }}" autocomplete="address-level2">
                         @error('city') <p class="mt-1 text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
                     </div>
                 </div>
@@ -207,7 +207,7 @@
                         @foreach ($timezones as $zone => $label)<option value="{{ $zone }}">{{ $label }} ({{ $zone }})</option>@endforeach
                         @unless (array_key_exists($timezone, $timezones))<option value="{{ $timezone }}">{{ $timezone }}</option>@endunless
                     </select>
-                    <p class="mt-1 text-xs text-slate-500">Suggested from your state. Change it if it's wrong.</p>
+                    <p class="mt-1 text-xs text-slate-500">Suggested from your {{ $country === 'US' ? 'state' : 'country' }}. Change it if it's wrong.</p>
                     @error('timezone') <p class="mt-1 text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
                 </div>
                 <div class="flex flex-col gap-2 sm:flex-row">

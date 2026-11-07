@@ -27,6 +27,7 @@ use App\Services\Billing\EntitlementService;
 use App\Services\Customers\CustomerService;
 use App\Services\Estimates\EstimateService;
 use App\Services\Settings\BusinessSettingsService;
+use App\Support\Countries;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -200,9 +201,12 @@ class OnboardingService
             'city' => $input['city'] ?? '',
         ]);
 
+        $country = strtoupper((string) ($input['country'] ?? $organization->country ?? 'US'));
+
         $organization = $this->settings->updatePreferences($actor, [
             'timezone' => $input['timezone'] ?? $organization->timezone(),
-            'currency' => $organization->currencyCode(),
+            // Still the default US dollar? Use the country's own currency (changeable in Settings → Preferences).
+            'currency' => $organization->currencyCode() === 'USD' && $country !== 'US' ? Countries::currency($country) : $organization->currencyCode(),
             'date_format' => $organization->date_format,
             'time_format' => $organization->time_format,
             'task_priority' => $organization->businessSettings()->taskPriority()->value,
@@ -214,11 +218,14 @@ class OnboardingService
     }
 
     /**
-     * The timezone a business in this state most likely uses (a suggestion; always editable).
+     * The timezone a business there most likely uses: by state in the US, the country's main timezone elsewhere
+     * (a suggestion; always editable).
      */
     public function suggestedTimezone(string $country, ?string $state): ?string
     {
-        return $country === 'US' ? (config('onboarding.state_timezones')[strtoupper((string) $state)] ?? null) : null;
+        return strtoupper($country) === 'US'
+            ? (config('onboarding.state_timezones')[strtoupper((string) $state)] ?? null)
+            : Countries::timezone($country);
     }
 
     // ─── Customer ────────────────────────────────────────────────────────────────────────

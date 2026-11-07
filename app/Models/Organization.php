@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Platform\OrganizationStatus;
+use App\Support\Countries;
 use App\Support\Settings\OrganizationSettings;
 use Carbon\CarbonImmutable;
 use Database\Factories\OrganizationFactory;
@@ -34,7 +35,7 @@ class Organization extends Model
     ];
 
     /** Supported currencies (no conversion): amounts are shown in this currency on new estimates. */
-    public const CURRENCIES = ['USD' => 'US dollar (USD)', 'CAD' => 'Canadian dollar (CAD)'];
+    public const CURRENCIES = Countries::CURRENCIES;
 
     /** PHP date formats offered to businesses. */
     public const DATE_FORMATS = ['M j, Y' => 'Mon D, YYYY (Oct 4, 2026)', 'm/d/Y' => 'MM/DD/YYYY (10/04/2026)'];
