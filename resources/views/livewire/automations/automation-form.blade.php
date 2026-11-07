@@ -1,13 +1,15 @@
 <div class="space-y-6 pb-24 sm:pb-0">
-    @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
-    @php($heading = 'text-base font-semibold text-slate-900')
+    @php($card = 'rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6')
+    @php($heading = 'text-lg font-bold text-slate-900')
+    @php($headingRow = 'flex items-center gap-3')
+    @php($headingIcon = 'grid size-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600')
     @php($fieldClass = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-    @php($secondary = 'inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 whitespace-nowrap')
-    @php($primary = 'inline-flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50 whitespace-nowrap')
+    @php($secondary = 'inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 whitespace-nowrap')
+    @php($primary = 'inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_-8px_rgba(109,40,217,0.65)] hover:from-violet-700 hover:to-violet-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50 whitespace-nowrap')
 
     <div class="space-y-1">
-        <a href="{{ $automationId ? route('automations.show', $automationId) : route('automations.index') }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; {{ $automationId ? 'Back to automation' : 'Automations' }}</a>
-        <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $automationId ? 'Edit automation' : 'New automation' }}</h1>
+        <a href="{{ $automationId ? route('automations.show', $automationId) : route('automations.index') }}" wire:navigate class="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:underline"><x-ui-icon name="arrow-left" class="size-4" />{{ $automationId ? 'Back to automation' : 'Automations' }}</a>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $automationId ? 'Edit automation' : 'New automation' }}</h1>
     </div>
 
     {{-- Steps --}}
@@ -16,7 +18,14 @@
             @foreach ($steps as $number => $label)
                 <li>
                     <button type="button" wire:click="goToStep({{ $number }})" @disabled($number > $furthestStep) @if ($number === $step) aria-current="step" @endif
-                            @class(['rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset', 'bg-violet-600 text-white ring-violet-600' => $number === $step, 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-50' => $number !== $step && $number <= $furthestStep, 'bg-slate-50 text-slate-400 ring-slate-200' => $number > $furthestStep])>
+                            @class(['inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-inset transition', 'bg-violet-600 text-white ring-violet-600 shadow-[0_8px_18px_-8px_rgba(109,40,217,0.8)]' => $number === $step, 'bg-white text-slate-700 ring-slate-200 hover:bg-violet-50' => $number !== $step && $number <= $furthestStep, 'bg-white/60 text-slate-400 ring-slate-200' => $number > $furthestStep])>
+                        @if ($number === $step)
+                            <x-ui-icon name="check-circle" class="size-4" />
+                        @elseif ($number <= $furthestStep)
+                            <x-ui-icon name="check" class="size-4 text-violet-600" />
+                        @else
+                            <span aria-hidden="true" class="size-1.5 rounded-full bg-current opacity-60"></span>
+                        @endif
                         {{ $number }}. {{ $label }}
                     </button>
                 </li>
@@ -31,7 +40,7 @@
     {{-- 1. Name --}}
     @if ($step === 1)
         <section aria-labelledby="step-name" class="{{ $card }} space-y-3">
-            <h2 id="step-name" class="{{ $heading }}">Name your automation</h2>
+            <div class="{{ $headingRow }}"><span class="{{ $headingIcon }}"><x-ui-icon name="bolt" class="size-5" /></span><h2 id="step-name" class="{{ $heading }}">Name your automation</h2></div>
             <div>
                 <label for="automation-name" class="block text-sm font-medium text-slate-700">Name</label>
                 <input id="automation-name" type="text" wire:model="name" maxlength="100" placeholder="Follow up after estimate" class="{{ $fieldClass }}">
@@ -39,7 +48,7 @@
             </div>
             <div>
                 <label for="automation-description" class="block text-sm font-medium text-slate-700">Description <span class="font-normal text-slate-500">(optional)</span></label>
-                <textarea id="automation-description" wire:model="description" rows="2" maxlength="500" class="{{ $fieldClass }}"></textarea>
+                <textarea id="automation-description" wire:model="description" rows="3" maxlength="500" placeholder="Add a description…" class="{{ $fieldClass }}"></textarea>
                 @error('description') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>
         </section>
@@ -48,7 +57,7 @@
     {{-- 2. When --}}
     @if ($step === 2)
         <section aria-labelledby="step-when" class="{{ $card }} space-y-3">
-            <h2 id="step-when" class="{{ $heading }}">When should it run?</h2>
+            <div class="{{ $headingRow }}"><span class="{{ $headingIcon }}"><x-ui-icon name="calendar" class="size-5" /></span><h2 id="step-when" class="{{ $heading }}">When should it run?</h2></div>
             @error('triggerType') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
             <fieldset>
                 <legend class="sr-only">Trigger</legend>
@@ -70,7 +79,7 @@
     {{-- 3. Wait & If --}}
     @if ($step === 3)
         <section aria-labelledby="step-wait" class="{{ $card }} space-y-3">
-            <h2 id="step-wait" class="{{ $heading }}">Wait</h2>
+            <div class="{{ $headingRow }}"><span class="{{ $headingIcon }}"><x-ui-icon name="clock" class="size-5" /></span><h2 id="step-wait" class="{{ $heading }}">Wait</h2></div>
             <div class="sm:max-w-xs">
                 <label for="automation-wait" class="block text-sm font-medium text-slate-700">Before checking conditions, wait</label>
                 <select id="automation-wait" wire:model.live="wait" class="{{ $fieldClass }}">
@@ -88,7 +97,7 @@
 
         <section aria-labelledby="step-if" class="{{ $card }} space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="step-if" class="{{ $heading }}">If</h2>
+                <div class="{{ $headingRow }}"><span class="{{ $headingIcon }}"><x-ui-icon name="arrows-right-left" class="size-5" /></span><h2 id="step-if" class="{{ $heading }}">If</h2></div>
                 @if (count($conditions) > 1)
                     <fieldset class="flex items-center gap-3 text-sm">
                         <legend class="sr-only">How conditions combine</legend>
@@ -170,7 +179,7 @@
     {{-- 4. Then --}}
     @if ($step === 4)
         <section aria-labelledby="step-then" class="space-y-3">
-            <h2 id="step-then" class="{{ $heading }}">Then</h2>
+            <div class="{{ $headingRow }}"><span class="{{ $headingIcon }}"><x-ui-icon name="envelope" class="size-5" /></span><h2 id="step-then" class="{{ $heading }}">Then</h2></div>
             @error('actions') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
             <ol role="list" class="space-y-3" data-section="actions">
                 @foreach ($actions as $i => $action)
@@ -221,17 +230,10 @@
     {{-- 5. Review --}}
     @if ($step === 5)
         <section aria-labelledby="step-review" class="{{ $card }} space-y-4">
-            <h2 id="step-review" class="{{ $heading }}">Review</h2>
-            <p class="text-base font-medium text-slate-900">{{ $name ?: 'Untitled automation' }}</p>
-            <dl class="space-y-3 text-sm" data-section="summary">
-                <div><dt class="text-xs font-semibold text-slate-500">When</dt><dd class="text-slate-900">{{ $summary['when'] ?? 'Not chosen' }}</dd></div>
-                @if ($summary['wait'])<div><dt class="text-xs font-semibold text-slate-500">Wait</dt><dd class="text-slate-900">{{ $summary['wait'] }}</dd></div>@endif
-                <div><dt class="text-xs font-semibold text-slate-500">If {{ count($summary['conditions']) > 1 ? ($summary['match'] === 'any' ? '(any)' : '(all)') : '' }}</dt>
-                    <dd class="text-slate-900">@forelse ($summary['conditions'] as $line)<span class="block">{{ $line }}</span>@empty <span class="text-slate-500">No conditions</span>@endforelse</dd></div>
-                <div><dt class="text-xs font-semibold text-slate-500">Then</dt>
-                    <dd class="text-slate-900"><ol class="list-inside list-decimal">@forelse ($summary['actions'] as $line)<li>{{ $line }}</li>@empty <li class="list-none text-slate-500">No actions yet</li>@endforelse</ol></dd></div>
-            </dl>
-            <p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-700" data-sentence>{{ $summary['sentence'] }}</p>
+            <div class="{{ $headingRow }}"><span class="grid size-8 shrink-0 place-items-center rounded-full bg-violet-600 text-white"><x-ui-icon name="check" class="size-4 stroke-2" /></span><h2 id="step-review" class="{{ $heading }}">Review</h2></div>
+            <p class="text-lg font-bold text-slate-900">{{ $name ?: 'Untitled automation' }}</p>
+            @include('livewire.automations.partials.summary-grid', ['summary' => $summary])
+            <p class="flex items-start gap-2.5 rounded-xl bg-violet-50 p-3.5 text-sm text-violet-900 ring-1 ring-violet-100 ring-inset" data-sentence><x-ui-icon name="info" class="mt-0.5 size-4 shrink-0 text-violet-600" />{{ $summary['sentence'] }}</p>
 
             @if ($problems !== [])
                 <div role="alert" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-problems>
@@ -244,7 +246,7 @@
 
         {{-- Test --}}
         <section aria-labelledby="step-test" class="{{ $card }} space-y-3">
-            <h2 id="step-test" class="{{ $heading }}">Test automation</h2>
+            <div class="{{ $headingRow }}"><span class="{{ $headingIcon }}"><x-ui-icon name="clipboard-check" class="size-5" /></span><h2 id="step-test" class="{{ $heading }}">Test automation</h2></div>
             <p class="text-sm text-slate-500">Run it against a real record to see what would happen. Nothing is sent or created.</p>
             @if ($samples === [])
                 <p class="text-sm text-slate-500">There is no record to test “{{ $trigger?->label }}” with yet.</p>
@@ -287,9 +289,9 @@
         <div class="flex gap-2">
             <button type="button" wire:click="saveDraft" wire:loading.attr="disabled" class="{{ $secondary }}">Save Draft</button>
             @if ($step < 5)
-                <button type="button" wire:click="next" class="{{ $primary }}">Next</button>
+                <button type="button" wire:click="next" class="{{ $primary }}">Next <x-ui-icon name="arrow-right" class="size-4" /></button>
             @else
-                <button type="button" wire:click="activate" wire:loading.attr="disabled" class="{{ $primary }}">Activate</button>
+                <button type="button" wire:click="activate" wire:loading.attr="disabled" class="{{ $primary }}">Activate <x-ui-icon name="arrow-right" class="size-4" /></button>
             @endif
         </div>
     </div>

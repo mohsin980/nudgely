@@ -122,6 +122,15 @@
             <circle cx="162" cy="100" r="6" fill="#ede9fe"/>
             <g transform="translate(212 92)"><circle r="16" fill="#8b5cf6"/><circle r="6" fill="#ede9fe"/>@foreach (range(0, 315, 45) as $deg)<rect x="-3" y="-21" width="6" height="8" rx="2" fill="#8b5cf6" transform="rotate({{ $deg }})"/>@endforeach</g>
         </g>
+    @elseif ($name === 'logs')
+        <g filter="url(#{{ $id }}f)">
+            <path d="M20 12h34l16 16v50a8 8 0 0 1-8 8H20a8 8 0 0 1-8-8V20a8 8 0 0 1 8-8Z" fill="url(#{{ $id }}w)" stroke="#7c3aed" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M54 12v12a4 4 0 0 0 4 4h12" stroke="#7c3aed" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M24 40h30M24 50h24M24 60h18" stroke="#a78bfa" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="66" cy="68" r="17" fill="url(#{{ $id }}v)"/>
+            <circle cx="66" cy="68" r="11" fill="#fff"/>
+            <path d="M66 61v7l5 3" stroke="#6d28d9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
     @elseif ($name === 'check')
         <g filter="url(#{{ $id }}f)">
             <circle cx="48" cy="48" r="28" fill="url(#{{ $id }}v)" opacity=".85"/>

@@ -2,15 +2,11 @@
 
 namespace App\Livewire\Settings;
 
-use App\Billing\PaymentMethodSummary;
 use App\Enums\Billing\LimitKey;
 use App\Enums\Team\Permission;
-use App\Exceptions\Billing\BillingException;
 use App\Livewire\Settings\Concerns\ManagesSubscription;
-use App\Models\Subscription;
 use App\Services\Billing\BillingService;
 use App\Services\Billing\EntitlementService;
-use Carbon\CarbonInterface;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -68,39 +64,5 @@ class BillingOverview extends Component
             'payment' => $this->payment($billing),
             'atLimit' => array_map(fn (string $key) => LimitKey::from($key)->shortName(), array_keys(array_filter($entitlements->summary($organization), fn (array $row) => $row['limit'] !== null && $row['limit'] > 0 && $row['used'] >= $row['limit']))),
         ]);
-    }
-
-    /**
-     * The saved card, or an explanation when the provider can't be asked right now.
-     *
-     * @return array{card: ?PaymentMethodSummary, error: ?string}
-     */
-    private function payment(BillingService $billing): array
-    {
-        if ($this->organization()->billing_customer_id === null) {
-            return ['card' => null, 'error' => null];
-        }
-
-        try {
-            return ['card' => $billing->paymentMethod($this->user()), 'error' => null];
-        } catch (BillingException) {
-            return ['card' => null, 'error' => "Payment details can't be loaded right now."];
-        }
-    }
-
-    /**
-     * What the next charge is, if there is one: [label, date, plan name]. Cancelling subscriptions have none.
-     *
-     * @return array{date: CarbonInterface, plan: string}|null
-     */
-    private function nextBilling(Subscription $subscription): ?array
-    {
-        if ($subscription->cancel_at_period_end || $subscription->current_period_end === null || ! $subscription->grantsAccess()) {
-            return null;
-        }
-
-        $next = $subscription->scheduled_plan !== null ? $subscription->scheduledPlanDefinition() : $subscription->planDefinition();
-
-        return $next === null ? null : ['date' => $subscription->current_period_end, 'plan' => $next->name];
     }
 }

@@ -62,6 +62,18 @@ final class Countries
         return array_map(fn (array $country) => $country[0], self::DATA);
     }
 
+    /**
+     * The country's flag as an emoji (from its two-letter code), for lists.
+     */
+    public static function flag(string $code): string
+    {
+        $code = strtoupper($code);
+
+        return strlen($code) === 2 && ctype_alpha($code)
+            ? mb_chr(0x1F1E6 + ord($code[0]) - 65).mb_chr(0x1F1E6 + ord($code[1]) - 65)
+            : '';
+    }
+
     public static function exists(?string $code): bool
     {
         return isset(self::DATA[strtoupper((string) $code)]);

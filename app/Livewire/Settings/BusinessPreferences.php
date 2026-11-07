@@ -87,6 +87,24 @@ class BusinessPreferences extends Component
         $this->saved('Business hours saved.');
     }
 
+    /**
+     * The page's one "Save Changes": regional settings, then business hours.
+     */
+    public function saveAll(BusinessSettingsService $settings): void
+    {
+        $this->save($settings);
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
+
+        $this->saveHours($settings);
+
+        if ($this->getErrorBag()->isEmpty()) {
+            $this->saved('Preferences and business hours saved.');
+        }
+    }
+
     public function render()
     {
         return view('livewire.settings.business-preferences', [
