@@ -7,22 +7,27 @@ use App\Enums\EstimateStatus;
 use App\Enums\FollowUpSkipReason;
 use App\Enums\FollowUpStatus;
 use App\Enums\FollowUpType;
+use App\Enums\MessageChannel;
 use App\Enums\MessageDirection;
 use App\Events\FollowUpDue;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\FollowUps\InvalidFollowUpException;
+use App\Exceptions\WhatsApp\WhatsAppSendException;
 use App\Jobs\ProcessFollowUpJob;
 use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\EmailReplyRoute;
 use App\Models\FollowUp;
 use App\Models\Message;
+use App\Models\Organization;
 use App\Models\User;
 use App\Services\Automation\AutomatedEmailPolicy;
 use App\Services\Automation\EmailTemplateRenderer;
 use App\Services\Email\EmailService;
+use App\Services\WhatsApp\WhatsAppMessenger;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -67,7 +72,27 @@ class FollowUpProcessor
         private readonly AutomatedEmailPolicy $policy,
         private readonly EmailService $email,
         private readonly EmailTemplateRenderer $templates,
+        private readonly WhatsAppMessenger $whatsapp,
     ) {}
+
+    /**
+     * The channel this customer's automated follow-ups use: WhatsApp when the business uses it, the customer
+     * (or the business default) prefers it, and it is possible for them (connected, consent, a usable number);
+     * WhatsApp also when email isn't possible but WhatsApp is. Email otherwise.
+     */
+    public function channelFor(Customer $customer, Organization $organization): MessageChannel
+    {
+        $settings = $organization->businessSettings();
+
+        if (! $settings->usesChannel(MessageChannel::WhatsApp) || $this->whatsapp->unavailableReason($customer) !== null) {
+            return MessageChannel::Email;
+        }
+
+        $preferred = $customer->preferred_channel ?? $settings->primaryChannel();
+        $emailPossible = filter_var($customer->email, FILTER_VALIDATE_EMAIL) && ! $customer->hasOptedOutOfEmail() && ! $customer->isEmailSuppressed();
+
+        return $preferred === MessageChannel::WhatsApp || ! $emailPossible ? MessageChannel::WhatsApp : MessageChannel::Email;
+    }
 
     /**
      * Scheduler step: mark due follow-ups and queue one job each. Cheap; no checks here.
@@ -295,8 +320,9 @@ class FollowUpProcessor
         }
 
         $customer = $organization->customers()->find($followUp->customer_id);
+        $byEmail = $customer !== null && $this->channelFor($customer, $organization) === MessageChannel::Email;
 
-        if ($customer === null || ! filter_var($customer->email, FILTER_VALIDATE_EMAIL)) {
+        if ($customer === null || ($byEmail && ! filter_var($customer->email, FILTER_VALIDATE_EMAIL))) {
             return FollowUpSkipReason::CustomerUnavailable;
         }
 
@@ -334,11 +360,11 @@ class FollowUpProcessor
             return FollowUpSkipReason::LeadClosed;
         }
 
-        if ($customer->hasOptedOutOfEmail()) {
+        if ($byEmail && $customer->hasOptedOutOfEmail()) {
             return FollowUpSkipReason::OptedOut;
         }
 
-        if ($customer->isEmailSuppressed()) {
+        if ($byEmail && $customer->isEmailSuppressed()) {
             return FollowUpSkipReason::EmailSuppressed;
         }
 
@@ -364,6 +390,15 @@ class FollowUpProcessor
         $conversation = $organization->conversations()->findOrFail($locked->conversation_id);
         $customer = $organization->customers()->findOrFail($locked->customer_id);
         $key = hash('sha256', 'follow_up|'.$locked->id);
+
+        if ($this->channelFor($customer, $organization) === MessageChannel::WhatsApp) {
+            $sent = $this->deliverWhatsApp($locked, $organization, $conversation, $customer, $key, $actor);
+
+            if ($sent !== null) {
+                return $sent;
+            }
+            // Outside the 24-hour window with no template: email instead, through the usual email checks below.
+        }
 
         $blocked = $this->policy->checkDelivery($organization, $conversation, $customer, $key);
 
@@ -404,11 +439,58 @@ class FollowUpProcessor
     }
 
     /**
+     * Send the follow-up on WhatsApp: as written within 24 hours of the customer's last WhatsApp message,
+     * otherwise as the business's approved follow-up template. Returns null when neither is possible but the
+     * customer can be emailed, so the caller emails them instead.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function deliverWhatsApp(FollowUp $locked, Organization $organization, Conversation $conversation, Customer $customer, string $key, ?User $actor): ?array
+    {
+        if (($existing = $this->policy->sentMessageId($organization, $key)) !== null) {
+            return $this->completeSent($locked, (int) $existing, $actor, alreadySent: true);
+        }
+
+        $metadata = ['type' => 'follow_up', 'automation_key' => $key, 'follow_up_id' => (string) $locked->id];
+        $connection = $this->whatsapp->connection($organization->id);
+
+        try {
+            $estimate = $locked->estimate_id === null ? null : $organization->estimates()->find($locked->estimate_id);
+            $text = $this->templates->render($locked->body, $customer, $organization, $estimate);
+
+            if ($this->whatsapp->windowOpen($customer)) {
+                $message = $this->whatsapp->sendText($conversation, $text, $metadata);
+            } elseif (filled($connection?->follow_up_template)) {
+                $message = $this->whatsapp->sendTemplate(
+                    $conversation, $connection->follow_up_template, $connection->follow_up_template_language ?: 'en',
+                    [(string) ($customer->first_name ?: $customer->name)],
+                    'WhatsApp template “'.$connection->follow_up_template.'”', $metadata,
+                );
+            } elseif (filter_var($customer->email, FILTER_VALIDATE_EMAIL)) {
+                return null;
+            } else {
+                return $this->failed($locked, 'Not sent: it has been more than 24 hours since the customer\'s last WhatsApp message, so WhatsApp needs an approved template. Add one in Settings → WhatsApp.', $actor);
+            }
+        } catch (InvalidEmailTemplateException|WhatsAppSendException $e) {
+            return $this->failed($locked, $e->getMessage(), $actor);
+        } catch (UniqueConstraintViolationException) {
+            return $this->completeSent($locked, (int) $this->policy->sentMessageId($organization, $key), $actor, alreadySent: true);
+        }
+
+        $this->policy->recordSent($organization->id);
+        RateLimiter::hit(self::hourKey($organization->id), 3600);
+        RateLimiter::hit(self::dayKey($organization->id), 86400);
+
+        return $this->completeSent($locked, $message->id, $actor, channel: MessageChannel::WhatsApp);
+    }
+
+    /**
      * @return array{0: string, 1: string}
      */
-    private function completeSent(FollowUp $locked, int $messageId, ?User $actor, bool $alreadySent = false): array
+    private function completeSent(FollowUp $locked, int $messageId, ?User $actor, bool $alreadySent = false, MessageChannel $channel = MessageChannel::Email): array
     {
-        $outcome = $actor === null ? 'Follow-up email sent automatically.' : "Follow-up email sent by {$actor->name}.";
+        $what = $channel === MessageChannel::WhatsApp ? 'Follow-up sent on WhatsApp' : 'Follow-up email sent';
+        $outcome = $actor === null ? $what.' automatically.' : "{$what} by {$actor->name}.";
 
         $locked->forceFill([
             'status' => FollowUpStatus::Completed,

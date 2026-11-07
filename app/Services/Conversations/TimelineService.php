@@ -5,6 +5,7 @@ namespace App\Services\Conversations;
 use App\Enums\ClassificationStatus;
 use App\Enums\FollowUpStatus;
 use App\Enums\LeadStage;
+use App\Enums\MessageChannel;
 use App\Models\AutomationRun;
 use App\Models\ConversationEvent;
 use App\Models\Customer;
@@ -43,8 +44,8 @@ class TimelineService
         if ($withMessages) {
             $messages = $scope(Message::query(), 'messages')
                 ->whereIn('conversation_id', $conversationIds)
-                ->whereIn('status', ['received', 'queued', 'sending', 'sent', 'failed'])
-                ->select('id', 'conversation_id', 'direction', 'status', 'subject', 'received_at', 'sent_at', 'created_at', 'metadata')
+                ->whereIn('status', ['received', 'queued', 'sending', 'sent', 'delivered', 'failed'])
+                ->select('id', 'conversation_id', 'direction', 'channel', 'status', 'subject', 'received_at', 'sent_at', 'created_at', 'metadata')
                 ->selectRaw('left(body_text, 300) as excerpt')
                 ->latest('id')->limit($limit)->get();
 
@@ -53,11 +54,13 @@ class TimelineService
                 $entries->push(new TimelineEntry(
                     at: $m->received_at ?? $m->sent_at ?? $m->created_at,
                     kind: $inbound ? 'customer' : 'business',
-                    title: $inbound ? 'Customer replied' : ($m->status->value === 'failed' ? 'Email not delivered' : match ($m->metadata['type'] ?? null) {
-                        'follow_up' => 'Follow-up email sent',
-                        'estimate' => 'Estimate email sent',
-                        default => 'Business sent email',
-                    }),
+                    title: $m->channel === MessageChannel::WhatsApp
+                        ? ($inbound ? 'Customer messaged on WhatsApp' : ($m->status->value === 'failed' ? 'WhatsApp message not delivered' : (($m->metadata['type'] ?? null) === 'follow_up' ? 'Follow-up sent on WhatsApp' : 'Business sent a WhatsApp message')))
+                        : ($inbound ? 'Customer replied' : ($m->status->value === 'failed' ? 'Email not delivered' : match ($m->metadata['type'] ?? null) {
+                            'follow_up' => 'Follow-up email sent',
+                            'estimate' => 'Estimate email sent',
+                            default => 'Business sent email',
+                        })),
                     body: $this->excerpt($m->excerpt),
                     conversationId: $m->conversation_id,
                 ));
@@ -271,6 +274,7 @@ class TimelineService
             'customer_reactivated' => 'Customer active again after replying',
             'lead_stage_changed' => 'Lead stage changed to '.(LeadStage::tryFrom($event->data['to'] ?? '')?->label() ?? 'unknown').($by ? " by {$by}" : match ($event->data['by'] ?? null) {
                 'email_sent' => ' (first email sent)',
+                'whatsapp_sent' => ' (first WhatsApp message sent)',
                 'customer_replied' => ' (customer replied)',
                 'estimate_sent' => ' (estimate sent)',
                 'estimate_accepted' => ' (estimate accepted)',

@@ -9,6 +9,9 @@
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p class="text-sm font-semibold text-slate-900">
             <span class="mr-1 rounded px-1.5 py-0.5 align-middle text-[11px] font-semibold ring-1 ring-inset {{ $inbound ? 'bg-white text-slate-700 ring-slate-300' : 'bg-violet-100 text-violet-800 ring-violet-200' }}">{{ $inbound ? 'Customer' : 'Business' }}</span>
+            @if ($message->channel === \App\Enums\MessageChannel::WhatsApp)
+                <span class="mr-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset" data-channel="whatsapp"><x-ui-icon name="chat" class="size-3" />WhatsApp</span>
+            @endif
             @if ($inbound)
                 {{ $this->conversation->customer->name }}
                 <span class="font-normal text-slate-500">&lt;{{ $message->from_address }}&gt;</span>
@@ -22,14 +25,14 @@
             ·
             <time datetime="{{ $organization->localTime($message->occurredAt())->toIso8601String() }}">{{ $organization->localTime($message->occurredAt())->format('M j, Y g:i A') }}</time>
             @if (! $inbound && $message->status === \App\Enums\MessageStatus::Failed)
-                · <span class="font-medium text-red-700" role="status">⚠ Unable to send email{{ $message->failure_reason ? ': '.$message->failure_reason : '' }}</span>
+                · <span class="font-medium text-red-700" role="status">⚠ Unable to send {{ $message->channel === \App\Enums\MessageChannel::WhatsApp ? 'WhatsApp message' : 'email' }}{{ $message->failure_reason ? ': '.$message->failure_reason : '' }}</span>
             @elseif (! $inbound && $message->status !== \App\Enums\MessageStatus::Sent)
                 · {{ ucfirst($message->status->value) }}
             @endif
         </p>
     </div>
 
-    @if ($message->subject)
+    @if ($message->subject && $message->channel !== \App\Enums\MessageChannel::WhatsApp)
         <p class="mt-1 text-sm font-medium text-slate-700">{{ $message->subject }}</p>
     @endif
 

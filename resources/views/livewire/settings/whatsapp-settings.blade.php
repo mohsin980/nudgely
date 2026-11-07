@@ -110,6 +110,23 @@
     @endif
 
     @if ($connected && $canManage)
+        {{-- Follow-up template --}}
+        <form wire:submit="saveTemplate" class="{{ $card }}" aria-labelledby="template-heading">
+            <div class="flex items-center gap-4">
+                <span class="{{ $badge }} bg-violet-100 text-violet-600"><x-ui-icon name="document" class="size-6" /></span>
+                <div>
+                    <h2 id="template-heading" class="text-lg font-bold text-slate-900">Follow-up template</h2>
+                    <p class="text-sm text-slate-500">WhatsApp only lets you write freely within 24 hours of the customer's last message. After that, follow-ups use this template, which Meta must approve first.</p>
+                </div>
+            </div>
+            <div class="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                <div><label for="wa-template" class="{{ $label }}">Template name in Meta</label><input id="wa-template" type="text" wire:model="followUpTemplate" placeholder="e.g. quote_follow_up" class="{{ $field }}">@error('followUpTemplate') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                <div><label for="wa-template-language" class="{{ $label }}">Language code</label><input id="wa-template-language" type="text" wire:model="templateLanguage" placeholder="en" class="{{ $field }}">@error('templateLanguage') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+            </div>
+            <p class="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 ring-1 ring-slate-200">Example to create in WhatsApp Manager → Message templates (category <strong class="font-semibold text-slate-800">Utility</strong>): <em>"Hi @{{1}}, just checking in about your quote. Reply here if you have any questions."</em> QuoteFlow fills <code>@{{1}}</code> with the customer's first name. Without a template, these follow-ups go by email when the customer has one.</p>
+            <div class="mt-5 flex justify-end"><button type="submit" class="{{ $primaryButton }}">Save template</button></div>
+        </form>
+
         {{-- 4. Test --}}
         <form wire:submit="sendTest" class="{{ $card }}" aria-labelledby="test-heading">
             <div class="flex items-center gap-4">

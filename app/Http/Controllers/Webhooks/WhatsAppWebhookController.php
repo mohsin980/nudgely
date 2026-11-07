@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessWhatsAppWebhookJob;
 use App\Models\WhatsAppConnection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,8 +14,8 @@ use Illuminate\Support\Facades\Log;
  *
  * GET: Meta's one-time check. It sends the verify token the business copied from QuoteFlow; the matching
  * business's challenge is echoed back. POST: events (customer messages, delivery updates). Each is signed
- * with the business's own app secret (X-Hub-Signature-256) and rejected otherwise. Phase 1 only accepts and
- * acknowledges them; turning messages into conversations comes with WhatsApp messaging.
+ * with the business's own app secret (X-Hub-Signature-256) and rejected otherwise. Accepted events are
+ * queued for WhatsAppInboundProcessor, which stores customer messages and delivery updates.
  */
 class WhatsAppWebhookController extends Controller
 {
@@ -40,6 +41,11 @@ class WhatsAppWebhookController extends Controller
             return response('Invalid signature', 401);
         }
 
+        if (strlen($payload) > 1024 * 1024) {
+            return response('Payload too large', 413);
+        }
+
+        ProcessWhatsAppWebhookJob::dispatch($connection->id, $request->json()->all());
         Log::info('WhatsApp webhook received.', ['organization_id' => $connection->organization_id, 'field' => data_get($request->json()->all(), 'entry.0.changes.0.field')]);
 
         return response('OK', 200);

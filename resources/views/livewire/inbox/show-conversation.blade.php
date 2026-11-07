@@ -102,10 +102,24 @@
                 @if (! $composerOpen)
                     <button type="button" wire:click="$set('composerOpen', true)" class="w-full rounded-lg bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:w-auto">Reply</button>
                 @else
-                    <form wire:submit="sendReply" class="{{ $card }} space-y-3" aria-label="Reply by email">
-                        <p class="text-sm text-slate-500">To: <span class="font-medium text-slate-900">{{ $conversation->customer->email }}</span></p>
+                    @php($wa = $this->whatsAppReply())
+                    <form wire:submit="sendReply" class="{{ $card }} space-y-3" aria-label="Reply">
+                        @if ($wa['shown'])
+                            <div role="radiogroup" aria-label="Reply by" class="inline-flex rounded-xl bg-slate-100 p-1 text-sm font-semibold">
+                                <label @class(['cursor-pointer rounded-lg px-3 py-1.5', 'bg-white text-violet-700 shadow-xs' => $replyChannel === 'email', 'text-slate-600' => $replyChannel !== 'email'])><input type="radio" wire:model.live="replyChannel" value="email" class="sr-only">Email</label>
+                                <label @class(['rounded-lg px-3 py-1.5', 'cursor-pointer' => $wa['allowed'], 'cursor-not-allowed opacity-50' => ! $wa['allowed'], 'bg-white text-emerald-700 shadow-xs' => $replyChannel === 'whatsapp', 'text-slate-600' => $replyChannel !== 'whatsapp']) title="{{ $wa['reason'] }}"><input type="radio" wire:model.live="replyChannel" value="whatsapp" class="sr-only" @disabled(! $wa['allowed']) data-reply-whatsapp>WhatsApp</label>
+                            </div>
+                            @if (! $wa['allowed'])<p class="text-xs text-slate-500" data-whatsapp-reason>{{ $wa['reason'] }}</p>@endif
+                        @endif
+                        @if ($replyChannel === 'whatsapp')
+                            <p class="text-sm text-slate-500">To: <span class="font-medium text-slate-900">{{ $conversation->customer->phone_e164 }}</span> on WhatsApp</p>
+                        @else
+                            <p class="text-sm text-slate-500">To: <span class="font-medium text-slate-900">{{ $conversation->customer->email }}</span></p>
+                        @endif
                         @error('reply') <p role="alert" class="rounded-lg bg-red-50 p-2 text-sm text-red-800">{{ $message }}</p> @enderror
-                        <div><label for="reply-subject" class="block text-sm font-medium text-slate-700">Subject</label><input id="reply-subject" type="text" wire:model="replySubject" maxlength="200" class="{{ $field }}">@error('replySubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                        @if ($replyChannel !== 'whatsapp')
+                            <div><label for="reply-subject" class="block text-sm font-medium text-slate-700">Subject</label><input id="reply-subject" type="text" wire:model="replySubject" maxlength="200" class="{{ $field }}">@error('replySubject') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                        @endif
                         <div><label for="reply-body" class="block text-sm font-medium text-slate-700">Message</label><textarea id="reply-body" wire:model="replyBody" rows="4" class="{{ $field }}" autofocus></textarea>@error('replyBody') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                         <div class="flex gap-2">
                             <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"><span wire:loading.remove wire:target="sendReply">Send</span><span wire:loading wire:target="sendReply">Sending…</span></button>
