@@ -28,7 +28,7 @@ beforeEach(function () {
     config(['ai.classification.enabled' => true]);
     $this->configureInboundWebhook();
     $classifier = $this->classifier = new FakeReplyClassifier;
-    app(ReplyClassifierManager::class)->extend('openai', fn () => $classifier);
+    app(ReplyClassifierManager::class)->extend('chain', fn () => $classifier);
 
     // Business: Dallas HVAC, customer John Smith, verified sales@example.com, unattended email allowed.
     [$this->admin, $this->customer, $this->conversation] = followUpBusiness('Dallas HVAC');

@@ -39,7 +39,7 @@ class ReplyClassificationTest extends TestCase
         parent::setUp();
 
         $classifier = $this->classifier = new FakeReplyClassifier;
-        app(ReplyClassifierManager::class)->extend('openai', fn () => $classifier);
+        app(ReplyClassifierManager::class)->extend('chain', fn () => $classifier);
         $this->configureInboundWebhook();
 
         $customer = Customer::factory()->create(['name' => 'John Smith', 'email' => 'john@example.com']);

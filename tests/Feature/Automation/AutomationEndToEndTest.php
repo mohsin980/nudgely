@@ -57,7 +57,7 @@ class AutomationEndToEndTest extends TestCase
         config(['ai.classification.enabled' => true]);
         $this->configureInboundWebhook();
         $classifier = $this->classifier = new FakeReplyClassifier;
-        app(ReplyClassifierManager::class)->extend('openai', fn () => $classifier);
+        app(ReplyClassifierManager::class)->extend('chain', fn () => $classifier);
 
         $this->admin = User::factory()->admin()->create();
         $this->admin->organization->update(['name' => 'Dallas Cooling']);

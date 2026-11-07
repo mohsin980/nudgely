@@ -47,7 +47,7 @@ class AutomationEventsTest extends TestCase
         parent::setUp();
 
         $classifier = $this->classifier = new FakeReplyClassifier;
-        app(ReplyClassifierManager::class)->extend('openai', fn () => $classifier);
+        app(ReplyClassifierManager::class)->extend('chain', fn () => $classifier);
 
         $customer = Customer::factory()->create(['name' => 'John Smith', 'email' => 'john@example.com']);
         $this->conversation = Conversation::factory()->for($customer)->create(['organization_id' => $customer->organization_id]);

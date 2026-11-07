@@ -54,7 +54,7 @@ test('a new business runs from sign-up to staff completing an automation task', 
     config(['ai.classification.enabled' => true]);
     $this->configureInboundWebhook();
     $classifier = new FakeReplyClassifier;
-    app(ReplyClassifierManager::class)->extend('openai', fn () => $classifier);
+    app(ReplyClassifierManager::class)->extend('chain', fn () => $classifier);
 
     // 1. Sign up: a business and its owner.
     $this->post('/register', [

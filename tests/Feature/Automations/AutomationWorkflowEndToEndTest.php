@@ -129,7 +129,7 @@ test('E2E 3: ready to book alert creates one task and one notification', functio
     config(['ai.classification.enabled' => true]);
     $this->configureInboundWebhook();
     $classifier = new FakeReplyClassifier;
-    app(ReplyClassifierManager::class)->extend('openai', fn () => $classifier);
+    app(ReplyClassifierManager::class)->extend('chain', fn () => $classifier);
 
     $automation = app(AutomationTemplates::class)->install($this->admin->organization, $this->admin, 'ready_to_book');
     expect($automation->status)->toBe(AutomationStatus::Draft);
