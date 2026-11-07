@@ -18,6 +18,7 @@ use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\Maintenance\RetentionPruner;
 use App\Services\Reliability\OperationsReport;
 use App\Services\Webhooks\WebhookReplayService;
+use App\Services\WhatsApp\WhatsAppMediaStore;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -88,10 +89,12 @@ Artisan::command('automations:recover-stalled', function (AutomationEngine $engi
     $this->info($engine->recoverStalled((int) config('reliability.automation.stalled_after_minutes')).' stalled automation step(s) queued again.');
 })->purpose('Queue again automation steps and runs that nothing is working on');
 
-Artisan::command('retention:prune', function (RetentionPruner $pruner) {
+Artisan::command('retention:prune', function (RetentionPruner $pruner, WhatsAppMediaStore $media) {
     foreach ($pruner->prune() as $table => $deleted) {
         $this->line("{$table}: {$deleted} deleted");
     }
+
+    $this->line('whatsapp media files: '.$media->prune().' deleted');
 })->purpose('Delete processed webhook deliveries and expired unused invitations and reply addresses past their retention period');
 
 Artisan::command('reliability:report', function (OperationsReport $report) {

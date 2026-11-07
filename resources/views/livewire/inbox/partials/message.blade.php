@@ -37,10 +37,45 @@
         <p class="mt-1 text-sm font-medium text-slate-700">{{ $message->subject }}</p>
     @endif
 
-    <div class="mt-3 text-sm break-words text-slate-900">
-        @if (filled($message->body_text))
+    @php($media = $message->metadata ?? [])
+    @if (filled($media['media_id'] ?? null))
+        @php($mediaUrl = filled($media['media_path'] ?? null) ? route('whatsapp.media', $message->id) : null)
+        @php($mime = (string) ($media['media_mime'] ?? ''))
+        <div class="mt-3" data-media="{{ $media['whatsapp_type'] ?? 'file' }}">
+            @if ($mediaUrl === null)
+                <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200 ring-inset" data-media-pending>
+                    {{ $media['media_error'] ?? 'Saving the file from WhatsApp…' }}
+                </p>
+            @elseif (str_starts_with($mime, 'image/') && in_array($mime, \App\Services\WhatsApp\WhatsAppMediaStore::INLINE, true))
+                <a href="{{ $mediaUrl }}" target="_blank" rel="noopener" class="inline-block">
+                    <img src="{{ $mediaUrl }}" alt="Photo from {{ $this->conversation->customer->name }}" loading="lazy" class="max-h-72 rounded-xl object-contain ring-1 ring-slate-200">
+                </a>
+            @elseif (str_starts_with($mime, 'audio/'))
+                <audio controls preload="none" src="{{ $mediaUrl }}" class="w-full max-w-sm">Your browser can't play this voice note. <a href="{{ $mediaUrl }}">Download it</a>.</audio>
+            @elseif (str_starts_with($mime, 'video/'))
+                <video controls preload="none" src="{{ $mediaUrl }}" class="max-h-72 rounded-xl ring-1 ring-slate-200"></video>
+            @else
+                <a href="{{ $mediaUrl }}" class="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-violet-700 ring-1 ring-slate-200 ring-inset hover:bg-slate-50">
+                    <x-ui-icon name="download" class="size-4" />{{ $media['media_name'] ?? 'Download file' }}@if (! empty($media['media_size'])) <span class="text-slate-500">({{ number_format($media['media_size'] / 1024 / 1024, 1) }} MB)</span>@endif
+                </a>
+            @endif
+        </div>
+    @endif
+
+    @if (($media['whatsapp_type'] ?? null) === 'audio' && (filled($media['transcribed_by'] ?? null) || filled($media['transcript_error'] ?? null) || config('services.whatsapp.transcribe_voice_notes')))
+        <p class="mt-2 text-xs font-semibold tracking-wide text-slate-500 uppercase" data-transcript>
+            {{ filled($media['transcribed_by'] ?? null) ? 'Transcript (by AI)' : (filled($media['transcript_error'] ?? null) ? 'Not transcribed' : 'Transcribing…') }}
+        </p>
+    @endif
+
+    {{-- With the file shown, "[Image]" etc. is redundant: only the caption (or transcript) remains. --}}
+    @php($bodyText = filled($media['media_path'] ?? null) ? trim((string) preg_replace('/^\[(Image|Video|Document|Sticker|Voice message)\]\s*/', '', (string) $message->body_text)) : $message->body_text)
+    <div @class(['text-sm break-words text-slate-900', 'mt-3' => filled($bodyText) || blank($media['media_path'] ?? null)])>
+        @if (filled($bodyText))
             {{-- Plain text is always escaped. --}}
-            <div class="whitespace-pre-line">{{ $message->body_text }}</div>
+            <div class="whitespace-pre-line">{{ $bodyText }}</div>
+        @elseif (filled($media['media_path'] ?? null))
+            {{-- The file is the message. --}}
         @elseif (filled($message->body_html))
             {{-- Sanitized on arrival and again by safeHtml(); never raw email HTML. --}}
             <div class="email-html space-y-2 [&_a]:text-violet-700 [&_a]:underline">{!! $this->safeHtml($message->body_html) !!}</div>

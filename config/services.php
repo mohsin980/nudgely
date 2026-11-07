@@ -19,6 +19,13 @@ return [
         'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
         'timeout' => 10,
+        // Photos, voice notes, videos and documents customers send are downloaded (Meta keeps them only ~30 days),
+        // stored privately, and deleted after media_keep_days. Larger files are not downloaded.
+        'media_max_mb' => (int) env('WHATSAPP_MEDIA_MAX_MB', 25),
+        'media_keep_days' => (int) env('WHATSAPP_MEDIA_KEEP_DAYS', 180),
+        // Voice notes are transcribed to text by the AI model chain (Gemini, Groq Whisper or OpenAI Whisper),
+        // so the team can read them and the AI assistant can answer them.
+        'transcribe_voice_notes' => (bool) env('WHATSAPP_TRANSCRIBE_VOICE_NOTES', true),
     ],
 
     'postmark' => [

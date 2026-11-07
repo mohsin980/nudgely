@@ -78,6 +78,13 @@ return [
 
     ],
 
+    // Voice notes are transcribed by the first of these that is set up and not resting (same keys as above).
+    'transcription' => [
+        'providers' => ['gemini', 'groq', 'openai'],
+        'groq_model' => env('GROQ_TRANSCRIPTION_MODEL', 'whisper-large-v3'),
+        'openai_model' => env('OPENAI_TRANSCRIPTION_MODEL', 'whisper-1'),
+    ],
+
     // Every AI assistant conversation is written to a log file, which is emailed to this address and emptied
     // when it reaches max_mb. Both can be changed in Admin → AI Models.
     'chat_log' => [
