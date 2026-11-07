@@ -125,7 +125,8 @@ test('the matrix covers every admin page that exists', function () {
     $registered = collect(Route::getRoutes()->getRoutesByName())
         ->filter(fn ($route, $name) => str_starts_with($name, 'filament.admin.') && in_array('GET', $route->methods(), true))
         ->keys()
-        ->reject(fn ($name) => $name === 'filament.admin.auth.login')
+        // Sign-in and the admin's own profile (authenticator app) are open to every administrator.
+        ->reject(fn ($name) => str_starts_with($name, 'filament.admin.auth.'))
         ->values()->all();
 
     expect(array_values(array_diff($registered, $covered)))->toBe([], 'An admin route has no authorization matrix entry.');

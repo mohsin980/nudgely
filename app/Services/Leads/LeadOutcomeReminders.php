@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Enums\LeadStage;
 use App\Enums\Team\NotificationType;
 use App\Models\Customer;
+use App\Models\Organization;
 use App\Services\Team\TeamDirectory;
 use App\Services\Team\TeamNotifier;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,7 @@ class LeadOutcomeReminders
             ->where('lead_stage_changed_at', '<=', $after)
             ->where('status', CustomerStatus::Active)
             ->where('is_demo', false)
+            ->whereNotIn('organization_id', Organization::suspendedIds())
             ->where('outcome_reminders', '<', $max)
             ->where(fn ($query) => $query->whereNull('outcome_reminded_at')->orWhere('outcome_reminded_at', '<=', $every))
             ->with(['organization', 'assignee'])

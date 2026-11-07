@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
@@ -89,6 +90,13 @@ Route::middleware('guest')->group(function () {
     Route::post('/new-password', [PasswordResetController::class, 'update'])->middleware('throttle:login')->name('password.update');
 });
 Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
+
+// Confirming the email address after sign-up (EnsureEmailVerified keeps unconfirmed people here).
+Route::middleware('auth')->prefix('verify-email')->name('verification.')->group(function () {
+    Route::get('/', [EmailVerificationController::class, 'notice'])->name('notice');
+    Route::get('/{id}/{hash}', [EmailVerificationController::class, 'verify'])->middleware(['signed', 'throttle:6,1'])->name('verify');
+    Route::post('/send', [EmailVerificationController::class, 'send'])->middleware('throttle:3,1')->name('send');
+});
 
 // Team invitation links: the unguessable token is the only credential.
 Route::get('/invitations/{token}', AcceptInvitation::class)->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:invitations')->name('invitations.show');

@@ -423,6 +423,10 @@ class EmailService
             throw EmailSendingNotAllowedException::noSender();
         }
 
+        if (Organization::isSuspendedId($organizationId)) {
+            throw EmailSendingNotAllowedException::organizationSuspended();
+        }
+
         if (! $connection->isVerified()) {
             throw EmailSendingNotAllowedException::notVerified();
         }

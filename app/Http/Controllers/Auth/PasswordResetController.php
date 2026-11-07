@@ -58,7 +58,8 @@ class PasswordResetController extends Controller
             ],
             function (User $user, string $password): void {
                 // The model's "hashed" cast hashes the new password.
-                $user->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+                // The reset link reached their inbox, which also proves the address.
+                $user->forceFill(['password' => $password, 'remember_token' => Str::random(60), 'email_verified_at' => $user->email_verified_at ?? now()])->save();
                 event(new PasswordReset($user));
             },
         );

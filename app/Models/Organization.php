@@ -8,6 +8,7 @@ use App\Support\Settings\OrganizationSettings;
 use Carbon\CarbonImmutable;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -163,6 +164,21 @@ class Organization extends Model
     public function isSuspended(): bool
     {
         return $this->suspended_at !== null;
+    }
+
+    /** Whether the organization with this ID is suspended. Background work checks this before acting. */
+    public static function isSuspendedId(int $organizationId): bool
+    {
+        return static::query()->whereKey($organizationId)->whereNotNull('suspended_at')->exists();
+    }
+
+    /**
+     * IDs of suspended organizations, as a subquery for whereNotIn('organization_id', ...): scheduled work
+     * for them is paused (left as it is) and carries on after reactivation.
+     */
+    public static function suspendedIds(): Builder
+    {
+        return static::query()->select('id')->whereNotNull('suspended_at');
     }
 
     public function status(): OrganizationStatus

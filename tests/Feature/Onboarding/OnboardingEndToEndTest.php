@@ -24,7 +24,8 @@ beforeEach(function () {
 function signUpOwner(string $business = 'Dallas HVAC', string $name = 'John Smith', string $email = 'john@dallashvac.com'): User
 {
     test()->post('/register', ['business_name' => $business, 'name' => $name, 'email' => $email, 'password' => 'correct-horse-battery', 'password_confirmation' => 'correct-horse-battery'])
-        ->assertRedirect(route('onboarding.show'));
+        ->assertRedirect(route('verification.notice'));
+    confirmEmail($email);
 
     return User::where('email', $email)->sole();
 }

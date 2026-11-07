@@ -63,7 +63,8 @@ class RegistrationController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $user->sendEmailVerificationNotification();
 
-        return redirect()->route('onboarding.show');
+        return redirect()->route('verification.notice');
     }
 }

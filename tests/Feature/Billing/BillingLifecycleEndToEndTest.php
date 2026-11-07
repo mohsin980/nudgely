@@ -21,6 +21,7 @@ function signUp(string $business, string $email): User
 {
     test()->post('/register', ['business_name' => $business, 'name' => 'Owner', 'email' => $email,
         'password' => 'correct-horse-battery', 'password_confirmation' => 'correct-horse-battery'])->assertRedirect();
+    confirmEmail($email);
 
     return User::where('email', $email)->sole();
 }

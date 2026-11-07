@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Message;
+use App\Models\Organization;
 use App\Services\AI\CustomerReplyClassificationService;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -58,7 +59,8 @@ class ClassifyCustomerReplyJob implements ShouldBeUnique, ShouldQueue
     {
         $message = Message::find($this->messageId);
 
-        if ($message !== null) {
+        // A suspended business's replies are kept but not sent to the AI.
+        if ($message !== null && ! Organization::isSuspendedId($message->organization_id)) {
             $classifier->classify($message, $this->requestId, $this->reclassify);
         }
     }

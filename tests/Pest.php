@@ -32,6 +32,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Testing\TestResponse;
 use Tests\Fakes\FakeEmailProvider;
 use Tests\TestCase;
@@ -296,6 +297,16 @@ function webhook(array $event, ?string $secret = 'whsec_test_secret', ?int $time
 function stripeEvent(string $type, array $object, ?string $id = null): array
 {
     return ['id' => $id ?? 'evt_'.uniqid(), 'object' => 'event', 'type' => $type, 'data' => ['object' => $object]];
+}
+
+/**
+ * Click the confirmation link a new sign-up receives.
+ */
+function confirmEmail(string $email): void
+{
+    $user = User::query()->where('email', strtolower($email))->sole();
+
+    test()->get(URL::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)]))->assertRedirect('/');
 }
 
 function seedPlatformRoles(): void
