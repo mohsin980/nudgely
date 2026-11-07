@@ -12,6 +12,11 @@ class AssistantProfile extends Model
 {
     public const LANGUAGES = ['en' => 'English', 'ur' => 'Urdu'];
 
+    protected function casts(): array
+    {
+        return ['enabled' => 'boolean'];
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);

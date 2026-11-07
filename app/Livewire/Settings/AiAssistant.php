@@ -2,10 +2,13 @@
 
 namespace App\Livewire\Settings;
 
+use App\Enums\Billing\LimitKey;
 use App\Livewire\Settings\Concerns\SettingsPage;
 use App\Models\AssistantProfile;
 use App\Services\Assistant\AssistantKnowledgeService;
 use App\Services\Assistant\CatalogImportService;
+use App\Services\Billing\EntitlementService;
+use App\Services\Billing\UsageService;
 use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
@@ -35,6 +38,11 @@ class AiAssistant extends Component
 
     #[Url]
     public string $tab = 'profile';
+
+    // On/off
+    public bool $enabled = false;
+
+    public string $ownerWhatsapp = '';
 
     // Business profile
     public string $assistantName = 'Assistant';
@@ -95,6 +103,21 @@ class AiAssistant extends Component
         $this->hours = (string) $profile->hours;
         $this->qualifyingQuestions = (string) $profile->qualifying_questions;
         $this->handoverRules = (string) $profile->handover_rules;
+        $this->enabled = (bool) $profile->enabled;
+        $this->ownerWhatsapp = (string) $profile->owner_whatsapp;
+    }
+
+    public function saveSwitch(AssistantKnowledgeService $knowledge): void
+    {
+        $this->attempt(function () use ($knowledge) {
+            $profile = $knowledge->saveSwitch($this->user(), ['enabled' => $this->enabled, 'owner_whatsapp' => $this->ownerWhatsapp]);
+            $this->ownerWhatsapp = (string) $profile->owner_whatsapp;
+            $this->saved($profile->enabled ? 'The AI assistant is on. It answers new WhatsApp chats from now on.' : 'The AI assistant is off.');
+        }, ['owner_whatsapp' => 'ownerWhatsapp']);
+
+        if ($this->getErrorBag()->has('enabled')) {
+            $this->enabled = false;
+        }
     }
 
     public function updatedTab(): void
@@ -224,8 +247,14 @@ class AiAssistant extends Component
         $organization = $this->organization();
         $search = trim($this->search);
 
+        $entitlements = app(EntitlementService::class);
+
         return view('livewire.settings.ai-assistant', [
             'readiness' => $knowledge->readiness($organization),
+            'planIncludesAssistant' => $entitlements->hasFeature($organization, 'ai_assistant'),
+            'aiLimit' => $entitlements->limit($organization, LimitKey::AiConversations),
+            'aiUsed' => app(UsageService::class)->usage($organization, LimitKey::AiConversations),
+            'isOn' => (bool) $organization->assistantProfile()->value('enabled'),
             'faqs' => $this->tab === 'faqs' ? $organization->assistantFaqs()->orderBy('id')->get() : collect(),
             'faqCount' => $organization->assistantFaqs()->count(),
             'items' => $this->tab === 'catalog'

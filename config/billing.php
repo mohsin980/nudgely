@@ -62,6 +62,7 @@ return [
         'follow_ups' => 'Automatic follow-ups',
         'automations' => 'Automations',
         'ai_reply_classification' => 'AI reply sorting',
+        'ai_assistant' => 'AI WhatsApp assistant',
         'team_roles' => 'Team roles & permissions',
         'custom_branding' => 'Custom branding',
         'priority_support' => 'Priority support',
@@ -80,6 +81,7 @@ return [
                 'team_members' => 1,
                 'outbound_emails' => 500,
                 'estimates' => 50,
+                'ai_conversations' => 0,
             ],
             'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification'],
         ],
@@ -95,8 +97,9 @@ return [
                 'team_members' => 3,
                 'outbound_emails' => 2500,
                 'estimates' => 250,
+                'ai_conversations' => 100,
             ],
-            'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification', 'team_roles', 'custom_branding'],
+            'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification', 'ai_assistant', 'team_roles', 'custom_branding'],
         ],
 
         'pro' => [
@@ -110,8 +113,9 @@ return [
                 'team_members' => 10,
                 'outbound_emails' => 10000,
                 'estimates' => 1000,
+                'ai_conversations' => 300,
             ],
-            'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification', 'team_roles', 'custom_branding', 'priority_support'],
+            'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification', 'ai_assistant', 'team_roles', 'custom_branding', 'priority_support'],
         ],
 
     ],

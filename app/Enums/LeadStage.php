@@ -3,13 +3,14 @@
 namespace App\Enums;
 
 /**
- * Where a customer is in the sales journey. Moves forward on its own (first email or reply,
- * estimate sent, accepted or declined) and can always be set by hand.
+ * Where a customer is in the sales journey. Moves forward on its own (first email or reply, the AI
+ * assistant qualifying the lead, estimate sent, accepted or declined) and can always be set by hand.
  */
 enum LeadStage: string
 {
     case New = 'new';
     case Contacted = 'contacted';
+    case Qualified = 'qualified';
     case Quoted = 'quoted';
     case Won = 'won';
     case Lost = 'lost';
@@ -24,6 +25,7 @@ enum LeadStage: string
         return match ($this) {
             self::New => 'Not contacted yet.',
             self::Contacted => 'You have been in touch.',
+            self::Qualified => 'A serious lead: the AI assistant has their needs.',
             self::Quoted => 'An estimate was sent.',
             self::Won => 'Accepted an estimate.',
             self::Lost => 'Declined, or not going ahead.',
@@ -38,6 +40,7 @@ enum LeadStage: string
         return match ($this) {
             self::New => 'bg-sky-50 text-sky-700 ring-sky-600/20',
             self::Contacted => 'bg-violet-50 text-violet-700 ring-violet-600/20',
+            self::Qualified => 'bg-teal-50 text-teal-700 ring-teal-600/20',
             self::Quoted => 'bg-amber-50 text-amber-800 ring-amber-600/20',
             self::Won => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
             self::Lost => 'bg-slate-100 text-slate-600 ring-slate-500/20',
@@ -60,8 +63,9 @@ enum LeadStage: string
         return match ($this) {
             self::New => 0,
             self::Contacted => 1,
-            self::Quoted => 2,
-            self::Won, self::Lost => 3,
+            self::Qualified => 2,
+            self::Quoted => 3,
+            self::Won, self::Lost => 4,
         };
     }
 }

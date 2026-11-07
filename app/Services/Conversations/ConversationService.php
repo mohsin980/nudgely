@@ -19,6 +19,7 @@ use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\MessageClassification;
 use App\Models\User;
+use App\Services\Assistant\AssistantHandover;
 use App\Services\Email\EmailService;
 use App\Services\FollowUps\FollowUpService;
 use App\Services\WhatsApp\WhatsAppMessenger;
@@ -55,7 +56,20 @@ class ConversationService
         $this->assertSameOrganization($actor, $conversation->organization_id);
         [$subject, $body] = $this->validEmail($subject, $body);
 
-        return $this->send($actor, $conversation, $subject, $body);
+        $message = $this->send($actor, $conversation, $subject, $body);
+        app(AssistantHandover::class)->takeOver($actor, $conversation); // a person is answering now
+
+        return $message;
+    }
+
+    /**
+     * Take the chat over from the AI assistant without replying yet.
+     */
+    public function takeOverFromAssistant(User $actor, Conversation $conversation): bool
+    {
+        $this->assertSameOrganization($actor, $conversation->organization_id);
+
+        return app(AssistantHandover::class)->takeOver($actor, $conversation);
     }
 
     /**
@@ -73,7 +87,10 @@ class ConversationService
         }
 
         try {
-            return app(WhatsAppMessenger::class)->sendText($conversation, $body, ['type' => 'manual', 'sent_by' => (string) $actor->id]);
+            $message = app(WhatsAppMessenger::class)->sendText($conversation, $body, ['type' => 'manual', 'sent_by' => (string) $actor->id]);
+            app(AssistantHandover::class)->takeOver($actor, $conversation); // a person is answering now
+
+            return $message;
         } catch (WhatsAppSendException $e) {
             throw new ConversationActionException($e->getMessage());
         }

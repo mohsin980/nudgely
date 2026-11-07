@@ -11,6 +11,7 @@ use App\Enums\MessageStatus;
 use App\Events\CustomerCreated;
 use App\Events\CustomerReplyReceived;
 use App\Exceptions\Billing\PlanLimitException;
+use App\Jobs\AssistantReplyJob;
 use App\Jobs\ClassifyCustomerReplyJob;
 use App\Models\Conversation;
 use App\Models\Customer;
@@ -31,6 +32,8 @@ use Illuminate\Support\Facades\Log;
  * the message joins their open conversation (or starts one), and it is announced as a customer reply, so
  * follow-ups stop, inactive customers become active and lead stages move, exactly as for email. Writing
  * to the business counts as agreeing to WhatsApp messages. Retried deliveries are stored once.
+ *
+ * If the business switched on its AI assistant, the assistant is asked to answer (AssistantReplyJob).
  *
  * Status updates: Meta reports delivered, read and failed for the business's own messages.
  */
@@ -126,6 +129,10 @@ class WhatsAppInboundProcessor
 
                 if (config('ai.classification.enabled') && $message->body_text !== null) {
                     ClassifyCustomerReplyJob::dispatch($message->id, CustomerReplyClassificationService::automaticRequestId($message))->afterCommit();
+                }
+
+                if ($organization->assistantProfile()->where('enabled', true)->exists()) {
+                    AssistantReplyJob::dispatch($message->id, $conversation->id)->delay(now()->addSeconds(AssistantReplyJob::DELAY_SECONDS))->afterCommit();
                 }
 
                 Log::info('WhatsApp message received.', ['organization_id' => $organization->id, 'conversation_id' => $conversation->id, 'message_id' => $message->id, 'new_customer' => $created]);

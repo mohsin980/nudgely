@@ -1,5 +1,6 @@
 {{-- One message with its AI insight. Expects $message; uses the ShowConversation component helpers. --}}
 @php($inbound = $message->isInbound())
+@php($byAssistant = ! $inbound && ($message->metadata['type'] ?? null) === 'assistant')
 <li wire:key="message-{{ $message->id }}" data-direction="{{ $message->direction->value }}"
     @class([
         'rounded-lg p-4 shadow-sm sm:p-5',
@@ -8,7 +9,7 @@
     ])>
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p class="text-sm font-semibold text-slate-900">
-            <span class="mr-1 rounded px-1.5 py-0.5 align-middle text-[11px] font-semibold ring-1 ring-inset {{ $inbound ? 'bg-white text-slate-700 ring-slate-300' : 'bg-violet-100 text-violet-800 ring-violet-200' }}">{{ $inbound ? 'Customer' : 'Business' }}</span>
+            <span class="mr-1 rounded px-1.5 py-0.5 align-middle text-[11px] font-semibold ring-1 ring-inset {{ $inbound ? 'bg-white text-slate-700 ring-slate-300' : 'bg-violet-100 text-violet-800 ring-violet-200' }}">{{ $inbound ? 'Customer' : ($byAssistant ? 'AI assistant' : 'Business') }}</span>
             @if ($message->channel === \App\Enums\MessageChannel::WhatsApp)
                 <span class="mr-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset" data-channel="whatsapp"><x-ui-icon name="chat" class="size-3" />WhatsApp</span>
             @endif

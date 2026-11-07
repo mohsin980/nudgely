@@ -3,17 +3,18 @@
 
     <section aria-labelledby="usage-heading" class="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]">
         <h2 id="usage-heading" class="text-base font-bold text-slate-900">This billing period</h2>
-        <p class="mt-1 text-xs text-slate-500" data-period>Emails and estimates: {{ $organization->formatDate($periodStart) }} – {{ $organization->formatDate($periodEnd) }}. Other limits count what you have now.</p>
+        <p class="mt-1 text-xs text-slate-500" data-period>Emails, estimates and AI conversations: {{ $organization->formatDate($periodStart) }} – {{ $organization->formatDate($periodEnd) }}. Other limits count what you have now.</p>
 
         <ul role="list" class="mt-4 space-y-5" data-section="usage">
             @foreach ($rows as $key => $row)
                 @php($limitKey = \App\Enums\Billing\LimitKey::from($key))
                 @php($percent = $row['limit'] ? min(100, (int) round($row['used'] / max(1, $row['limit']) * 100)) : 0)
-                @php($reached = $row['limit'] !== null && $row['used'] >= $row['limit'])
+                @php($notIncluded = $row['limit'] === 0 && $row['used'] === 0)
+                @php($reached = ! $notIncluded && $row['limit'] !== null && $row['used'] >= $row['limit'])
                 <li data-limit="{{ $key }}">
                     <div class="flex items-baseline justify-between gap-3 text-sm">
                         <span class="text-slate-800">{{ $row['label'] }}</span>
-                        <span @class(['font-medium whitespace-nowrap', 'text-red-700' => $reached, 'text-slate-900' => ! $reached]) data-count>{{ number_format($row['used']) }} / {{ $row['limit'] === null ? 'Unlimited' : number_format($row['limit']) }}</span>
+                        <span @class(['font-medium whitespace-nowrap', 'text-red-700' => $reached, 'text-slate-900' => ! $reached]) data-count>{{ $notIncluded ? 'Not in your plan' : number_format($row['used']).' / '.($row['limit'] === null ? 'Unlimited' : number_format($row['limit'])) }}</span>
                     </div>
                     @if ($row['limit'])
                         <div class="mt-1.5 h-2 rounded-full bg-slate-100" role="progressbar" aria-label="{{ $row['label'] }} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $percent }}">

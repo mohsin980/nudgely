@@ -275,6 +275,7 @@ class TimelineService
             'lead_stage_changed' => 'Lead stage changed to '.(LeadStage::tryFrom($event->data['to'] ?? '')?->label() ?? 'unknown').($by ? " by {$by}" : match ($event->data['by'] ?? null) {
                 'email_sent' => ' (first email sent)',
                 'whatsapp_sent' => ' (first WhatsApp message sent)',
+                'assistant_qualified' => ' (by the AI assistant)',
                 'customer_replied' => ' (customer replied)',
                 'estimate_sent' => ' (estimate sent)',
                 'estimate_accepted' => ' (estimate accepted)',

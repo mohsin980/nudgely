@@ -40,8 +40,52 @@
                 </li>
             @endforeach
         </ol>
-        <p class="mt-4 text-xs text-slate-500">Switching the assistant on for WhatsApp comes in the next update. Everything you add here is used from then on.</p>
     </section>
+
+    {{-- On / off --}}
+    <form wire:submit="saveSwitch" class="{{ $card }}" aria-labelledby="switch-heading" data-assistant-switch="{{ $isOn ? 'on' : 'off' }}">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex min-w-0 items-center gap-4">
+                <span @class([$badge, 'bg-emerald-100 text-emerald-600' => $isOn, 'bg-slate-100 text-slate-500' => ! $isOn])><x-ui-icon name="chat" class="size-6" /></span>
+                <div>
+                    <h2 id="switch-heading" class="text-lg font-bold text-slate-900">Answer WhatsApp leads with AI</h2>
+                    <p class="text-sm text-slate-500">New WhatsApp chats get an instant answer. When a lead is ready, or asks for a person, it hands the chat to you with a summary.</p>
+                </div>
+            </div>
+            <span @class(['inline-flex shrink-0 items-center gap-1.5 self-start rounded-full px-3 py-1 text-sm font-semibold ring-1 ring-inset sm:self-auto', 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' => $isOn, 'bg-slate-100 text-slate-600 ring-slate-500/20' => ! $isOn])>
+                <span class="size-2 rounded-full bg-current"></span>{{ $isOn ? 'On' : 'Off' }}
+            </span>
+        </div>
+
+        @if (! $planIncludesAssistant)
+            <p class="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200" data-assistant-upgrade>
+                Your plan doesn't include the AI assistant. <a href="{{ route('settings.billing.plans') }}" wire:navigate class="font-semibold underline">See plans</a>
+            </p>
+        @else
+            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                <label class="flex cursor-pointer items-start gap-3 rounded-2xl p-4 ring-1 ring-slate-200 has-checked:bg-violet-50/70 has-checked:ring-violet-300">
+                    <input type="checkbox" wire:model="enabled" class="mt-1 size-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500" data-assistant-enabled>
+                    <span>
+                        <span class="block text-[15px] font-bold text-slate-900">Let the assistant answer</span>
+                        <span class="mt-0.5 block text-sm text-slate-500">Chats a person is already handling are left to them. You can take over any chat.</span>
+                    </span>
+                </label>
+                <div>
+                    <label for="owner-whatsapp" class="{{ $label }}">Your WhatsApp number <span class="font-normal text-slate-400">(optional)</span></label>
+                    <input id="owner-whatsapp" type="tel" wire:model="ownerWhatsapp" maxlength="25" class="{{ $field }}" placeholder="e.g. +92 300 1234567">
+                    <p class="{{ $help }}">We ping you here when a chat needs you. WhatsApp only delivers it if you messaged your business number in the last 24 hours; you always get an app notification.</p>
+                    @error('ownerWhatsapp') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            @error('enabled') <p role="alert" class="mt-3 text-sm text-red-700">{{ $message }}</p> @enderror
+            <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-slate-600" data-ai-usage>
+                    <span class="font-semibold text-slate-900">{{ number_format($aiUsed) }}</span> of {{ $aiLimit === null ? 'unlimited' : number_format($aiLimit) }} AI conversations used this month
+                </p>
+                <button type="submit" class="{{ $primaryButton }} self-end sm:self-auto">Save</button>
+            </div>
+        @endif
+    </form>
 
     {{-- Tabs --}}
     <nav aria-label="Assistant sections" class="flex gap-1 overflow-x-auto rounded-2xl bg-white p-1.5 ring-1 ring-slate-200/70">

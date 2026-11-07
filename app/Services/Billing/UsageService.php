@@ -7,6 +7,7 @@ use App\Enums\Billing\LimitKey;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Enums\Team\MemberStatus;
+use App\Models\AssistantChat;
 use App\Models\Automation;
 use App\Models\Customer;
 use App\Models\Estimate;
@@ -42,6 +43,9 @@ class UsageService
                 ->where('created_at', '>=', $start)->where('created_at', '<', $end)->count(),
             // New estimates only: a revision of a sent estimate isn't a new estimate.
             LimitKey::Estimates => Estimate::query()->where('organization_id', $organization->id)->where('revision', 1)
+                ->where('created_at', '>=', $start)->where('created_at', '<', $end)->count(),
+            // Conversations the AI assistant started handling this period.
+            LimitKey::AiConversations => AssistantChat::query()->where('organization_id', $organization->id)
                 ->where('created_at', '>=', $start)->where('created_at', '<', $end)->count(),
         };
     }
@@ -120,6 +124,7 @@ class UsageService
             $sentStatuses = array_map(fn (MessageStatus $status) => $status->value, array_filter(MessageStatus::cases(), fn (MessageStatus $status) => $status->countsAsSent()));
             $emails = $this->inPeriods(Message::query()->where('direction', MessageDirection::Outbound)->whereIn('status', $sentStatuses), $periods)->pluck('total', 'organization_id');
             $estimates = $this->inPeriods(Estimate::query()->where('revision', 1), $periods)->pluck('total', 'organization_id');
+            $aiChats = $this->inPeriods(AssistantChat::query(), $periods)->pluck('total', 'organization_id');
 
             foreach ($ids as $id) {
                 $result[$id] = [
@@ -128,6 +133,7 @@ class UsageService
                     LimitKey::TeamMembers->value => (int) ($members[$id] ?? 0),
                     LimitKey::OutboundEmails->value => (int) ($emails[$id] ?? 0),
                     LimitKey::Estimates->value => (int) ($estimates[$id] ?? 0),
+                    LimitKey::AiConversations->value => (int) ($aiChats[$id] ?? 0),
                 ];
             }
         }
