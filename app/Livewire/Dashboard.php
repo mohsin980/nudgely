@@ -2,7 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Enums\LeadStage;
+use App\Models\AssistantChat;
+use App\Models\Organization;
 use App\Models\Task;
+use App\Services\Billing\UsageService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Tasks\TaskService;
@@ -70,6 +74,35 @@ class Dashboard extends Component
                 default => 'Good evening',
             },
             'firstName' => strtok(trim($user->name), ' ') ?: $user->name,
+            'assistant' => $this->assistantStats($user->organization),
         ]);
+    }
+
+    /**
+     * This billing period's AI assistant numbers, and leads waiting for a Won / Lost decision. Null when the
+     * business never switched the assistant on.
+     *
+     * @return array{name: string, on: bool, chats: int, qualified: int, handed_over: int, awaiting_outcome: int}|null
+     */
+    private function assistantStats(Organization $organization): ?array
+    {
+        $profile = $organization->assistantProfile()->first();
+
+        if ($profile === null || (! $profile->enabled && ! AssistantChat::query()->where('organization_id', $organization->id)->exists())) {
+            return null;
+        }
+
+        [$start, $end] = app(UsageService::class)->period($organization);
+        $chats = AssistantChat::query()->where('organization_id', $organization->id)->where('created_at', '>=', $start)->where('created_at', '<', $end);
+
+        return [
+            'name' => $profile->assistant_name ?: 'AI assistant',
+            'on' => (bool) $profile->enabled,
+            'chats' => (clone $chats)->count(),
+            'qualified' => (clone $chats)->whereNotNull('qualified_at')->count(),
+            'handed_over' => (clone $chats)->where('status', AssistantChat::HANDED_OVER)->count(),
+            'awaiting_outcome' => $organization->customers()->whereIn('lead_stage', [LeadStage::Qualified, LeadStage::Quoted])
+                ->where('lead_stage_changed_at', '<=', now()->subDays((int) config('leads.outcome_reminders.after_days', 7)))->count(),
+        ];
     }
 }

@@ -33,6 +33,17 @@
                 @endif
             </div>
         </div>
+        @if (! $chat->isActive() && $assignsAnyone)
+            <div class="shrink-0 self-start">
+                <label for="assistant-assign" class="block text-xs font-semibold text-slate-600">Give this lead to</label>
+                <select id="assistant-assign" wire:change="assignLead($event.target.value)" data-assign-lead class="mt-1 rounded-xl border-0 py-1.5 pr-8 pl-3 text-sm font-medium text-slate-800 shadow-xs ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
+                    <option value="" @selected($assignedTo === null)>Nobody yet</option>
+                    @foreach ($team as $memberId => $memberName)
+                        <option value="{{ $memberId }}" @selected($assignedTo === $memberId)>{{ $memberName }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
         @if ($chat->isActive())
             <button type="button" wire:click="takeOverFromAssistant" class="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-violet-700 shadow-xs ring-1 ring-violet-200 ring-inset hover:bg-violet-50">Take over</button>
         @endif

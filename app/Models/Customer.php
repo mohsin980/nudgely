@@ -49,6 +49,7 @@ class Customer extends Model
             'last_activity_at' => 'datetime',
             'lead_stage' => LeadStage::class,
             'lead_stage_changed_at' => 'datetime',
+            'outcome_reminded_at' => 'datetime',
             'preferred_channel' => MessageChannel::class,
             'whatsapp_opt_in_at' => 'datetime',
             'status' => CustomerStatus::class,
@@ -107,6 +108,14 @@ class Customer extends Model
     /**
      * @return BelongsTo<Organization, $this>
      */
+    /**
+     * The team member handling this lead, if one was chosen.
+     */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
