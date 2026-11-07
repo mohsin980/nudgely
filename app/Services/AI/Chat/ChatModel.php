@@ -3,7 +3,8 @@
 namespace App\Services\AI\Chat;
 
 /**
- * One model in the chain: where it is, how to reach it, and what it supports.
+ * One way to ask a model: a provider's model with one of its API keys. A provider with three keys is three
+ * ChatModels in the chain, so when one key reaches its limit the next key is tried before the next provider.
  */
 final readonly class ChatModel
 {
@@ -17,6 +18,8 @@ final readonly class ChatModel
         public string $jsonMode,
         public bool $openAiDialect,
         public ?string $organization = null,
+        public string $keyId = 'none',
+        public ?string $keyHint = null,
     ) {}
 
     /**
@@ -28,29 +31,43 @@ final readonly class ChatModel
     }
 
     /**
-     * The model described by config/ai.php "models", or null when it isn't set up (no key, or no URL for Ollama).
-     *
-     * @param  array<string, mixed>  $config
+     * "Google Gemini (key ••••1234)", for messages to administrators.
      */
-    public static function fromConfig(string $name, array $config): ?self
+    public function describe(): string
+    {
+        return $this->label.($this->keyHint !== null ? ' (key '.$this->keyHint.')' : '');
+    }
+
+    /**
+     * The provider's model once per key, in key order. Empty when it isn't set up (no key, or no URL for Ollama).
+     *
+     * @param  array<string, mixed>  $config  as AiModelSettings::all() gives it
+     * @return list<self>
+     */
+    public static function forEachKey(string $name, array $config): array
     {
         $baseUrl = trim((string) ($config['base_url'] ?? ''));
-        $apiKey = trim((string) ($config['api_key'] ?? ''));
 
-        if ($baseUrl === '' || ($apiKey === '' && ! ($config['keyless'] ?? false)) || blank($config['model'] ?? null)) {
-            return null;
+        if ($baseUrl === '' || blank($config['model'] ?? null)) {
+            return [];
         }
 
-        return new self(
+        $keys = ($config['keyless'] ?? false)
+            ? [['id' => 'none', 'api_key' => null, 'hint' => null]]
+            : (array) ($config['keys'] ?? []);
+
+        return array_map(fn (array $key) => new self(
             name: $name,
             label: (string) ($config['label'] ?? $name),
             baseUrl: rtrim($baseUrl, '/'),
-            apiKey: $apiKey === '' ? null : $apiKey,
+            apiKey: $key['api_key'],
             model: (string) $config['model'],
             timeout: max(5, (int) ($config['timeout'] ?? 30)),
             jsonMode: in_array($config['json'] ?? null, ['schema', 'object', 'prompt'], true) ? $config['json'] : 'prompt',
             openAiDialect: ($config['dialect'] ?? 'compatible') === 'openai',
             organization: filled($config['organization'] ?? null) ? (string) $config['organization'] : null,
-        );
+            keyId: (string) $key['id'],
+            keyHint: $key['hint'],
+        ), $keys);
     }
 }

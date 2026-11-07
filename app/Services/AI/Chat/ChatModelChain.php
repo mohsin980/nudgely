@@ -6,7 +6,7 @@ use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Support\Carbon;
 
 /**
- * The models to try, in order, and which of them are resting after a problem. Rest periods are shared by
+ * The models (and keys) to try, in order, and which of them are resting after a problem. Rest periods are shared by
  * every worker through the cache, so once one request finds Gemini's free quota used up, the others skip
  * straight to the next model until Gemini's rest is over.
  */
@@ -15,7 +15,7 @@ class ChatModelChain
     public function __construct(private readonly Cache $cache, private readonly AiModelSettings $settings) {}
 
     /**
-     * Every model that is switched on and set up, in order (resting or not). See AiModelSettings.
+     * Every switched-on model once per key, in order (resting or not). See AiModelSettings.
      *
      * @return list<ChatModel>
      */
@@ -24,9 +24,7 @@ class ChatModelChain
         $models = [];
 
         foreach ($this->settings->chain() as $name => $definition) {
-            if (($model = ChatModel::fromConfig($name, $definition)) !== null) {
-                $models[] = $model;
-            }
+            array_push($models, ...ChatModel::forEachKey($name, $definition));
         }
 
         return $models;
@@ -74,6 +72,7 @@ class ChatModelChain
 
     private function key(ChatModel $model, string $what): string
     {
-        return 'ai-model:'.$model->name.':'.md5($model->model).':'.$what;
+        // Per key: one key reaching its limit doesn't rest the provider's other keys.
+        return 'ai-model:'.$model->name.':'.md5($model->model.'|'.$model->keyId).':'.$what;
     }
 }

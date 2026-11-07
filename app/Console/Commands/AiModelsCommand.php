@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
  */
 class AiModelsCommand extends Command
 {
-    protected $signature = 'ai:models {--test : Ask each model that is set up a tiny question}';
+    protected $signature = 'ai:models {--test : Ask each key of each model that is set up a tiny question}';
 
     protected $description = 'Show the AI models in the order they are tried, and optionally test them';
 
@@ -24,20 +24,22 @@ class AiModelsCommand extends Command
         $order = 0;
 
         foreach ($settings->all() as $name => $model) {
-            $ready = ChatModel::fromConfig($name, $model);
-            $resting = $ready === null ? null : $chain->restingUntil($ready);
+            $keys = ChatModel::forEachKey($name, $model);
+            $resting = count(array_filter($keys, fn (ChatModel $key) => $chain->restingUntil($key) !== null));
             $status = match (true) {
                 ! $model['enabled'] => 'off',
-                $ready === null => 'not set up',
-                $resting !== null => 'resting until '.$resting->format('H:i:s'),
+                $keys === [] => 'not set up',
+                $resting === count($keys) => 'all keys resting',
+                $resting > 0 => "ready ({$resting} of ".count($keys).' keys resting)',
                 default => 'ready',
             };
 
-            if ($this->option('test') && $model['enabled'] && $ready !== null) {
-                $status = $client->test($name)['message'];
+            if ($this->option('test') && $model['enabled'] && $keys !== []) {
+                $status = implode("\n", array_column($client->test($name), 'message'));
             }
 
-            $rows[] = [++$order, $model['label'] ?? $name, $model['model'] ?? '—', $model['key_source'] ?? (($model['keyless'] ?? false) ? 'none needed' : 'missing'), $status];
+            $keyText = ($model['keyless'] ?? false) ? 'none needed' : (count($model['keys']) === 0 ? 'missing' : implode(', ', array_map(fn (array $key) => $key['hint'].' ('.$key['source'].')', $model['keys'])));
+            $rows[] = [++$order, $model['label'] ?? $name, $model['model'] ?? '—', $keyText, $status];
         }
 
         $this->table(['#', 'Provider', 'Model', 'Key', 'Status'], $rows);

@@ -5,7 +5,7 @@ use App\Enums\Platform\PlatformRole;
 use App\Exceptions\AI\AiRequestFailedException;
 use App\Exceptions\AI\ClassificationFailedException;
 use App\Filament\Pages\AiModels;
-use App\Models\AiModelSetting;
+use App\Models\AiModelKey;
 use App\Models\PlatformAuditLog;
 use App\Services\AI\Chat\AiModelSettings;
 use App\Services\AI\Chat\ChatClient;
@@ -17,7 +17,9 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 const GEMINI = 'generativelanguage.googleapis.com/*';
@@ -159,22 +161,51 @@ test('reply sorting is retried later when every model is busy, and is not retrie
 
 // ─── Admin settings ─────────────────────────────────────────────────────────────────────
 
-test('a super admin sets a model\'s key, which is stored encrypted and wins over .env', function () {
+test('a provider\'s keys are tried in order before the next provider, and each key rests on its own', function () {
     $admin = platformAdmin();
-    app(AiModelSettings::class)->update('groq', ['api_key' => 'gsk_admin_key_1234', 'model' => 'llama-3.1-8b-instant'], $admin);
+    $settings = app(AiModelSettings::class);
+    $settings->addKey('gemini', 'gemini-key-two', 'Second account', $admin);
+    config(['ai.models.gemini.api_key' => 'gemini-key, gemini-key-three']);
 
-    $raw = DB::table('ai_model_settings')->where('provider', 'groq')->value('api_key');
-    expect($raw)->not->toContain('gsk_admin_key_1234')
-        ->and(app(AiModelSettings::class)->all()['groq'])->api_key->toBe('gsk_admin_key_1234')->key_source->toBe('admin')->key_hint->toBe('••••1234')->model->toBe('llama-3.1-8b-instant');
+    expect(array_column($settings->all()['gemini']['keys'], 'api_key'))->toBe(['gemini-key-two', 'gemini-key', 'gemini-key-three']);
 
-    $log = PlatformAuditLog::where('action', 'ai_model_updated')->sole();
-    expect(json_encode($log->changes))->not->toContain('gsk_admin_key_1234');
+    Http::fake(function (Request $request) {
+        return match (true) {
+            $request->hasHeader('Authorization', 'Bearer gemini-key-two'), $request->hasHeader('Authorization', 'Bearer gemini-key') => Http::response([], 429),
+            str_contains($request->url(), 'googleapis') => Http::response(answer('Hello')),
+            default => Http::response(answer('From Groq')),
+        };
+    });
 
-    // Empty key: the saved one is kept. "Remove" falls back to .env.
-    app(AiModelSettings::class)->update('groq', ['api_key' => '', 'model' => 'llama-3.1-8b-instant'], $admin);
-    expect(app(AiModelSettings::class)->all()['groq']['api_key'])->toBe('gsk_admin_key_1234');
-    app(AiModelSettings::class)->update('groq', ['clear_key' => true], $admin);
-    expect(app(AiModelSettings::class)->all()['groq'])->api_key->toBe('groq-key')->key_source->toBe('env');
+    expect(ask())->toBe('gemini'); // the third Gemini key answered
+    Http::assertSentCount(3);
+
+    ask(); // the two limited keys rest: straight to the third
+    Http::assertSentCount(4);
+});
+
+test('a super admin adds and removes keys; they are stored encrypted and never logged', function () {
+    $admin = platformAdmin();
+    $settings = app(AiModelSettings::class);
+
+    $key = $settings->addKey('groq', 'gsk_admin_key_1234', null, $admin);
+    expect(fn () => $settings->addKey('groq', 'gsk_admin_key_1234', null, $admin))->toThrow(ValidationException::class, 'already saved')
+        ->and(fn () => $settings->addKey('groq', 'has space', null, $admin))->toThrow(ValidationException::class);
+
+    expect(DB::table('ai_model_keys')->value('api_key'))->not->toContain('gsk_admin_key_1234')
+        ->and($settings->all()['groq']['keys'][0])->hint->toBe('••••1234')->source->toBe('admin')
+        ->and(json_encode(PlatformAuditLog::pluck('changes')))->not->toContain('gsk_admin_key_1234');
+
+    $settings->removeKey('groq', $key->id, $admin);
+    expect(array_column($settings->all()['groq']['keys'], 'source'))->toBe(['env']);
+});
+
+test('the model name and address can be changed by an admin, and empty falls back to .env', function () {
+    $admin = platformAdmin();
+    app(AiModelSettings::class)->update('groq', ['model' => 'llama-3.1-8b-instant', 'base_url' => ''], $admin);
+
+    expect(app(AiModelSettings::class)->all()['groq'])->model->toBe('llama-3.1-8b-instant')->base_url->toBe('https://api.groq.com/openai/v1');
+    expect(fn () => app(AiModelSettings::class)->update('groq', ['model' => 'bad model name!'], $admin))->toThrow(ValidationException::class);
 });
 
 test('the admin order and on/off switches decide which model is asked first', function () {
@@ -190,22 +221,28 @@ test('the admin order and on/off switches decide which model is asked first', fu
 });
 
 test('only a super admin can change the AI models', function () {
-    expect(fn () => app(AiModelSettings::class)->update('groq', ['api_key' => 'x'], platformAdmin(PlatformRole::SupportAdmin)))->toThrow(AuthorizationException::class);
+    expect(fn () => app(AiModelSettings::class)->addKey('groq', 'gsk_x_12345678', null, platformAdmin(PlatformRole::SupportAdmin)))->toThrow(AuthorizationException::class);
 
     $this->actingAs(platformAdmin(PlatformRole::SupportAdmin))->get('/admin/ai-models')->assertForbidden();
     $this->actingAs(platformAdmin())->get('/admin/ai-models')->assertOk()->assertSee('AI Models')->assertSee('Google Gemini')->assertDontSee('gemini-key');
 });
 
-test('the admin page saves a key and tests a model', function () {
+test('the admin page adds keys, tests each one and removes them', function () {
     $this->actingAs(platformAdmin());
-    Http::fake([OPENROUTER => Http::response(answer('OK', 'meta-llama/llama-3.3-70b-instruct:free'))]);
+    Http::fake(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer sk-or-limited-1111')
+        ? Http::response([], 429)
+        : Http::response(answer('OK', 'meta-llama/llama-3.3-70b-instruct:free')));
+    config(['ai.models.openrouter.api_key' => null]);
 
     Livewire::test(AiModels::class)
-        ->callAction(TestAction::make('edit')->table('openrouter'), ['enabled' => true, 'api_key' => 'sk-or-new-9876', 'model' => '', 'base_url' => ''])
+        ->callAction(TestAction::make('add_key')->table('openrouter'), ['api_key' => 'sk-or-new-9876', 'label' => 'Main'])
         ->assertHasNoActionErrors()
+        ->callAction(TestAction::make('add_key')->table('openrouter'), ['api_key' => 'sk-or-limited-1111'])
         ->callAction(TestAction::make('test')->table('openrouter'))
-        ->assertNotified('It works');
+        ->assertNotified('1 of 2 keys work');
 
-    expect(AiModelSetting::where('provider', 'openrouter')->sole()->api_key)->toBe('sk-or-new-9876');
-    Http::assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer sk-or-new-9876'));
+    $limited = AiModelKey::where('fingerprint', hash('sha256', 'sk-or-limited-1111'))->sole();
+    Livewire::test(AiModels::class)->callAction(TestAction::make('remove_key')->table('openrouter'), ['key_id' => $limited->id]);
+
+    expect(AiModelKey::where('provider', 'openrouter')->sole()->api_key)->toBe('sk-or-new-9876');
 });

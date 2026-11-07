@@ -10,8 +10,9 @@ use App\Services\AI\Chat\ChatClient;
 use App\Services\AI\Chat\ChatModel;
 use App\Services\AI\Chat\ChatModelChain;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -55,7 +56,7 @@ class AiModels extends Page implements HasTable
 
     public function getSubheading(): ?string
     {
-        return 'Tried from top to bottom. When a model hits its limit or is down, the next one answers and the limited one rests for a while. Free keys: aistudio.google.com (Gemini), console.groq.com (Groq), openrouter.ai (models ending in ":free"). Empty fields fall back to .env.';
+        return 'Tried top to bottom, each provider\'s keys in order: when a key hits its limit, the next key or provider answers and the limited key rests. Free keys: aistudio.google.com, console.groq.com, openrouter.ai (":free" models).';
     }
 
     public function content(Schema $schema): Schema
@@ -72,15 +73,18 @@ class AiModels extends Page implements HasTable
                 TextColumn::make('order')->label('#'),
                 TextColumn::make('label')->label('Provider')->weight('bold'),
                 TextColumn::make('model')->label('Model')->fontFamily('mono'),
-                TextColumn::make('key')->label('Key'),
+                TextColumn::make('keys')->label('Keys (tried in order)')->listWithLineBreaks(),
                 TextColumn::make('state')->label('Status')->badge()->color(fn (string $state) => match (true) {
-                    $state === 'Ready' => 'success',
+                    str_starts_with($state, 'Ready') => 'success',
                     str_starts_with($state, 'Resting') => 'warning',
                     $state === 'Off' => 'gray',
                     default => 'danger',
                 }),
             ])
-            ->recordActions([$this->testAction(), $this->editAction(), $this->moveAction('up'), $this->moveAction('down')])
+            ->recordActions([
+                $this->testAction(),
+                ActionGroup::make([$this->addKeyAction(), $this->editAction(), $this->moveAction('up'), $this->moveAction('down'), $this->removeKeyAction()])->tooltip('More'),
+            ])
             ->emptyStateHeading('No AI models are configured');
     }
 
@@ -92,28 +96,30 @@ class AiModels extends Page implements HasTable
         $order = 0;
 
         foreach (app(AiModelSettings::class)->all() as $name => $model) {
-            $ready = ChatModel::fromConfig($name, $model);
-            $resting = $ready === null ? null : $chain->restingUntil($ready);
+            $keys = ChatModel::forEachKey($name, $model);
+            $resting = array_values(array_filter(array_map(fn (ChatModel $key) => $chain->restingUntil($key), $keys)));
+            $keyless = (bool) ($model['keyless'] ?? false);
 
             $rows[$name] = [
                 'name' => $name,
                 'order' => ++$order,
                 'label' => $model['label'] ?? $name,
                 'model' => (string) ($model['model'] ?? '—'),
-                'key' => match (true) {
-                    $model['keyless'] ?? false => filled($model['base_url']) ? 'No key needed ('.$model['base_url'].')' : 'Needs its URL',
-                    $model['key_source'] === 'admin' => $model['key_hint'].' (set here)',
-                    $model['key_source'] === 'env' => $model['key_hint'].' (from .env)',
-                    default => 'Not set',
+                'keys' => match (true) {
+                    $keyless => [filled($model['base_url']) ? 'No key needed' : 'Needs its URL'],
+                    $model['keys'] === [] => ['Not set'],
+                    default => array_map(fn (array $key) => $key['hint'].($key['label'] ? ' '.$key['label'] : '').($key['source'] === 'env' ? ' (.env)' : ''), $model['keys']),
                 },
                 'state' => match (true) {
                     ! $model['enabled'] => 'Off',
-                    $ready === null => 'Not set up',
-                    $resting !== null => 'Resting until '.$resting->format('H:i:s'),
+                    $keys === [] => 'Not set up',
+                    count($resting) === count($keys) => 'Resting until '.collect($resting)->min()->format('H:i:s'),
+                    $resting !== [] => 'Ready ('.count($resting).' of '.count($keys).' keys resting)',
                     default => 'Ready',
                 },
                 'enabled' => (bool) $model['enabled'],
-                'keyless' => (bool) ($model['keyless'] ?? false),
+                'keyless' => $keyless,
+                'admin_keys' => collect($model['keys'])->where('source', 'admin')->mapWithKeys(fn (array $key) => [$key['key_id'] => $key['hint'].($key['label'] ? ' '.$key['label'] : '')])->all(),
             ];
         }
 
@@ -134,22 +140,16 @@ class AiModels extends Page implements HasTable
             })
             ->schema(fn (array $record) => [
                 Toggle::make('enabled')->label('Use this model'),
-                TextInput::make('api_key')->label('API key')->password()->revealable(false)->autocomplete('new-password')
-                    ->visible(! $record['keyless'])
-                    ->helperText('Current: '.$record['key'].'. Leave empty to keep it.'),
-                Checkbox::make('clear_key')->label('Remove the key saved here (the .env key is used again, if any)')->visible(! $record['keyless']),
                 TextInput::make('model')->label('Model ID')->maxLength(150)->placeholder(config('ai.models.'.$record['name'].'.model'))
                     ->helperText('Leave empty to use the default shown.'),
                 TextInput::make('base_url')->label('API address')->maxLength(255)->placeholder(config('ai.models.'.$record['name'].'.base_url') ?: 'http://127.0.0.1:11434/v1')
                     ->helperText('Only change this for a self-hosted or compatible service.'),
-                Text::make('Keys are stored encrypted and never shown again. Changes are recorded in the audit log (without the key).'),
+                Text::make('Keys are managed with "Add key" and "Remove key". Changes are recorded in the audit log.'),
             ])
             ->action(function (array $record, array $data, Action $action) {
                 try {
                     app(AiModelSettings::class)->update($record['name'], [
                         'enabled' => (bool) ($data['enabled'] ?? false),
-                        'api_key' => $data['api_key'] ?? null,
-                        'clear_key' => (bool) ($data['clear_key'] ?? false),
                         'model' => $data['model'] ?? null,
                         'base_url' => $data['base_url'] ?? null,
                     ], auth()->user());
@@ -177,9 +177,74 @@ class AiModels extends Page implements HasTable
             ->icon('heroicon-o-signal')
             ->color('gray')
             ->action(function (array $record) {
-                $result = app(ChatClient::class)->test($record['name']);
-                Notification::make()->title($result['ok'] ? 'It works' : 'It did not work')->body($result['message'])
-                    ->{$result['ok'] ? 'success' : 'danger'}()->send();
+                $results = app(ChatClient::class)->test($record['name']);
+                $working = count(array_filter($results, fn (array $result) => $result['ok']));
+                $title = match (true) {
+                    $working === count($results) => 'It works',
+                    $working > 0 => $working.' of '.count($results).' keys work',
+                    default => 'It did not work',
+                };
+
+                Notification::make()->title($title)->body(implode("\n", array_column($results, 'message')))
+                    ->{$working === count($results) ? 'success' : ($working > 0 ? 'warning' : 'danger')}()->persistent()->send();
+            });
+    }
+
+    private function addKeyAction(): Action
+    {
+        return Action::make('add_key')
+            ->label('Add key')
+            ->icon('heroicon-o-key')
+            ->color('gray')
+            ->visible(fn (array $record) => ! $record['keyless'])
+            ->modalHeading(fn (array $record) => 'Add a '.$record['label'].' key')
+            ->modalDescription('Keys are tried in order: when one reaches its limit, the next one is used, then the next provider. Each free account\'s key has its own limit.')
+            ->modalSubmitActionLabel('Add key')
+            ->schema([
+                TextInput::make('api_key')->label('API key')->password()->revealable(false)->autocomplete('new-password')->required(),
+                TextInput::make('label')->label('Name (optional)')->maxLength(60)->placeholder('e.g. Second Google account'),
+                Text::make('Stored encrypted and never shown again; only its last 4 characters are shown.'),
+            ])
+            ->action(function (array $record, array $data, Action $action) {
+                try {
+                    $key = app(AiModelSettings::class)->addKey($record['name'], (string) $data['api_key'], $data['label'] ?? null, auth()->user());
+                } catch (AuthorizationException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                    $action->halt();
+
+                    return;
+                } catch (ValidationException $e) {
+                    Notification::make()->title('Not added')->body(collect($e->errors())->flatten()->implode(' '))->danger()->send();
+                    $action->halt();
+
+                    return;
+                }
+
+                Notification::make()->title('Key '.$key->hint().' added to '.$record['label'])->body('Press "Test" to check it.')->success()->send();
+                $action->success();
+            });
+    }
+
+    private function removeKeyAction(): Action
+    {
+        return Action::make('remove_key')
+            ->label('Remove key')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->visible(fn (array $record) => $record['admin_keys'] !== [])
+            ->modalHeading(fn (array $record) => 'Remove a '.$record['label'].' key')
+            ->modalSubmitActionLabel('Remove')
+            ->schema(fn (array $record) => [
+                Select::make('key_id')->label('Key')->options($record['admin_keys'])->required(),
+                Text::make('Keys from .env are removed in the .env file.'),
+            ])
+            ->action(function (array $record, array $data) {
+                try {
+                    app(AiModelSettings::class)->removeKey($record['name'], (int) $data['key_id'], auth()->user());
+                    Notification::make()->title('Key removed')->success()->send();
+                } catch (AuthorizationException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                }
             });
     }
 
@@ -188,7 +253,6 @@ class AiModels extends Page implements HasTable
         return Action::make('move_'.$direction)
             ->label($direction === 'up' ? 'Move up' : 'Move down')
             ->icon($direction === 'up' ? 'heroicon-o-arrow-up' : 'heroicon-o-arrow-down')
-            ->iconButton()
             ->color('gray')
             ->action(function (array $record) use ($direction) {
                 try {

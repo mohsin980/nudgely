@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Asks the model chain: the first model that is set up and not resting answers. When a model is rate-limited,
+ * Asks the model chain: the first model (and key) that is set up and not resting answers. When one is rate-limited,
  * down, rejects the request or gives an unusable answer, the next one is asked. Models speak the OpenAI Chat
  * Completions format (Gemini, Groq, OpenRouter, Ollama and OpenAI all do).
  *
@@ -28,32 +28,39 @@ class ChatClient
     ) {}
 
     /**
-     * Ask one model a tiny question, whatever its place in the chain, to check its key and model name.
+     * Ask each of a provider's keys a tiny question, whatever its place in the chain, to check the keys and model name.
      *
-     * @return array{ok: bool, message: string}
+     * @return list<array{ok: bool, message: string}>
      */
     public function test(string $name): array
     {
         $definition = $this->settings->all()[$name] ?? null;
-        $model = is_array($definition) ? ChatModel::fromConfig($name, $definition) : null;
+        $models = is_array($definition) ? ChatModel::forEachKey($name, $definition) : [];
 
-        if ($model === null) {
-            return ['ok' => false, 'message' => 'Not set up: add its key'.($name === 'ollama' ? ' (Ollama: its URL)' : '').' first.'];
+        if ($models === []) {
+            return [['ok' => false, 'message' => 'Not set up: add a key'.($name === 'ollama' ? ' (Ollama: its URL)' : '').' first.']];
         }
 
-        $started = microtime(true);
-        $reply = $this->ask($model, new ChatRequest([
-            ['role' => 'system', 'content' => 'You are a connection test. Reply with the single word OK.'],
-            ['role' => 'user', 'content' => 'Test'],
-        ], maxTokens: 10));
+        $results = [];
 
-        if ($reply === null) {
-            return ['ok' => false, 'message' => $model->label.' did not answer: '.($this->lastProblem ?? 'unknown problem').'.'];
+        foreach ($models as $model) {
+            $started = microtime(true);
+            $reply = $this->ask($model, new ChatRequest([
+                ['role' => 'system', 'content' => 'You are a connection test. Reply with the single word OK.'],
+                ['role' => 'user', 'content' => 'Test'],
+            ], maxTokens: 10));
+
+            if ($reply === null) {
+                $results[] = ['ok' => false, 'message' => $model->describe().': '.($this->lastProblem ?? 'no answer')];
+
+                continue;
+            }
+
+            $this->chain->succeeded($model);
+            $results[] = ['ok' => true, 'message' => $model->describe().': answered in '.number_format(microtime(true) - $started, 1).'s ('.$reply->model.')'];
         }
 
-        $this->chain->succeeded($model);
-
-        return ['ok' => true, 'message' => $model->label.' answered in '.number_format(microtime(true) - $started, 1).'s using '.$reply->model.'.'];
+        return $results;
     }
 
     /**
@@ -229,6 +236,7 @@ class ChatClient
 
         Log::warning('AI model skipped: '.$problem.'.', array_filter([
             'provider' => $model->name,
+            'key' => $model->keyHint,
             'model' => $model->model,
             'status' => $status,
             'resting_seconds' => $rested,
