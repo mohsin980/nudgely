@@ -12,9 +12,9 @@
                 <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{{ $this->customer->name }}@if ($this->customer->is_demo)<span class="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif</h1>
                 @if ($this->customer->is_demo)<p class="mt-1 text-sm text-amber-800" data-sample-note>Sample data: this customer never receives real emails and doesn't count toward your plan. You can delete it from setup.</p>@endif
                 <p class="break-words text-sm text-slate-500">
-                    <a href="mailto:{{ $this->customer->email }}" class="hover:underline">{{ $this->customer->email }}</a>
-                    @if ($this->customer->phone) · {{ $this->customer->phone }} @endif
-                    @if ($this->customer->company) · {{ $this->customer->company }} @endif
+                    @if ($this->customer->email)<a href="mailto:{{ $this->customer->email }}" class="hover:underline">{{ $this->customer->email }}</a>@endif
+                    @if ($this->customer->phone){{ $this->customer->email ? ' · ' : '' }}{{ $this->customer->phone }}@endif
+                    @if ($this->customer->company){{ $this->customer->email || $this->customer->phone ? ' · ' : '' }}{{ $this->customer->company }}@endif
                 </p>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-section="lead-stage">
                     <span class="text-slate-500">Lead stage:</span>
@@ -27,6 +27,25 @@
                                         'text-slate-500 hover:bg-slate-50 hover:text-slate-800' => ! $current])>{{ $leadStage->label() }}</button>
                         @endforeach
                     </div>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-section="lead-handler">
+                    <label for="lead-handler" class="text-slate-500">Handled by:</label>
+                    @if ($assignsAnyone)
+                        <select id="lead-handler" wire:change="assignLead($event.target.value)" class="rounded-xl border-0 py-1.5 pr-8 pl-3 text-sm font-medium text-slate-800 shadow-xs ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
+                            <option value="" @selected($this->customer->assigned_to === null)>Nobody yet</option>
+                            @foreach ($team as $memberId => $memberName)
+                                <option value="{{ $memberId }}" @selected($this->customer->assigned_to === $memberId)>{{ $memberName }}</option>
+                            @endforeach
+                        </select>
+                    @elseif ($this->customer->assigned_to === null)
+                        <span class="font-medium text-slate-800">Nobody yet</span>
+                        <button type="button" wire:click="assignLead('{{ auth()->id() }}')" class="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50">Take this lead</button>
+                    @elseif ($this->customer->assigned_to === auth()->id())
+                        <span class="font-medium text-slate-800">You</span>
+                        <button type="button" wire:click="assignLead('')" class="rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 ring-inset hover:bg-slate-50">Give back</button>
+                    @else
+                        <span class="font-medium text-slate-800">{{ $team[$this->customer->assigned_to] ?? 'A former team member' }}</span>
+                    @endif
                 </div>
                 @php($bizSettings = $this->customer->organization->businessSettings())
                 @if ($bizSettings->usesChannel(\App\Enums\MessageChannel::WhatsApp))

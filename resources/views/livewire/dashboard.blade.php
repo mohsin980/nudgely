@@ -488,6 +488,34 @@
             </div>
 
             <div class="min-w-0 space-y-5">
+                {{-- AI assistant: this period's chats, and leads waiting for Won / Lost --}}
+                @if ($assistant)
+                    <section aria-labelledby="assistant-heading" class="{{ $card }}" data-section="assistant">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-3">
+                                <span class="{{ $badge }} bg-violet-100 text-violet-600"><x-ui-icon name="sparkles" class="size-6" /></span>
+                                <h2 id="assistant-heading" class="{{ $heading }}">{{ $assistant['name'] }} (AI assistant)</h2>
+                            </div>
+                            <span @class(['rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset', 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' => $assistant['on'], 'bg-slate-100 text-slate-600 ring-slate-500/20' => ! $assistant['on']])>{{ $assistant['on'] ? 'On' : 'Off' }}</span>
+                        </div>
+                        <dl class="mt-4 grid grid-cols-3 gap-2 text-center">
+                            @foreach (['chats' => 'Chats', 'qualified' => 'Qualified', 'handed_over' => 'Handed over'] as $key => $statLabel)
+                                <div class="rounded-xl bg-slate-50 px-2 py-3 ring-1 ring-slate-200/70 ring-inset">
+                                    <dt class="text-xs text-slate-500">{{ $statLabel }}</dt>
+                                    <dd class="text-xl font-bold text-slate-900" data-assistant-stat="{{ $key }}">{{ number_format($assistant[$key]) }}</dd>
+                                </div>
+                            @endforeach
+                        </dl>
+                        <p class="mt-2 text-xs text-slate-500">This billing period.</p>
+                        @if ($assistant['awaiting_outcome'] > 0)
+                            <a href="{{ route('customers.index', ['stage' => 'qualified']) }}" wire:navigate class="mt-3 flex items-center justify-between gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900 ring-1 ring-amber-200 ring-inset hover:bg-amber-100" data-awaiting-outcome>
+                                <span>{{ trans_choice(':count lead is waiting for Won or Lost|:count leads are waiting for Won or Lost', $assistant['awaiting_outcome']) }}</span>
+                                <x-ui-icon name="chevron-right" class="size-4" />
+                            </a>
+                        @endif
+                    </section>
+                @endif
+
                 {{-- Your business at a glance --}}
                 <section aria-labelledby="glance-business-heading" class="{{ $card }}" data-section="business">
                     <div class="flex items-center justify-between gap-2">

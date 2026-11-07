@@ -3,7 +3,7 @@
     @php($pill = 'h-10 w-full appearance-none rounded-xl border-0 py-0 pr-9 pl-3.5 text-sm font-medium shadow-none ring-1 ring-inset transition focus:ring-2 focus:ring-violet-500 focus:outline-none')
     @php($pillIdle = 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50')
     @php($pillActive = 'bg-violet-50 text-violet-800 ring-violet-300')
-    @php($pillWidths = ['f-channel' => 'sm:w-40', 'f-status' => 'sm:w-32', 'f-conversation' => 'sm:w-40', 'f-follow-up' => 'sm:w-36', 'f-intent' => 'sm:w-36'])
+    @php($pillWidths = ['f-handler' => 'sm:w-40', 'f-channel' => 'sm:w-40', 'f-status' => 'sm:w-32', 'f-conversation' => 'sm:w-40', 'f-follow-up' => 'sm:w-36', 'f-intent' => 'sm:w-36'])
     @php($avatarTones = ['bg-violet-100 text-violet-700', 'bg-sky-100 text-sky-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-800', 'bg-rose-100 text-rose-700', 'bg-indigo-100 text-indigo-700'])
 
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -77,6 +77,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 @foreach ([
                     ['f-status', 'status', 'Status', collect($customerStatuses)->map(fn ($s) => [$s->value, $s->label()])],
+                    ['f-handler', 'handler', 'Handled by', collect([['me', 'Me'], ['none', 'Nobody yet']])],
                     ...($usesWhatsApp ? [['f-channel', 'channel', 'Channel', collect([['whatsapp', 'WhatsApp ready'], ['email', 'Email only']])]] : []),
                     ['f-conversation', 'conversation', 'Conversation', collect($conversationStatuses)->map(fn ($s) => [$s->value, $s->label()])],
                     ['f-follow-up', 'followUp', 'Follow-up', collect([['overdue', 'Overdue'], ['due_today', 'Due today'], ['upcoming', 'Upcoming'], ['none', 'None']])],
@@ -136,6 +137,7 @@
                                             <p class="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
                                                 <span class="truncate">{{ $customer->name }}</span>
                                                 <x-lead-stage-badge :stage="$customer->lead_stage" />
+                                                @if ($customer->assignee)<span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600" title="Handled by {{ $customer->assignee->name }}" data-assignee><x-ui-icon name="user" class="size-3.5" />{{ $customer->assignee->name }}</span>@endif
                                                 @if ($usesWhatsApp && $customer->whatsapp_opt_in_at && $customer->phone_e164)<span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset" title="Can be messaged on WhatsApp" data-whatsapp-badge><x-ui-icon name="chat" class="size-3.5" />WhatsApp</span>@endif
                                                 @if ($customer->is_demo)<span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" data-sample-badge>Sample</span>@endif
                                                 @if (! $customer->isActive())<span class="rounded-lg bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Inactive</span>@endif

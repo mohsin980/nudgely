@@ -50,8 +50,9 @@ class CustomerDirectory
         [$start, $end] = $this->today($organization);
 
         $query = Customer::query()
+            ->with('assignee:id,name')
             ->where('customers.organization_id', $organization->id)
-            ->select(['customers.id', 'customers.organization_id', 'customers.name', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone', 'customers.company', 'customers.status', 'customers.lead_stage', 'customers.preferred_channel', 'customers.whatsapp_opt_in_at', 'customers.phone_e164', 'customers.last_activity_at', 'customers.created_at'])
+            ->select(['customers.id', 'customers.organization_id', 'customers.name', 'customers.first_name', 'customers.last_name', 'customers.email', 'customers.phone', 'customers.company', 'customers.status', 'customers.lead_stage', 'customers.assigned_to', 'customers.preferred_channel', 'customers.whatsapp_opt_in_at', 'customers.phone_e164', 'customers.last_activity_at', 'customers.created_at'])
             // The most recently active conversation's status and intent, and the next open follow-up.
             ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at is null, last_message_at desc')->limit(1)->select('status'), 'conversation_status')
             ->selectSub(fn ($q) => $q->from('conversations')->whereColumn('conversations.customer_id', 'customers.id')->orderByRaw('last_message_at is null, last_message_at desc')->limit(1)->select('latest_intent'), 'latest_intent')
@@ -63,6 +64,13 @@ class CustomerDirectory
         match ($filters['channel'] ?? '') {
             'whatsapp' => $query->whereNotNull('customers.whatsapp_opt_in_at')->whereNotNull('customers.phone_e164'),
             'email' => $query->where(fn ($q) => $q->whereNull('customers.whatsapp_opt_in_at')->orWhereNull('customers.phone_e164')),
+            default => null,
+        };
+
+        // "me": leads the signed-in person handles; "none": nobody handles them yet.
+        match ($filters['handler'] ?? '') {
+            'me' => $query->where('customers.assigned_to', (int) ($filters['user_id'] ?? 0)),
+            'none' => $query->whereNull('customers.assigned_to'),
             default => null,
         };
 

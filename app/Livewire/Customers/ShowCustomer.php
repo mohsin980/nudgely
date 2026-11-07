@@ -14,8 +14,11 @@ use App\Models\Task;
 use App\Services\Conversations\ConversationService;
 use App\Services\Conversations\TimelineService;
 use App\Services\Customers\EmailPreferenceService;
+use App\Services\Leads\LeadAssignmentService;
 use App\Services\Leads\LeadStageService;
 use App\Services\Tasks\TaskService;
+use App\Services\Team\TeamDirectory;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -199,6 +202,23 @@ class ShowCustomer extends Component
         $this->customerChanged();
     }
 
+    /**
+     * Give the lead to a team member ('' for nobody). Staff can take an unassigned lead or give theirs back.
+     */
+    public function assignLead(string $userId, LeadAssignmentService $assignments): void
+    {
+        $this->authorize('view', $this->customer);
+        $assignee = $userId === '' ? null : (app(TeamDirectory::class)->activeMember($this->customer->organization_id, $userId) ?? abort(422));
+
+        try {
+            $assignments->assign(Auth::user(), $this->customer, $assignee);
+        } catch (AuthorizationException $e) {
+            abort(403, $e->getMessage());
+        }
+
+        $this->customerChanged();
+    }
+
     private function customerChanged(): void
     {
         unset($this->customer, $this->followUps, $this->timeline);
@@ -215,7 +235,11 @@ class ShowCustomer extends Component
 
     public function render()
     {
-        return view('livewire.customers.show-customer', ['organization' => $this->organization()])
+        return view('livewire.customers.show-customer', [
+            'organization' => $this->organization(),
+            'team' => app(TeamDirectory::class)->assignableOptions($this->organization()->id),
+            'assignsAnyone' => app(LeadAssignmentService::class)->canAssignAnyone(Auth::user()),
+        ])
             ->title($this->customer->name);
     }
 

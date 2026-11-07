@@ -26,6 +26,10 @@ enum NotificationType: string
 
     case AssistantHandover = 'assistant_handover';
 
+    case LeadAssigned = 'lead_assigned';
+
+    case LeadOutcomeReminder = 'lead_outcome_reminder';
+
     public function label(): string
     {
         return match ($this) {
@@ -45,6 +49,8 @@ enum NotificationType: string
             self::BillingRestricted => 'Billing: paid features paused (owner)',
             self::EmailAccountNeedsReconnect => 'Email account needs reconnecting',
             self::AssistantHandover => 'AI assistant needs you',
+            self::LeadAssigned => 'Lead assigned to me',
+            self::LeadOutcomeReminder => 'Won / Lost reminder',
         };
     }
 
@@ -70,6 +76,8 @@ enum NotificationType: string
             self::BillingRestricted => 'Know when paid features are paused.',
             self::EmailAccountNeedsReconnect => 'Know when your business email needs to be connected again.',
             self::AssistantHandover => 'Know when the AI assistant hands a WhatsApp chat over to you.',
+            self::LeadAssigned => 'Know when a lead is given to you to handle.',
+            self::LeadOutcomeReminder => 'Get reminded to mark a lead Won or Lost when it has gone quiet.',
         };
     }
 

@@ -60,7 +60,7 @@
     @endif
 
     @if ($chat = $this->assistantChat)
-        @include('livewire.inbox.partials.assistant-banner', ['chat' => $chat, 'assistantName' => $assistantName])
+        @include('livewire.inbox.partials.assistant-banner', ['chat' => $chat, 'assistantName' => $assistantName, 'team' => $team, 'assignsAnyone' => $assignsAnyone, 'assignedTo' => $this->conversation->customer?->assigned_to])
     @endif
 
     <div class="grid gap-6 lg:grid-cols-3">

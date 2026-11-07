@@ -24,9 +24,11 @@ use App\Services\AI\ReplyReviewPolicy;
 use App\Services\Conversations\ConversationService;
 use App\Services\Conversations\TimelineService;
 use App\Services\Email\EmailHtmlSanitizer;
+use App\Services\Leads\LeadAssignmentService;
 use App\Services\Tasks\TaskService;
 use App\Services\Team\TeamDirectory;
 use App\Services\WhatsApp\WhatsAppMessenger;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -267,6 +269,25 @@ class ShowConversation extends Component
             ->where('conversation_id', $this->conversation->id)->with('takenOverBy:id,name')->latest('id')->first();
     }
 
+    /**
+     * Give this lead to a team member after the AI assistant handed it over.
+     */
+    public function assignLead(string $userId, LeadAssignmentService $assignments): void
+    {
+        $this->authorize('update', $this->conversation);
+        $customer = $this->conversation->customer ?? abort(404);
+        $assignee = $userId === '' ? null : (app(TeamDirectory::class)->activeMember($customer->organization_id, $userId) ?? abort(422));
+
+        try {
+            $assignments->assign(Auth::user(), $customer, $assignee);
+            $this->flash($assignee ? $customer->name.' is now handled by '.$assignee->name.'.' : 'Nobody handles this lead now.', 'success');
+        } catch (AuthorizationException $e) {
+            $this->flash($e->getMessage(), 'error');
+        }
+
+        unset($this->conversation);
+    }
+
     public function takeOverFromAssistant(ConversationService $conversations): void
     {
         $this->authorize('update', $this->conversation);
@@ -471,6 +492,8 @@ class ShowConversation extends Component
         return view('livewire.inbox.show-conversation', [
             'organization' => $this->conversation->organization,
             'assistantName' => $this->assistantChat ? ($this->conversation->organization->assistantProfile()->value('assistant_name') ?: 'AI assistant') : null,
+            'team' => $this->assistantChat ? app(TeamDirectory::class)->assignableOptions($this->conversation->organization_id) : collect(),
+            'assignsAnyone' => app(LeadAssignmentService::class)->canAssignAnyone(Auth::user()),
             'closeReasons' => ConversationCloseReason::cases(),
             'intents' => CustomerReplyIntent::cases(),
             'statuses' => ConversationStatus::cases(),

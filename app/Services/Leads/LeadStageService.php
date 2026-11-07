@@ -77,7 +77,8 @@ class LeadStageService
     private function change(Customer $customer, LeadStage $to, array $data, ?User $actor = null, ?int $conversationId = null): void
     {
         $from = $customer->lead_stage;
-        $customer->forceFill(['lead_stage' => $to, 'lead_stage_changed_at' => now()])->save();
+        // A new stage starts the Won / Lost reminders afresh.
+        $customer->forceFill(['lead_stage' => $to, 'lead_stage_changed_at' => now(), 'outcome_reminders' => 0, 'outcome_reminded_at' => null])->save();
 
         $event = new ConversationEvent;
         $event->forceFill([
