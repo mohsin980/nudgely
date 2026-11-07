@@ -14,6 +14,13 @@ return [
     |
     */
 
+    // Each business connects its own WhatsApp number (Meta WhatsApp Cloud API); QuoteFlow holds no Meta account.
+    'whatsapp' => [
+        'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
+        'timeout' => 10,
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

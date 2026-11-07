@@ -2,6 +2,7 @@
 
 namespace App\Support\Settings;
 
+use App\Enums\MessageChannel;
 use App\Enums\TaskPriority;
 use App\Enums\Team\NotificationChannel;
 use App\Enums\Team\NotificationType;
@@ -18,6 +19,7 @@ use App\Enums\Team\NotificationType;
  * - notify_user_id: who "Notify the business" automation actions notify (null = owner and managers)
  * - business_hours: stored for scheduling (see BusinessHours)
  * - notifications: organization defaults per notification type and channel (people can override)
+ * - follow_up_channels, primary_channel: how the business follows up with customers (email, WhatsApp or both)
  */
 final class OrganizationSettings
 {
@@ -27,7 +29,7 @@ final class OrganizationSettings
         'estimate_valid_days', 'estimate_notes', 'estimate_tax_rate',
         'follow_up_delay_days', 'follow_up_time', 'follow_up_attempts', 'task_priority',
         'automation_owner_id', 'task_assignee_id', 'notify_user_id',
-        'business_hours', 'notifications',
+        'business_hours', 'notifications', 'follow_up_channels', 'primary_channel',
     ];
 
     public const DAYS = ['mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];
@@ -95,6 +97,41 @@ final class OrganizationSettings
     public function followUpAttempts(): int
     {
         return $this->int('follow_up_attempts', 1, self::MAX_FOLLOW_UP_ATTEMPTS) ?? 1;
+    }
+
+    /**
+     * The channels the business follows up on. Email until the business chooses.
+     *
+     * @return list<MessageChannel>
+     */
+    public function followUpChannels(): array
+    {
+        $chosen = array_values(array_filter(array_map(
+            fn ($value) => is_string($value) ? MessageChannel::tryFrom($value) : null,
+            explode(',', (string) ($this->values['follow_up_channels'] ?? '')), // stored as "email,whatsapp"
+        )));
+
+        return $chosen === [] ? [MessageChannel::Email] : array_values(array_unique($chosen, SORT_REGULAR));
+    }
+
+    public function hasChosenChannels(): bool
+    {
+        return ! empty($this->values['follow_up_channels']);
+    }
+
+    public function usesChannel(MessageChannel $channel): bool
+    {
+        return in_array($channel, $this->followUpChannels(), true);
+    }
+
+    /**
+     * The channel used for customers who haven't picked one, among the business's channels.
+     */
+    public function primaryChannel(): MessageChannel
+    {
+        $primary = MessageChannel::tryFrom((string) ($this->values['primary_channel'] ?? ''));
+
+        return $primary !== null && $this->usesChannel($primary) ? $primary : $this->followUpChannels()[0];
     }
 
     /**

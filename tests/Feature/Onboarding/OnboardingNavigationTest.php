@@ -24,6 +24,7 @@ function navOwnerAtEmailStep(): array
     $onboarding->begin($organization);
     $onboarding->saveBusinessProfile($owner, ['name' => 'Dallas HVAC', 'business_type' => 'hvac', 'phone' => '(214) 555-1234', 'website' => 'dallashvac.com']);
     $onboarding->saveLocation($owner, ['country' => 'US', 'state' => 'TX', 'city' => 'Dallas', 'timezone' => 'America/Chicago']);
+    $onboarding->saveFollowUpChannels($owner, ['channels' => 'email']);
 
     return [$owner->fresh(), $organization->fresh()];
 }
@@ -46,9 +47,11 @@ test('going back shows the previous step without changing saved progress', funct
     $before = app(OnboardingService::class)->state($organization)->percent();
 
     Livewire::actingAs($owner)->test(Wizard::class)
-        ->assertSee('Connect your business email')->assertSee('Step 3 of 6')
+        ->assertSee('Connect your business email')->assertSee('Step 4 of 7')
         ->call('goBack')
-        ->assertSee('Where are you located?')->assertSee('Step 2 of 6')->assertSee('Dallas')
+        ->assertSee('How do you want to follow up?')->assertSee('Step 3 of 7')
+        ->call('goBack')
+        ->assertSee('Where are you located?')->assertSee('Step 2 of 7')->assertSee('Dallas')
         ->assertSee('Continue');
 
     $state = app(OnboardingService::class)->state($organization->fresh());
@@ -67,7 +70,7 @@ test('going back from the first step does nothing', function () {
         ->call('start')
         ->assertSee('About your business')->assertDontSee('data-back')
         ->call('goBack')
-        ->assertSee('About your business')->assertSee('Step 1 of 6');
+        ->assertSee('About your business')->assertSee('Step 1 of 7');
 });
 
 test('a forged request cannot show a step that is not yet reached', function () {
@@ -84,7 +87,7 @@ test('saving the step shown after going back returns to the step that is really 
     Livewire::actingAs($owner)->test(Wizard::class)
         ->call('goBack')
         ->call('saveLocation')
-        ->assertSee('Connect your business email')->assertSee('Step 3 of 6');
+        ->assertSee('Connect your business email')->assertSee('Step 4 of 7');
 
     expect(app(OnboardingService::class)->state($organization->fresh())->current)->toBe(OnboardingStep::EmailConnection);
 });
@@ -181,7 +184,7 @@ test('a finished checklist step can be reviewed, and a step not reached yet does
 
     Livewire::actingAs($owner)->test(Wizard::class)
         ->call('viewStep', OnboardingStep::BusinessProfile->value)
-        ->assertSee('About your business')->assertSee('Step 1 of 6')
+        ->assertSee('About your business')->assertSee('Step 1 of 7')
         ->call('viewStep', OnboardingStep::FirstEstimate->value)
         ->assertSee('Connect your business email')->assertDontSee('About your business');
 

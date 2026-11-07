@@ -54,6 +54,11 @@ class Wizard extends Component
 
     public bool $timezoneEdited = false;
 
+    // Follow-up channels
+    public string $channelChoice = '';
+
+    public string $primaryChannel = 'email';
+
     // Customer
     public string $customerName = '';
 
@@ -157,12 +162,25 @@ class Wizard extends Component
         ]), ['state' => 'stateCode']);
     }
 
+    public function saveChannels(): void
+    {
+        $this->guarded(fn (OnboardingService $onboarding) => $onboarding->saveFollowUpChannels($this->user(), [
+            'channels' => $this->channelChoice, 'primary' => $this->primaryChannel,
+        ]));
+    }
+
+    public function recheckWhatsApp(): void
+    {
+        $this->error = null;
+        $this->organization()->unsetRelation('whatsappConnection');
+    }
+
     /**
      * Show the step before the one being shown. Never goes before the first step, and never changes saved progress.
      */
     public function goBack(): void
     {
-        $steps = OnboardingStep::working();
+        $steps = app(OnboardingService::class)->steps($this->organization());
         $index = array_search($this->displayedStep(), $steps, true);
 
         if ($index === false || $index === 0) {
@@ -180,7 +198,7 @@ class Wizard extends Component
      */
     public function viewStep(string $step, OnboardingService $onboarding): void
     {
-        $steps = OnboardingStep::working();
+        $steps = $onboarding->steps($this->organization());
         $current = array_search($onboarding->state($this->organization())->current, $steps, true);
         $target = OnboardingStep::tryFrom($step);
         $targetIndex = $target === null ? false : array_search($target, $steps, true);
@@ -326,7 +344,7 @@ class Wizard extends Component
         $state = $onboarding->state($organization);
         $welcomed = (bool) ($organization->onboarding_progress['welcomed'] ?? false) || $state->current !== OnboardingStep::BusinessProfile;
         $step = $this->displayedStep($state);
-        $steps = OnboardingStep::working();
+        $steps = $state->stepList();
         $stepIndex = array_search($step, $steps, true);
 
         return view('livewire.onboarding.wizard', [
@@ -338,6 +356,7 @@ class Wizard extends Component
             'canGoBack' => $stepIndex !== false && $stepIndex > 0,
             'welcomed' => $welcomed,
             'emailAccount' => $organization->emailConnections()->default()->first(),
+            'whatsappConnection' => $organization->whatsappConnection,
             'trial' => $entitlements->trial($organization),
             'businessTypes' => collect(config('onboarding.business_types'))->map(fn ($t) => $t['label'])->all(),
             'emailConnection' => $organization->emailConnections()->default()->verified()->first(),
@@ -397,6 +416,14 @@ class Wizard extends Component
         $this->stateCode = (string) $organization->state;
         $this->city = (string) $organization->city;
         $this->timezone = $organization->timezone();
+
+        $settings = $organization->businessSettings();
+
+        if ($settings->hasChosenChannels()) {
+            $channels = $settings->followUpChannels();
+            $this->channelChoice = count($channels) > 1 ? 'both' : $channels[0]->value;
+            $this->primaryChannel = $settings->primaryChannel()->value;
+        }
     }
 
     /**

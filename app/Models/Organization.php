@@ -286,4 +286,9 @@ class Organization extends Model
     {
         return $this->hasMany(Estimate::class);
     }
+
+    public function whatsappConnection(): HasOne
+    {
+        return $this->hasOne(WhatsAppConnection::class);
+    }
 }

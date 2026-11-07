@@ -30,6 +30,7 @@ class CustomerImportService
         'phone' => ['label' => 'Phone', 'aliases' => ['phone', 'phone_number', 'mobile', 'cell', 'telephone', 'tel']],
         'company' => ['label' => 'Company', 'aliases' => ['company', 'company_name', 'business', 'organization', 'organisation']],
         'notes' => ['label' => 'Notes', 'aliases' => ['notes', 'note', 'comments', 'comment']],
+        'whatsapp_consent' => ['label' => 'WhatsApp consent (yes/no)', 'aliases' => ['whatsapp_consent', 'whatsapp_opt_in', 'whatsapp_optin', 'whatsapp', 'opt_in']],
     ];
 
     public function __construct(private readonly CustomerService $customers) {}
@@ -126,7 +127,7 @@ class CustomerImportService
      *
      * @param  list<string>  $cells
      * @param  array<string, ?int>  $map
-     * @return array{first_name: string, last_name: string, email: string, phone: string, company: string, notes: string}
+     * @return array{first_name: string, last_name: string, email: string, phone: string, company: string, notes: string, whatsapp_consent?: bool}
      */
     public function input(array $cells, array $map): array
     {
@@ -145,7 +146,10 @@ class CustomerImportService
             'phone' => $cell('phone'),
             'company' => $cell('company'),
             'notes' => $cell('notes'),
-        ];
+        ] + ($map['whatsapp_consent'] === null ? [] : [
+            // Only "yes"-like values count as consent; anything else (blank, "no") does not.
+            'whatsapp_consent' => in_array(strtolower(trim($cell('whatsapp_consent'))), ['yes', 'y', 'true', '1', 'x', 'agreed'], true),
+        ]);
     }
 
     /**

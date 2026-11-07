@@ -37,6 +37,11 @@ class CustomerForm extends Component
 
     public string $status = 'active';
 
+    /** '' = the business's default channel. */
+    public string $preferred_channel = '';
+
+    public bool $whatsapp_consent = false;
+
     #[Locked]
     public ?int $duplicateCustomerId = null;
 
@@ -63,6 +68,8 @@ class CustomerForm extends Component
             'company' => (string) $customer->company,
             'notes' => (string) $customer->notes,
             'status' => $customer->status?->value ?? CustomerStatus::Active->value,
+            'preferred_channel' => (string) $customer->preferred_channel?->value,
+            'whatsapp_consent' => $customer->whatsapp_opt_in_at !== null,
         ]);
     }
 
@@ -70,7 +77,7 @@ class CustomerForm extends Component
     {
         $this->resetErrorBag();
         $this->duplicateCustomerId = null;
-        $input = $this->only(['first_name', 'last_name', 'email', 'phone', 'company', 'notes', 'status']);
+        $input = $this->only(['first_name', 'last_name', 'email', 'phone', 'company', 'notes', 'status', 'preferred_channel', 'whatsapp_consent']);
 
         try {
             if ($this->customerId === null) {

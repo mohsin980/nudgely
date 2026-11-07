@@ -46,7 +46,7 @@ use Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/Admin', 'Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability', 'Feature/Performance', 'Feature/Observability');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature/Admin', 'Feature/FollowUps', 'Feature/Dashboard', 'Feature/Workspace', 'Feature/WhatsApp', 'Feature/Estimates', 'Feature/Automations', 'Feature/Team', 'Feature/Billing', 'Feature/Onboarding', 'Feature/Security', 'Feature/Reliability', 'Feature/Performance', 'Feature/Observability');
 
 /*
 |--------------------------------------------------------------------------

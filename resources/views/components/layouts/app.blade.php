@@ -54,7 +54,7 @@
                 </div>
 
                 @auth
-                    <nav aria-label="Main" class="flex-1 overflow-y-auto px-3 py-2">
+                    <nav aria-label="Main" class="min-h-0 shrink overflow-y-auto px-3 py-2">
                         <ul class="space-y-1">
                             @foreach ($nav as [$label, $route, $pattern, $ico, $count])
                                 @php($active = request()->routeIs($pattern))
@@ -85,7 +85,7 @@
                         request()->routeIs('settings.billing*') => ['rocket', 'Grow your business', 'Automate follow-ups and get more customers.', 'Upgrade Plan', route('settings.billing.plans')],
                         default => ['bell', 'Stay on track', 'Never miss a follow-up with smart reminders.', 'Open reminders', route('follow-ups.index')],
                     })
-                    <div class="hidden px-[18px] pb-5 lg:block [@media(max-height:760px)]:hidden" data-sidebar-promo
+                    <div class="hidden px-[18px] pt-6 pb-5 lg:block [@media(max-height:760px)]:hidden" data-sidebar-promo
                          x-data="{ key: 'promo-hidden-{{ $promo[0] }}', hidden: false }"
                          x-init="try { hidden = localStorage.getItem(key) === '1' } catch (e) {}" x-show="! hidden">
                         <div class="relative rounded-[20px] bg-linear-to-b from-[#f4f1ff] to-[#faf9ff] px-4 pt-5 pb-[22px] text-center shadow-[0_12px_30px_-16px_rgba(91,33,182,0.35)] ring-1 ring-violet-100/80">
@@ -101,7 +101,7 @@
                         </div>
                     </div>
 
-                    <div class="border-t border-slate-200 p-3">
+                    <div class="mt-auto border-t border-slate-200 p-3">
                         <div class="flex items-center gap-3 rounded-lg px-2 py-2">
                             <span aria-hidden="true" class="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-sm font-semibold text-violet-700">{{ $initials }}</span>
                             <div class="min-w-0 flex-1">

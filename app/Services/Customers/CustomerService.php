@@ -4,10 +4,12 @@ namespace App\Services\Customers;
 
 use App\Enums\Billing\LimitKey;
 use App\Enums\CustomerStatus;
+use App\Enums\MessageChannel;
 use App\Events\CustomerCreated;
 use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Conversations\DuplicateCustomerException;
 use App\Models\Customer;
+use App\Models\Organization;
 use App\Models\User;
 use App\Services\Billing\EntitlementService;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -23,6 +25,13 @@ use Illuminate\Validation\ValidationException;
  */
 class CustomerService
 {
+    /** How WhatsApp consent was given: recorded by a team member, ticked by the customer, or they messaged first. */
+    public const CONSENT_STAFF = 'staff';
+
+    public const CONSENT_CUSTOMER = 'customer';
+
+    public const CONSENT_INBOUND = 'inbound';
+
     /**
      * @param  array{first_name?: ?string, last_name?: ?string, email?: ?string, phone?: ?string, company?: ?string, notes?: ?string}  $input
      * @param  bool  $runAutomations  false for bulk imports: the customer is added without starting "Customer created" automations
@@ -38,7 +47,7 @@ class CustomerService
         try {
             // The limit check and the insert happen under the organization's lock, so concurrent requests can't overshoot.
             $customer = app(EntitlementService::class)->guard($organization, LimitKey::Customers,
-                fn () => $organization->customers()->create($data + ['status' => CustomerStatus::Active]));
+                fn () => $this->insert($organization, $data, $input));
         } catch (PlanLimitException $e) {
             throw ValidationException::withMessages(['email' => $e->getMessage()]);
         } catch (UniqueConstraintViolationException) {
@@ -72,8 +81,9 @@ class CustomerService
         }
 
         try {
-            DB::transaction(function () use ($customer, $data) {
+            DB::transaction(function () use ($customer, $data, $input) {
                 $customer->fill($data);
+                $customer->forceFill($this->consent($input, $customer));
 
                 if ($customer->isDirty('status')) {
                     $customer->forceFill([
@@ -91,6 +101,38 @@ class CustomerService
         Log::info('Customer updated.', ['organization_id' => $customer->organization_id, 'customer_id' => $customer->id, 'user_id' => $actor->id]);
 
         return $customer;
+    }
+
+    private function insert(Organization $organization, array $data, array $input): Customer
+    {
+        $customer = $organization->customers()->make($data + ['status' => CustomerStatus::Active]);
+        $customer->forceFill($this->consent($input, null))->save();
+
+        return $customer;
+    }
+
+    /**
+     * WhatsApp consent from the form's checkbox: when it was given and that a team member recorded it.
+     * Unchanged when the input doesn't mention it, and the original date is kept while it stays on.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    private function consent(array $input, ?Customer $customer): array
+    {
+        if (! array_key_exists('whatsapp_consent', $input)) {
+            return [];
+        }
+
+        $given = filter_var($input['whatsapp_consent'], FILTER_VALIDATE_BOOL);
+
+        if ($given && $customer?->whatsapp_opt_in_at !== null) {
+            return [];
+        }
+
+        return $given
+            ? ['whatsapp_opt_in_at' => now(), 'whatsapp_opt_in_source' => self::CONSENT_STAFF]
+            : ['whatsapp_opt_in_at' => null, 'whatsapp_opt_in_source' => null];
     }
 
     /**
@@ -134,6 +176,12 @@ class CustomerService
 
         if ($data['notes'] !== null && mb_strlen($data['notes']) > 2000) {
             $errors['notes'] = 'Notes may be up to 2000 characters.';
+        }
+
+        if (array_key_exists('preferred_channel', $input)) {
+            $channel = (string) $input['preferred_channel'];
+            $channel === '' ? $data['preferred_channel'] = null
+                : (($parsed = MessageChannel::tryFrom($channel)) === null ? $errors['preferred_channel'] = 'Choose email, WhatsApp or the business default.' : $data['preferred_channel'] = $parsed);
         }
 
         if ($requireStatus) {

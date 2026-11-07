@@ -128,7 +128,7 @@ test('location and timezone save through the preferences service; the state sugg
 
     $page = wizard($owner)->set('stateCode', 'CA')->assertSet('timezone', 'America/Los_Angeles');
     $page->set('timezone', 'America/Denver')->set('stateCode', 'NY')->assertSet('timezone', 'America/Denver'); // edited: not overridden
-    $page->set('country', 'US')->set('stateCode', 'TX')->set('city', 'Dallas')->call('saveLocation')->assertHasNoErrors();
+    $page->set('country', 'US')->set('stateCode', 'TX')->set('city', 'Dallas')->call('saveLocation')->assertHasNoErrors()->set('channelChoice', 'email')->call('saveChannels')->assertHasNoErrors();
 
     $organization = $organization->fresh();
     expect($organization->state)->toBe('TX')->and($organization->city)->toBe('Dallas')->and($organization->timezone())->toBe('America/Denver')
@@ -141,6 +141,7 @@ test('6. the email step shows not connected, and moves on by itself once an emai
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->saveLocation($owner, ['country' => 'US', 'state' => 'TX', 'city' => 'Dallas', 'timezone' => 'America/Chicago']);
+    app(OnboardingService::class)->saveFollowUpChannels($owner, ['channels' => 'email']);
 
     wizard($owner)->assertSee('Connect your business email')->assertSee('Not connected')->assertSee('Connect Email')->assertSee('Skip for now')
         ->assertSee('QuoteFollow can send follow-ups and estimates')->assertDontSee('Add a customer to try QuoteFollow');
@@ -165,6 +166,7 @@ test('7. the first customer is created through the customer service', function (
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::EmailConnection);
 
     wizard($owner)->assertSee('Add a customer to try QuoteFollow')
@@ -181,6 +183,7 @@ test('8. the first estimate is a normal draft with the business defaults', funct
     $organization->forceFill(['settings' => $organization->businessSettings()->with(['estimate_notes' => 'Thanks for choosing us.', 'estimate_valid_days' => 14])->toArray()])->save();
     $customer = app(OnboardingService::class)->createFirstCustomer($owner, ['name' => 'Jane Smith', 'email' => 'jane@example.com']);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::EmailConnection);
 
     wizard($owner)->assertSee('Create your first estimate')->assertSee('Dallas HVAC')->assertSee('USD')->assertSee('default notes included')
@@ -213,6 +216,7 @@ test('10. an automation needs explicit confirmation and shows exactly what it wi
     $customer = app(OnboardingService::class)->createFirstCustomer($owner, ['name' => 'Jane Smith', 'email' => 'jane@example.com']);
     app(OnboardingService::class)->createFirstEstimate($owner, ['customer_id' => $customer->id, 'title' => 'AC', 'unit_price' => '100']);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
 
     $page = wizard($owner)->assertSee('Set up your first automation')->call('chooseTemplate', 'follow_up_after_estimate')
         ->assertSee('Estimate sent')->assertSee('3 days')->assertSee('Customer has not replied')->assertSee('Send email')->assertSee('sales@dallashvac.com')->assertSee("the customer's email address")
@@ -230,7 +234,7 @@ test('10. an automation needs explicit confirmation and shows exactly what it wi
 test('the review warns when there is no sender, and customizing creates only a draft', function () {
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
-    foreach ([OnboardingStep::BusinessPreferences, OnboardingStep::EmailConnection, OnboardingStep::FirstCustomer, OnboardingStep::FirstEstimate] as $step) {
+    foreach ([OnboardingStep::BusinessPreferences, OnboardingStep::FollowUpChannels, OnboardingStep::EmailConnection, OnboardingStep::FirstCustomer, OnboardingStep::FirstEstimate] as $step) {
         app(OnboardingService::class)->skipStep($owner, $step);
     }
 
@@ -248,18 +252,19 @@ test('11 and 12. progress is stored on the organization and the wizard resumes w
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->saveLocation($owner, ['country' => 'US', 'state' => 'TX', 'city' => 'Dallas', 'timezone' => 'America/Chicago']);
+    app(OnboardingService::class)->saveFollowUpChannels($owner, ['channels' => 'email']);
     connectEmail($organization);
     app(OnboardingService::class)->createFirstCustomer($owner, ['name' => 'Jane Smith', 'email' => 'jane@example.com']);
 
     $organization = $organization->fresh();
     $state = app(OnboardingService::class)->state($organization);
     expect($state->current)->toBe(OnboardingStep::FirstEstimate)->and($organization->fresh()->onboarding_step)->toBe('first_estimate')
-        ->and($state->percent())->toBe(67); // 4 of 6 steps really done
+        ->and($state->percent())->toBe(71); // 5 of 7 steps really done (business, location, channels, email, customer)
 
     // "Later": a brand-new browser session resumes at the estimate and shows what is done.
     Auth::logout();
     $page = wizard($owner)->assertSee('Create your first estimate')->assertDontSee('Add a customer to try QuoteFollow');
-    expect($page->html())->toContain('67% complete');
+    expect($page->html())->toContain('71% complete');
     foreach (['Business', 'Email', 'Customer'] as $label) {
         expect($page->html())->toMatch('/data-group="'.$label.'" data-status="done"/');
     }
@@ -273,12 +278,12 @@ test('13. optional steps can be skipped; the business step cannot', function () 
 
     expect(fn () => $service->skipStep($owner, OnboardingStep::BusinessProfile))->toThrow(ValidationException::class);
 
-    wizard($owner)->call('skip', 'business_preferences')->call('skip', 'email_connection')->call('skip', 'first_customer')->call('skip', 'first_estimate')->call('skip', 'first_automation')
+    wizard($owner)->call('skip', 'business_preferences')->call('skip', 'follow_up_channels')->call('skip', 'email_connection')->call('skip', 'first_customer')->call('skip', 'first_estimate')->call('skip', 'first_automation')
         ->assertSee("You're ready to use QuoteFollow.", false);
 
     expect(Customer::where('organization_id', $organization->id)->count())->toBe(0)->and(Estimate::where('organization_id', $organization->id)->count())->toBe(0)
         ->and(Automation::where('organization_id', $organization->id)->count())->toBe(0)
-        ->and($service->state($organization->fresh())->percent())->toBe(17); // skipping is not progress
+        ->and($service->state($organization->fresh())->percent())->toBe(14); // skipping is not progress (1 of 7)
 });
 
 test('14 and 15. finishing sets onboarding_completed_at and a finished business is never sent back', function () {
@@ -289,7 +294,7 @@ test('14 and 15. finishing sets onboarding_completed_at and a finished business 
     wizard($owner)->call('finish')->assertNoRedirect();
     expect($organization->fresh()->onboarding_completed_at)->toBeNull();
 
-    foreach (['business_preferences', 'email_connection', 'first_customer', 'first_estimate', 'first_automation'] as $step) {
+    foreach (['business_preferences', 'follow_up_channels', 'email_connection', 'first_customer', 'first_estimate', 'first_automation'] as $step) {
         app(OnboardingService::class)->skipStep($owner, OnboardingStep::from($step));
     }
 
@@ -409,6 +414,7 @@ test('choosing the sample customer moves on without counting as a real customer'
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::EmailConnection);
 
     wizard($owner)->assertSee('Create Sample Customer')->call('createSampleCustomer')->assertSee('Create your first estimate')->assertSee('Sample Customer (sample)');
@@ -503,6 +509,7 @@ test('24. validation errors appear next to the field', function () {
     ['owner' => $owner] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::EmailConnection);
 
     wizard($owner)->set('customerName', '')->call('addCustomer')->assertHasErrors('customerName')->assertSee("Enter the customer's name.");
@@ -514,6 +521,7 @@ test('25. submit buttons are disabled while saving, and a double submit creates 
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::EmailConnection);
 
     $page = wizard($owner);
@@ -529,6 +537,7 @@ test('26. a failed step keeps the user there with a clear error and loses no pro
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->saveLocation($owner, ['country' => 'US', 'state' => 'TX', 'city' => 'Dallas', 'timezone' => 'America/Chicago']);
+    app(OnboardingService::class)->saveFollowUpChannels($owner, ['channels' => 'email']);
     $before = $organization->fresh()->only(['business_type', 'onboarding_progress', 'onboarding_step']);
 
     // An unexpected failure while saving a customer.
@@ -548,6 +557,7 @@ test('a plan limit error stays on the step with its message', function () {
     ['owner' => $owner, 'organization' => $organization] = newBusiness();
     withProfile($owner);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::BusinessPreferences);
+    app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::EmailConnection);
     tightFreePlan(['customers' => 0]);
 

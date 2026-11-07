@@ -46,7 +46,7 @@ test('first end-to-end: Dallas HVAC goes from sign-up to a working follow-up aut
         ->set('businessType', 'hvac')->set('website', 'dallashvac.com')->set('phone', '(214) 555-1234')->call('saveBusiness')->assertHasNoErrors();
 
     // Location: the state suggests the timezone.
-    $page->assertSee('Where are you located?')->set('stateCode', 'TX')->assertSet('timezone', 'America/Chicago')->set('city', 'Dallas')->call('saveLocation')->assertHasNoErrors();
+    $page->assertSee('Where are you located?')->set('stateCode', 'TX')->assertSet('timezone', 'America/Chicago')->set('city', 'Dallas')->call('saveLocation')->assertHasNoErrors()->set('channelChoice', 'email')->call('saveChannels')->assertHasNoErrors();
 
     // Step 2: email. Not connected yet, so the wizard waits; connecting sales@dallashvac.com lets it continue.
     $page->assertSee('Connect your business email')->assertSee('Not connected');
@@ -104,7 +104,7 @@ test('second end-to-end: skipping customer, estimate and automation still reache
     $owner = signUpOwner('Austin Plumbing', 'Ana Ruiz', 'ana@austinplumbing.com');
     $organization = $owner->organization;
 
-    ownerWizard($owner)->call('start')->set('businessType', 'plumbing')->call('saveBusiness')->call('skip', 'business_preferences')
+    ownerWizard($owner)->call('start')->set('businessType', 'plumbing')->call('saveBusiness')->call('skip', 'business_preferences')->call('skip', 'follow_up_channels')
         ->call('skip', 'email_connection')->call('skip', 'first_customer')->call('skip', 'first_estimate')->call('skip', 'first_automation')
         ->assertSee("You're ready to use QuoteFollow.", false)->call('finish')->assertRedirect(route('dashboard'));
 
@@ -123,7 +123,7 @@ test('second end-to-end: skipping customer, estimate and automation still reache
 test('third end-to-end: leaving after business, email and customer resumes at the estimate', function () {
     $owner = signUpOwner();
     $organization = $owner->organization;
-    ownerWizard($owner)->call('start')->set('businessType', 'hvac')->call('saveBusiness')->set('stateCode', 'TX')->call('saveLocation');
+    ownerWizard($owner)->call('start')->set('businessType', 'hvac')->call('saveBusiness')->set('stateCode', 'TX')->call('saveLocation')->set('channelChoice', 'email')->call('saveChannels');
     EmailConnection::factory()->verified()->default()->create(['organization_id' => $organization->id, 'domain' => 'dallashvac.com', 'sender_email' => 'sales@dallashvac.com']);
     ownerWizard($owner)->set('customerName', 'Jane Smith')->set('customerEmail', 'jane@example.com')->call('addCustomer');
 

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\CustomerStatus;
 use App\Enums\LeadStage;
+use App\Enums\MessageChannel;
+use App\Support\PhoneNumber;
 use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -21,7 +23,7 @@ use Illuminate\Support\Str;
  * first_name/last_name in both directions, so older code that only knows `name` keeps working.
  * Emails are stored lowercased and trimmed; (organization_id, email) is unique.
  */
-#[Fillable(['name', 'first_name', 'last_name', 'email', 'phone', 'company', 'notes', 'status'])]
+#[Fillable(['name', 'first_name', 'last_name', 'email', 'phone', 'company', 'notes', 'status', 'preferred_channel'])]
 class Customer extends Model
 {
     /** @use HasFactory<CustomerFactory> */
@@ -47,6 +49,8 @@ class Customer extends Model
             'last_activity_at' => 'datetime',
             'lead_stage' => LeadStage::class,
             'lead_stage_changed_at' => 'datetime',
+            'preferred_channel' => MessageChannel::class,
+            'whatsapp_opt_in_at' => 'datetime',
             'status' => CustomerStatus::class,
             'status_changed_at' => 'datetime',
         ];
@@ -66,6 +70,9 @@ class Customer extends Model
             if ($customer->isDirty('phone')) {
                 $digits = preg_replace('/\D+/', '', (string) $customer->phone);
                 $customer->phone_digits = $digits === '' ? null : mb_substr($digits, 0, 20);
+                // International form for WhatsApp, using the business's country for local numbers.
+                $country = Organization::query()->whereKey($customer->organization_id)->value('country') ?? 'US';
+                $customer->phone_e164 = PhoneNumber::toE164($customer->phone, $country);
             }
         });
     }
@@ -73,6 +80,14 @@ class Customer extends Model
     public function isActive(): bool
     {
         return $this->status !== CustomerStatus::Inactive;
+    }
+
+    /**
+     * The customer agreed to WhatsApp messages and has a number WhatsApp can use.
+     */
+    public function canReceiveWhatsApp(): bool
+    {
+        return $this->whatsapp_opt_in_at !== null && $this->phone_e164 !== null;
     }
 
     public function hasOptedOutOfEmail(): bool

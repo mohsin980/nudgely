@@ -11,7 +11,9 @@ enum OnboardingStep: string
 {
     case BusinessProfile = 'business_profile';
     case BusinessPreferences = 'business_preferences';
+    case FollowUpChannels = 'follow_up_channels';
     case EmailConnection = 'email_connection';
+    case WhatsAppConnection = 'whatsapp_connection';
     case FirstCustomer = 'first_customer';
     case FirstEstimate = 'first_estimate';
     case FirstAutomation = 'first_automation';
@@ -22,7 +24,9 @@ enum OnboardingStep: string
         return match ($this) {
             self::BusinessProfile => 'Business details',
             self::BusinessPreferences => 'Location & timezone',
+            self::FollowUpChannels => 'Follow-up channels',
             self::EmailConnection => 'Email',
+            self::WhatsAppConnection => 'WhatsApp',
             self::FirstCustomer => 'Customer',
             self::FirstEstimate => 'Estimate',
             self::FirstAutomation => 'Automation',
@@ -31,13 +35,14 @@ enum OnboardingStep: string
     }
 
     /**
-     * The five headings shown in the progress list (location is part of "Business").
+     * The headings shown in the progress list (location and channels are part of "Business").
      */
     public function group(): string
     {
         return match ($this) {
-            self::BusinessProfile, self::BusinessPreferences => 'Business',
+            self::BusinessProfile, self::BusinessPreferences, self::FollowUpChannels => 'Business',
             self::EmailConnection => 'Email',
+            self::WhatsAppConnection => 'WhatsApp',
             self::FirstCustomer => 'Customer',
             self::FirstEstimate => 'Estimate',
             self::FirstAutomation => 'Automation',
