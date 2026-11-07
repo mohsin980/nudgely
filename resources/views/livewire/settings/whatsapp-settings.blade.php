@@ -170,5 +170,6 @@
                 </li>
             @endforeach
         </ol>
+        @include('livewire.settings.partials.setup-help', ['topic' => 'WhatsApp'])
     </section>
 </x-settings.shell>

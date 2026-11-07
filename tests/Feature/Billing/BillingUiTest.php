@@ -307,3 +307,13 @@ test('billing pages are built for narrow screens: scrolling tabs, stacked button
     $plans = $this->actingAs($this->owner)->get(route('settings.billing.plans'))->getContent();
     expect($plans)->toContain('lg:grid-cols-3');
 });
+
+test('Manage billing explains itself when card payments are not set up, instead of reloading the page', function () {
+    config(['billing.provider' => 'manual']);
+    $this->owner->organization->forceFill(['billing_provider' => 'manual', 'billing_customer_id' => 'manual_cus_1'])->save();
+
+    Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)
+        ->call('openPortal')
+        ->assertNoRedirect()
+        ->assertSee('Card payments aren&#039;t set up yet', false);
+});
