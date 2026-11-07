@@ -9,6 +9,8 @@ use App\Models\CatalogItem;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\User;
+use App\Services\Billing\EntitlementService;
+use App\Support\PhoneNumber;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -73,6 +75,46 @@ class AssistantKnowledgeService
         ])->save();
 
         OrganizationActivity::record($organization, 'assistant_profile_updated', $actor);
+
+        return $profile;
+    }
+
+    /**
+     * Switch the assistant on or off, with the owner's WhatsApp number for handover pings. Switching on needs the
+     * plan to include the assistant, a business description and a connected WhatsApp number.
+     *
+     * @param  array{enabled?: bool, owner_whatsapp?: ?string}  $input
+     *
+     * @throws AuthorizationException|ValidationException
+     */
+    public function saveSwitch(User $actor, array $input): AssistantProfile
+    {
+        $organization = $this->organizationOf($actor);
+        $enabled = (bool) ($input['enabled'] ?? false);
+        $phone = trim((string) ($input['owner_whatsapp'] ?? ''));
+        $e164 = $phone === '' ? null : PhoneNumber::toE164($phone, (string) ($organization->country ?: 'US'));
+
+        if ($phone !== '' && $e164 === null) {
+            throw ValidationException::withMessages(['owner_whatsapp' => 'Enter the number with its country code, e.g. +92 300 1234567.']);
+        }
+
+        $profile = $this->profile($organization);
+
+        if ($enabled) {
+            $missing = match (true) {
+                ! app(EntitlementService::class)->hasFeature($organization, 'ai_assistant') => 'Your plan doesn\'t include the AI assistant. Upgrade to switch it on.',
+                blank($profile->about) => 'Describe your business first (Business profile tab).',
+                ! $organization->whatsappConnection()->first()?->isActive() => 'Connect your WhatsApp number first (Settings → WhatsApp).',
+                default => null,
+            };
+
+            if ($missing !== null) {
+                throw ValidationException::withMessages(['enabled' => $missing]);
+            }
+        }
+
+        $profile->forceFill(['enabled' => $enabled, 'owner_whatsapp' => $e164])->save();
+        OrganizationActivity::record($organization, $enabled ? 'assistant_enabled' : 'assistant_disabled', $actor);
 
         return $profile;
     }

@@ -24,6 +24,8 @@ enum NotificationType: string
 
     case EmailAccountNeedsReconnect = 'email_account_needs_reconnect';
 
+    case AssistantHandover = 'assistant_handover';
+
     public function label(): string
     {
         return match ($this) {
@@ -42,6 +44,7 @@ enum NotificationType: string
             self::SubscriptionRenewed => 'Billing: renewal (owner)',
             self::BillingRestricted => 'Billing: paid features paused (owner)',
             self::EmailAccountNeedsReconnect => 'Email account needs reconnecting',
+            self::AssistantHandover => 'AI assistant needs you',
         };
     }
 
@@ -66,6 +69,7 @@ enum NotificationType: string
             self::SubscriptionRenewed => 'Know when your subscription renews.',
             self::BillingRestricted => 'Know when paid features are paused.',
             self::EmailAccountNeedsReconnect => 'Know when your business email needs to be connected again.',
+            self::AssistantHandover => 'Know when the AI assistant hands a WhatsApp chat over to you.',
         };
     }
 

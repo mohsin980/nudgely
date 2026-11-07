@@ -13,6 +13,7 @@ enum LimitKey: string
     case TeamMembers = 'team_members';
     case OutboundEmails = 'outbound_emails';
     case Estimates = 'estimates';
+    case AiConversations = 'ai_conversations';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum LimitKey: string
             self::TeamMembers => 'Team members',
             self::OutboundEmails => 'Outbound emails / period',
             self::Estimates => 'Estimates / period',
+            self::AiConversations => 'AI conversations / period',
         };
     }
 
@@ -36,6 +38,7 @@ enum LimitKey: string
             self::TeamMembers => 'team member',
             self::OutboundEmails => 'email',
             self::Estimates => 'estimate',
+            self::AiConversations => 'AI conversation',
         };
     }
 
@@ -50,11 +53,12 @@ enum LimitKey: string
             self::TeamMembers => 'team members',
             self::OutboundEmails => 'outbound emails a month',
             self::Estimates => 'new estimates a month',
+            self::AiConversations => 'AI assistant conversations a month',
         };
     }
 
     public function isMonthly(): bool
     {
-        return in_array($this, [self::OutboundEmails, self::Estimates], true);
+        return in_array($this, [self::OutboundEmails, self::Estimates, self::AiConversations], true);
     }
 }

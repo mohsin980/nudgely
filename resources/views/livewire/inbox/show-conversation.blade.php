@@ -59,6 +59,10 @@
         </form>
     @endif
 
+    @if ($chat = $this->assistantChat)
+        @include('livewire.inbox.partials.assistant-banner', ['chat' => $chat, 'assistantName' => $assistantName])
+    @endif
+
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- Timeline + composer --}}
         <div class="min-w-0 space-y-4 lg:col-span-2">

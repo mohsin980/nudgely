@@ -66,7 +66,7 @@ class BillingOverview extends Component
             'signupTrial' => $entitlements->trial($organization),
             'trialDays' => $billing->trialDaysFor($organization),
             'payment' => $this->payment($billing),
-            'atLimit' => array_map(fn (string $key) => LimitKey::from($key)->shortName(), array_keys(array_filter($entitlements->summary($organization), fn (array $row) => $row['limit'] !== null && $row['used'] >= $row['limit']))),
+            'atLimit' => array_map(fn (string $key) => LimitKey::from($key)->shortName(), array_keys(array_filter($entitlements->summary($organization), fn (array $row) => $row['limit'] !== null && $row['limit'] > 0 && $row['used'] >= $row['limit']))),
         ]);
     }
 

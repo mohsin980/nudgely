@@ -65,6 +65,11 @@ class UsageMonitor
                     'state' => $state,
                 ];
 
+                // A limit of 0 with nothing used is a feature the plan doesn't include (e.g. AI conversations on Free), not a full quota.
+                if ($limit === 0 && $used === 0) {
+                    continue;
+                }
+
                 if ($state->severity() > $worst->severity()) {
                     $worst = $state;
                 }

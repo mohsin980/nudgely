@@ -12,6 +12,7 @@ use App\Enums\TaskPriority;
 use App\Exceptions\Conversations\ConversationActionException;
 use App\Jobs\ClassifyCustomerReplyJob;
 use App\Livewire\Concerns\ManagesFollowUps;
+use App\Models\AssistantChat;
 use App\Models\Conversation;
 use App\Models\Estimate;
 use App\Models\FollowUp;
@@ -256,6 +257,27 @@ class ShowConversation extends Component
         $this->resetFeed();
     }
 
+    /**
+     * The AI assistant's latest chat in this conversation, if it ever answered here.
+     */
+    #[Computed]
+    public function assistantChat(): ?AssistantChat
+    {
+        return AssistantChat::query()->where('organization_id', $this->conversation->organization_id)
+            ->where('conversation_id', $this->conversation->id)->with('takenOverBy:id,name')->latest('id')->first();
+    }
+
+    public function takeOverFromAssistant(ConversationService $conversations): void
+    {
+        $this->authorize('update', $this->conversation);
+
+        if ($conversations->takeOverFromAssistant(Auth::user(), $this->conversation)) {
+            $this->flash('You took over this chat. The AI assistant won\'t reply here any more.', 'success');
+        }
+
+        unset($this->assistantChat);
+    }
+
     public function setStatus(string $status, ConversationService $conversations): void
     {
         $this->authorize('update', $this->conversation);
@@ -448,6 +470,7 @@ class ShowConversation extends Component
     {
         return view('livewire.inbox.show-conversation', [
             'organization' => $this->conversation->organization,
+            'assistantName' => $this->assistantChat ? ($this->conversation->organization->assistantProfile()->value('assistant_name') ?: 'AI assistant') : null,
             'closeReasons' => ConversationCloseReason::cases(),
             'intents' => CustomerReplyIntent::cases(),
             'statuses' => ConversationStatus::cases(),
