@@ -13,6 +13,8 @@ use App\Events\CustomerReplyReceived;
 use App\Exceptions\Billing\PlanLimitException;
 use App\Jobs\AssistantReplyJob;
 use App\Jobs\ClassifyCustomerReplyJob;
+use App\Jobs\DownloadWhatsAppMediaJob;
+use App\Models\AssistantProfile;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Message;
@@ -116,7 +118,7 @@ class WhatsAppInboundProcessor
                     'provider_message_id' => $id,
                     'status' => MessageStatus::Received,
                     'received_at' => $receivedAt,
-                    'metadata' => ['whatsapp_type' => (string) ($data['type'] ?? 'text')],
+                    'metadata' => ['whatsapp_type' => (string) ($data['type'] ?? 'text')] + WhatsAppMediaStore::describe($data),
                 ])->save();
 
                 $conversation->recordActivity($receivedAt);
@@ -127,12 +129,13 @@ class WhatsAppInboundProcessor
 
                 event(new CustomerReplyReceived($organization->id, $message->id, $conversation->id, $customer->id));
 
-                if (config('ai.classification.enabled') && $message->body_text !== null) {
-                    ClassifyCustomerReplyJob::dispatch($message->id, CustomerReplyClassificationService::automaticRequestId($message))->afterCommit();
+                if (filled($message->metadata['media_id'] ?? null)) {
+                    DownloadWhatsAppMediaJob::dispatch($message->id)->afterCommit();
                 }
 
-                if ($organization->assistantProfile()->where('enabled', true)->exists()) {
-                    AssistantReplyJob::dispatch($message->id, $conversation->id)->delay(now()->addSeconds(AssistantReplyJob::DELAY_SECONDS))->afterCommit();
+                // A voice note is sorted and answered once it is transcribed (DownloadWhatsAppMediaJob → TranscribeVoiceNoteJob).
+                if (! self::awaitsTranscript($message)) {
+                    self::answer($message);
                 }
 
                 Log::info('WhatsApp message received.', ['organization_id' => $organization->id, 'conversation_id' => $conversation->id, 'message_id' => $message->id, 'new_customer' => $created]);
@@ -142,6 +145,30 @@ class WhatsAppInboundProcessor
         } catch (UniqueConstraintViolationException) {
             return false; // the same message, stored by a parallel delivery
         }
+    }
+
+    /**
+     * Sort the customer's message with AI and, if the business switched it on, let the AI assistant answer.
+     */
+    public static function answer(Message $message): void
+    {
+        if (config('ai.classification.enabled') && $message->body_text !== null) {
+            ClassifyCustomerReplyJob::dispatch($message->id, CustomerReplyClassificationService::automaticRequestId($message))->afterCommit();
+        }
+
+        if (AssistantProfile::query()->where('organization_id', $message->organization_id)->where('enabled', true)->exists()) {
+            AssistantReplyJob::dispatch($message->id, (int) $message->conversation_id)->delay(now()->addSeconds(AssistantReplyJob::DELAY_SECONDS))->afterCommit();
+        }
+    }
+
+    /**
+     * A voice note waits for its transcript before it is sorted or answered.
+     */
+    public static function awaitsTranscript(Message $message): bool
+    {
+        return ($message->metadata['whatsapp_type'] ?? null) === 'audio'
+            && filled($message->metadata['media_id'] ?? null)
+            && config('services.whatsapp.transcribe_voice_notes');
     }
 
     /**

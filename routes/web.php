@@ -15,6 +15,7 @@ use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
+use App\Http\Controllers\WhatsAppMediaController;
 use App\Livewire\Automations\AutomationForm;
 use App\Livewire\Automations\AutomationIndex;
 use App\Livewire\Automations\AutomationLogs;
@@ -140,6 +141,8 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
 Route::middleware(['auth', 'can:access-organization'])->group(function () {
     Route::get('/conversations', ConversationList::class)->name('inbox.index');
     Route::get('/conversations/{conversationId}', ShowConversation::class)->whereNumber('conversationId')->name('inbox.show');
+    // A customer's WhatsApp photo, voice note, video or document (the controller checks the conversation is yours).
+    Route::get('/whatsapp-media/{message}', WhatsAppMediaController::class)->whereNumber('message')->middleware('throttle:120,1')->name('whatsapp.media');
 });
 
 // Automations (admins): IDs are looked up inside the user's organization by each component.
