@@ -5,13 +5,14 @@ namespace App\Services\Customers\Import;
 use App\Exceptions\Conversations\DuplicateCustomerException;
 use App\Models\User;
 use App\Services\Customers\CustomerService;
+use App\Support\CsvFile;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
  * Imports customers from a CSV file.
  *
- * The file is read safely (UTF-8 only, bounded in size and rows, cells are plain text) and every row
+ * The file is read safely (see CsvFile) and every row
  * goes through CustomerService, so the usual rules apply: required fields, unique emails and the plan's
  * customer limit. Existing customers are skipped, never changed.
  */
@@ -42,57 +43,7 @@ class CustomerImportService
      */
     public function read(string $path): array
     {
-        if (filesize($path) > self::MAX_BYTES) {
-            throw new RuntimeException('The file is larger than 2 MB. Split it into smaller files.');
-        }
-
-        $handle = fopen($path, 'rb') ?: throw new RuntimeException('The file could not be read. Upload it again.');
-        $headers = null;
-        $rows = [];
-        $number = 0;
-
-        try {
-            while (($cells = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
-                $cells = array_map(fn ($cell) => trim((string) $cell), $cells ?? []);
-
-                foreach ($cells as $cell) {
-                    if (! mb_check_encoding($cell, 'UTF-8')) {
-                        throw new RuntimeException('The file is not UTF-8 encoded. In Excel choose "CSV UTF-8" when you save it, then try again.');
-                    }
-                }
-
-                if ($headers === null) {
-                    $cells[0] = preg_replace('/^\xEF\xBB\xBF/', '', $cells[0] ?? '') ?? ''; // Excel's byte-order mark
-                    $headers = $cells;
-
-                    continue;
-                }
-
-                $number++;
-
-                if (array_filter($cells, fn (string $cell) => $cell !== '') === []) {
-                    continue;
-                }
-
-                if (count($rows) >= self::MAX_ROWS) {
-                    throw new RuntimeException('This file has more than '.number_format(self::MAX_ROWS).' customers. Split it into smaller files and import each one.');
-                }
-
-                $rows[$number] = $cells;
-            }
-        } finally {
-            fclose($handle);
-        }
-
-        if ($headers === null || array_filter($headers, fn (string $h) => $h !== '') === []) {
-            throw new RuntimeException('The file is empty. The first row must contain the column names.');
-        }
-
-        if ($rows === []) {
-            throw new RuntimeException('The file has a header row but no customers under it.');
-        }
-
-        return ['headers' => $headers, 'rows' => $rows];
+        return CsvFile::read($path, self::MAX_BYTES, self::MAX_ROWS, 'customers');
     }
 
     /**
@@ -103,8 +54,7 @@ class CustomerImportService
      */
     public function suggest(array $headers): array
     {
-        // Only letters and digits count, so "E-mail Address", "email_address" and "EmailAddress" all match.
-        $key = fn (string $text) => (string) preg_replace('/[^a-z0-9]+/', '', strtolower($text));
+        $key = CsvFile::key(...);
         $normalized = array_map($key, $headers);
         $map = [];
 
