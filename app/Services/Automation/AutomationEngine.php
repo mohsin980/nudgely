@@ -51,6 +51,12 @@ class AutomationEngine
             return [];
         }
 
+        if ($organization->isSuspended()) {
+            Log::info('Automation event ignored: the organization is suspended.', $log + ['event' => 'automation.event.ignored']);
+
+            return [];
+        }
+
         if (! config('automation.enabled') || ! $organization->automations_enabled) {
             Log::info('Automation event ignored: automations are disabled.', $log + ['event' => 'automation.event.ignored']);
 
@@ -215,7 +221,7 @@ class AutomationEngine
         // Same shape as markDue: pick a bounded set under locks, then lease exactly those runs (see FollowUpProcessor).
         $ids = DB::transaction(function () use ($now) {
             $ids = collect(DB::select(
-                'select id from automation_runs where status = ? and resume_at <= ? order by resume_at limit ? for update skip locked',
+                'select id from automation_runs where status = ? and resume_at <= ? and organization_id not in (select id from organizations where suspended_at is not null) order by resume_at limit ? for update skip locked',
                 [AutomationRunStatus::Waiting->value, $now, 200],
             ))->pluck('id')->map(fn ($id) => (int) $id)->all();
 
@@ -466,6 +472,10 @@ class AutomationEngine
             Log::warning('Automation action rejected: organization mismatch.', ['event' => 'automation.action.rejected', 'automation_action_run_id' => $actionRun->id]);
 
             return AutomationActionResult::failed('This action does not belong to the organization that triggered it.');
+        }
+
+        if (Organization::isSuspendedId($run->organization_id)) {
+            return AutomationActionResult::skipped('The business is suspended.', ['reason' => 'organization_suspended']);
         }
 
         if (! config('automation.enabled') || ! Organization::whereKey($run->organization_id)->value('automations_enabled')) {

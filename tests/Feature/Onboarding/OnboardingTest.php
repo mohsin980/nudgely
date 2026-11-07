@@ -70,7 +70,8 @@ function withProfile(User $owner, string $type = 'hvac'): void
 
 test('1. a new owner is taken to onboarding after signing up and from the dashboard', function () {
     $this->post('/register', ['business_name' => 'Dallas HVAC', 'name' => 'John Smith', 'email' => 'john@dallashvac.com', 'password' => 'correct-horse-battery', 'password_confirmation' => 'correct-horse-battery'])
-        ->assertRedirect(route('onboarding.show'));
+        ->assertRedirect(route('verification.notice'));
+    confirmEmail('john@dallashvac.com');
 
     $organization = Organization::where('name', 'Dallas HVAC')->sole();
     expect($organization->onboarding_started_at)->not->toBeNull()->and($organization->onboarding_step)->toBe('business_profile')->and($organization->onboarding_completed_at)->toBeNull();

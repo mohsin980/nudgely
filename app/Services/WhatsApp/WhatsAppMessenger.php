@@ -11,6 +11,7 @@ use App\Exceptions\WhatsApp\WhatsAppSendException;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Message;
+use App\Models\Organization;
 use App\Models\WhatsAppConnection;
 use App\Services\Leads\LeadStageService;
 use Illuminate\Support\Facades\Log;
@@ -51,6 +52,7 @@ class WhatsAppMessenger
         $connection = $this->connection($customer->organization_id);
 
         return match (true) {
+            Organization::isSuspendedId($customer->organization_id) => 'This business is suspended.',
             $connection === null || ! $connection->isActive() => 'WhatsApp is not connected.',
             ! $customer->isActive() => 'This customer is marked inactive.',
             $customer->whatsapp_opt_in_at === null => 'This customer hasn\'t agreed to WhatsApp messages.',

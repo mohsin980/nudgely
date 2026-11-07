@@ -14,6 +14,9 @@ return [
 
     'brand' => env('ADMIN_PANEL_BRAND', 'QuoteFlow AI'),
 
+    // Administrators must set up and use an authenticator app to sign in to the panel.
+    'require_mfa' => (bool) env('ADMIN_REQUIRE_MFA', true),
+
     // How long audit events are kept (days). Older events are removed by `platform-audit:prune` (scheduled daily).
     'audit_retention_days' => (int) env('ADMIN_AUDIT_RETENTION_DAYS', 730),
 

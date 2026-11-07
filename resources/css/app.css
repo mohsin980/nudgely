@@ -27,6 +27,25 @@
     }
 }
 
+/*
+ * Dropdowns: one chevron, drawn by us, with room for it, in every browser. Unlayered on purpose so it wins over
+ * padding utilities on the fields (px-3.5 etc.). Selects that draw their own icon use appearance-none and are left alone.
+ */
+select:not([multiple], [size], .appearance-none) {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5.5 7.75 4.5 4.5 4.5-4.5'/%3E%3C/svg%3E");
+    background-position: right 0.85rem center;
+    background-repeat: no-repeat;
+    background-size: 1.1rem;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+select:not([multiple], [size], .appearance-none):disabled {
+    cursor: not-allowed;
+}
+
 /* Sign-in and sign-up page motion. Set --d on an element to delay its entrance. */
 @keyframes auth-fade-up {
     from { opacity: 0; transform: translateY(14px); }

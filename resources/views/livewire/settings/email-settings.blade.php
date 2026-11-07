@@ -64,6 +64,7 @@
                         <button type="button" wire:click="openSmtpForm" class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Configure SMTP</button>
                     </div>
                 </div>
+                @include('livewire.settings.partials.setup-help', ['topic' => 'email sending'])
             </div>
 
             <div class="rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6" aria-labelledby="connected-heading" data-connected-accounts>

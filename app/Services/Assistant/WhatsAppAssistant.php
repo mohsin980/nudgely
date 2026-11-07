@@ -62,6 +62,10 @@ class WhatsAppAssistant
             return 'missing';
         }
 
+        if ($organization->isSuspended()) {
+            return 'suspended';
+        }
+
         $profile = $organization->assistantProfile()->first();
 
         if (! $profile?->enabled || ! $this->entitlements->hasFeature($organization, 'ai_assistant')) {

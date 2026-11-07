@@ -6,6 +6,7 @@ use App\Enums\EstimateDeclineReason;
 use App\Exceptions\Estimates\EstimateException;
 use App\Http\Controllers\Controller;
 use App\Models\Estimate;
+use App\Models\Organization;
 use App\Services\Estimates\EstimateDocument;
 use App\Services\Estimates\EstimateService;
 use Illuminate\Http\RedirectResponse;
@@ -23,7 +24,7 @@ class PublicEstimateController extends Controller
 
     public function show(string $token): Response
     {
-        $estimate = $this->estimates->findByToken($token) ?? $this->notFound();
+        $estimate = $this->find($token);
 
         // Someone from the business previewing the link is not the customer viewing it.
         if (auth()->user()?->organization_id === $estimate->organization_id) {
@@ -37,7 +38,7 @@ class PublicEstimateController extends Controller
 
     public function accept(string $token): RedirectResponse
     {
-        $estimate = $this->estimates->findByToken($token) ?? $this->notFound();
+        $estimate = $this->find($token);
 
         try {
             $this->estimates->accept($estimate);
@@ -50,7 +51,7 @@ class PublicEstimateController extends Controller
 
     public function decline(Request $request, string $token): RedirectResponse
     {
-        $estimate = $this->estimates->findByToken($token) ?? $this->notFound();
+        $estimate = $this->find($token);
         $input = $request->validate([
             'reason' => ['nullable', 'string', 'in:'.implode(',', array_column(EstimateDeclineReason::cases(), 'value'))],
             'note' => ['nullable', 'string', 'max:500'],
@@ -80,6 +81,20 @@ class PublicEstimateController extends Controller
             'askUrl' => $replyTo ? 'mailto:'.$replyTo.'?subject='.rawurlencode('Question about estimate '.$estimate->displayNumber()) : null,
             'declineReasons' => EstimateDeclineReason::cases(),
         ]));
+    }
+
+    /**
+     * The estimate behind the link. A suspended business's links stop working until it is reactivated.
+     */
+    private function find(string $token): Estimate
+    {
+        $estimate = $this->estimates->findByToken($token);
+
+        if ($estimate === null || Organization::isSuspendedId($estimate->organization_id)) {
+            $this->notFound();
+        }
+
+        return $estimate;
     }
 
     private function notFound(): never

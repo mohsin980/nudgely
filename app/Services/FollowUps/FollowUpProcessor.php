@@ -66,6 +66,9 @@ class FollowUpProcessor
 
     public const MISSING = 'missing';
 
+    /** The business is suspended; the follow-up waits until it is reactivated. */
+    public const PAUSED = 'paused';
+
     public function __construct(
         private readonly FollowUpService $followUps,
         private readonly FollowUpNotifier $notifier,
@@ -125,7 +128,7 @@ class FollowUpProcessor
         // batch size is a hard limit: an IN (subquery ... LIMIT ... FOR UPDATE) can be re-run per row by the planner.
         $rows = DB::transaction(function () use ($now) {
             $ids = collect(DB::select(
-                'select id from follow_ups where status = ? and due_at <= ? order by due_at limit ? for update skip locked',
+                'select id from follow_ups where status = ? and due_at <= ? and organization_id not in (select id from organizations where suspended_at is not null) order by due_at limit ? for update skip locked',
                 [FollowUpStatus::Pending->value, $now, (int) config('follow_ups.batch_size')],
             ))->pluck('id')->map(fn ($id) => (int) $id)->all();
 
@@ -166,6 +169,7 @@ class FollowUpProcessor
             ->where('status', FollowUpStatus::Due)
             ->whereNull('due_notified_at')
             ->whereNull('processed_at')
+            ->whereNotIn('organization_id', Organization::suspendedIds())
             ->where('updated_at', '<', $now->copy()->subMinutes((int) config('reliability.follow_ups.stranded_after_minutes')))
             ->orderBy('id')
             ->limit((int) config('follow_ups.batch_size'))
@@ -201,6 +205,13 @@ class FollowUpProcessor
             // Already completed/skipped/cancelled, rescheduled, or already handed to a person.
             if ($followUp->status !== FollowUpStatus::Due || $followUp->due_notified_at !== null) {
                 return self::ALREADY_PROCESSED;
+            }
+
+            // Suspended after it was marked due: put it back, so it carries on after reactivation.
+            if (Organization::isSuspendedId($followUp->organization_id)) {
+                $followUp->forceFill(['status' => FollowUpStatus::Pending])->save();
+
+                return self::PAUSED;
             }
 
             if ($followUp->type === FollowUpType::Manual) {
@@ -284,6 +295,7 @@ class FollowUpProcessor
             ->where('status', FollowUpStatus::Due)
             ->where('due_at', '<=', now()->subHours((int) config('follow_ups.overdue_after_hours')))
             ->whereNull('overdue_notified_at')
+            ->whereNotIn('organization_id', Organization::suspendedIds())
             ->orderBy('due_at')
             ->limit((int) config('follow_ups.batch_size'))
             ->pluck('id');

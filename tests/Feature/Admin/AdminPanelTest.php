@@ -63,7 +63,9 @@ test('an administrator can sign in through the admin form', function () {
         ->call('authenticate')
         ->assertHasNoFormErrors();
 
-    $this->assertAuthenticatedAs($admin);
+    // Signed in to the panel only: the admin sign-in has its own guard.
+    $this->assertAuthenticatedAs($admin, 'admin');
+    $this->assertGuest('web');
 });
 
 test('a business owner with a valid password is still refused by the admin form', function () {

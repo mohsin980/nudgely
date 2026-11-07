@@ -290,6 +290,11 @@ class BillingService
         $organization = $this->authorize($actor);
         $provider = $this->provider();
 
+        // The local provider has no portal: say so instead of quietly reloading the page.
+        if ($provider->name() === 'manual') {
+            throw new BillingException('Card payments aren\'t set up yet, so cards and invoices can\'t be managed here. Contact support for help with your billing.');
+        }
+
         if ($organization->billing_customer_id === null || $organization->billing_provider !== $provider->name()) {
             throw new BillingException('There is no billing account yet. Choose a plan first.');
         }

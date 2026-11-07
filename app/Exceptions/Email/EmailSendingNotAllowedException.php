@@ -11,6 +11,11 @@ use RuntimeException;
  */
 class EmailSendingNotAllowedException extends RuntimeException
 {
+    public static function organizationSuspended(): self
+    {
+        return new self('This business is suspended, so it can\'t send emails. Contact support.');
+    }
+
     public static function customerInactive(): self
     {
         return new self('This customer is marked inactive, so they are not emailed. Mark them active to email them again.');
