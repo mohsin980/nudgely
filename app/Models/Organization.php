@@ -291,4 +291,19 @@ class Organization extends Model
     {
         return $this->hasOne(WhatsAppConnection::class);
     }
+
+    public function assistantProfile(): HasOne
+    {
+        return $this->hasOne(AssistantProfile::class);
+    }
+
+    public function assistantFaqs(): HasMany
+    {
+        return $this->hasMany(AssistantFaq::class);
+    }
+
+    public function catalogItems(): HasMany
+    {
+        return $this->hasMany(CatalogItem::class);
+    }
 }

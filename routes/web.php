@@ -33,6 +33,7 @@ use App\Livewire\Inbox\ConversationList;
 use App\Livewire\Inbox\ShowConversation;
 use App\Livewire\Onboarding\Wizard;
 use App\Livewire\Settings\AccountSecurity;
+use App\Livewire\Settings\AiAssistant;
 use App\Livewire\Settings\AutomationDefaults;
 use App\Livewire\Settings\BillingHistory;
 use App\Livewire\Settings\BillingOverview;
@@ -105,6 +106,7 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');
     Route::get('/whatsapp', WhatsAppSettings::class)->middleware('can:manage-email')->name('whatsapp');
+    Route::get('/assistant', AiAssistant::class)->middleware('can:manage-business-profile')->name('assistant');
     Route::get('/notifications', NotificationSettings::class)->name('notifications');
 
     // Connect Google / Microsoft: the provider sends the business back with a code (see EmailOAuthController).
