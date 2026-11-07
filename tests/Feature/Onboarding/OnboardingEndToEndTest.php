@@ -62,7 +62,7 @@ test('first end-to-end: Dallas HVAC goes from sign-up to a working follow-up aut
 
     // Step 5: Estimate Follow-Up, reviewed before it is activated.
     $page = ownerWizard($owner)->assertSee('Set up your first automation')->assertSee('Follow up after estimate')->assertSee('Recommended')->call('chooseTemplate', 'follow_up_after_estimate');
-    $page->assertSee('Estimate sent')->assertSee('3 days')->assertSee('Customer has not replied')->assertSee('Send email')->assertSee('sales@dallashvac.com')->assertSee('Activate Automation');
+    $page->assertSee('Estimate sent')->assertSee('3 days')->assertSee('Customer has not replied')->assertSee('Send message')->assertSee('sales@dallashvac.com')->assertSee('Activate Automation');
     expect(Automation::where('organization_id', $organization->id)->count())->toBe(0); // reviewing creates nothing
 
     $page->set('confirmed', true)->call('activateAutomation')->assertHasNoErrors()->assertSee("You're ready to use QuoteFollow.", false);

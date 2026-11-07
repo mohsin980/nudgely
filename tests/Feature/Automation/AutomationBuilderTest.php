@@ -400,7 +400,7 @@ class AutomationBuilderTest extends TestCase
             ->assertSee('#'.$run->id)->assertSee('Success')->assertDontSee('Task created');
 
         Livewire::actingAs($this->admin)->test(AutomationLogs::class, ['automationId' => $automation->id, 'runId' => $run->id])
-            ->assertSeeInOrder(['Execution #'.$run->id, 'Success', 'Ready to book', '92%', 'Create task', 'Task created: Book John Smith', 'Send email', 'Automatic emails are turned off for this organization.', 'Skipped']);
+            ->assertSeeInOrder(['Execution #'.$run->id, 'Success', 'Ready to book', '92%', 'Create task', 'Task created: Book John Smith', 'Send message', 'Automatic emails are turned off for this organization.', 'Skipped']);
 
         // A run of another automation can't be opened through this one.
         $other = $this->runWithActions($this->automation());

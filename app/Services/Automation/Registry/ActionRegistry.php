@@ -18,6 +18,9 @@ final class ActionRegistry
 {
     public const FOLLOW_UP_DELAYS = ['1' => '1 day', '2' => '2 days', '3' => '3 days', '5' => '5 days', '7' => '7 days', '14' => '14 days', '30' => '30 days'];
 
+    /** How an automatic message reaches the customer. Missing (older automations): email. */
+    public const CHANNELS = ['customer' => 'The customer\'s channel (email or WhatsApp)', 'email' => 'Email', 'whatsapp' => 'WhatsApp', 'both' => 'Email and WhatsApp'];
+
     public const TASK_DUE = ['' => 'No due date', '4' => 'In 4 hours', '24' => 'In 1 day', '48' => 'In 2 days', '72' => 'In 3 days', '168' => 'In 1 week'];
 
     /** @var array<string, ActionDefinition>|null */
@@ -34,25 +37,30 @@ final class ActionRegistry
         $followUpTriggers = ['follow_up_due', 'follow_up_completed'];
 
         return self::$definitions ??= collect([
-            new ActionDefinition(A::SendEmail, 'Send email', 'Email the customer (in their conversation) or yourself, from your verified business email.', [
+            new ActionDefinition(A::SendEmail, 'Send message', 'Message the customer by email, WhatsApp or both (in their conversation), or email yourself.', [
                 new Field('recipient', 'Send to', 'select', options: ['customer' => 'The customer', 'owner' => 'Me (the automation owner)'], default: 'customer'),
-                new Field('subject', 'Subject', 'template', required: true, max: SendEmailAction::MAX_SUBJECT),
+                new Field('channel', 'Send by', 'select', options: self::CHANNELS, default: 'customer', showWhen: ['recipient' => 'customer'],
+                    help: 'WhatsApp needs the customer\'s consent, and outside 24 hours of their last WhatsApp message your approved template is sent.'),
+                new Field('subject', 'Subject (email only)', 'template', required: true, max: SendEmailAction::MAX_SUBJECT),
                 new Field('body', 'Message', 'template_body', required: true, max: SendEmailAction::MAX_BODY),
             ],
                 requires: fn (array $c) => ($c['recipient'] ?? 'customer') === 'owner' ? [] : [Subject::Customer, Subject::Conversation],
                 rules: fn (array $c, ActionValidation $v) => [
                     'recipient' => ($recipient = $v->choice($c, 'recipient', ['customer', 'owner'], 'customer')) === 'customer' ? null : $recipient,
+                    'channel' => $recipient === 'customer' ? $v->choice($c, 'channel', array_keys(self::CHANNELS), 'email') : null,
                     'subject' => $v->template($c, 'subject', SendEmailAction::MAX_SUBJECT, 'Enter an email subject.'),
                     'body' => $v->template($c, 'body', SendEmailAction::MAX_BODY, 'Enter an email message.'),
                 ],
                 contactsCustomer: true,
             ),
-            new ActionDefinition(A::ScheduleFollowUp, 'Create follow-up', 'Schedule a follow-up: a reminder for your team, or an email to the customer when it is due (Task 8 safety rules apply).', [
-                new Field('kind', 'Follow-up type', 'select', options: ['email' => 'Email the customer when due', 'reminder' => 'Remind my team when due'], default: 'email'),
+            new ActionDefinition(A::ScheduleFollowUp, 'Create follow-up', 'Schedule a follow-up: a reminder for your team, or a message to the customer (email, WhatsApp or both) when it is due.', [
+                new Field('kind', 'Follow-up type', 'select', options: ['email' => 'Message the customer when due', 'reminder' => 'Remind my team when due'], default: 'email'),
+                new Field('channel', 'Send by', 'select', options: self::CHANNELS, default: 'customer', showWhen: ['kind' => 'email'],
+                    help: 'WhatsApp needs the customer\'s consent, and outside 24 hours of their last WhatsApp message your approved template is sent.'),
                 new Field('delay_days', 'Due after', 'select', required: true, options: self::FOLLOW_UP_DELAYS, default: '3'),
                 new Field('title', 'Reminder', 'template', required: true, help: 'e.g. Follow up on estimate {{estimate.number}}', showWhen: ['kind' => 'reminder'], max: 255),
-                new Field('subject', 'Email subject', 'template', required: true, showWhen: ['kind' => 'email'], max: SendEmailAction::MAX_SUBJECT),
-                new Field('body', 'Email message', 'template_body', required: true, showWhen: ['kind' => 'email'], max: SendEmailAction::MAX_BODY),
+                new Field('subject', 'Subject (email only)', 'template', required: true, showWhen: ['kind' => 'email'], max: SendEmailAction::MAX_SUBJECT),
+                new Field('body', 'Message', 'template_body', required: true, showWhen: ['kind' => 'email'], max: SendEmailAction::MAX_BODY),
             ],
                 // Email follow-ups use the customer's open conversation, or start one, so a customer is enough.
                 requires: fn (array $c) => [Subject::Customer],
@@ -64,6 +72,7 @@ final class ActionRegistry
                     ]
                     : [
                         'delay_days' => $v->integer($c, 'delay_days', 1, ScheduleFollowUpAction::MAX_DELAY_DAYS, label: 'Due after (days)'),
+                        'channel' => $v->choice($c, 'channel', array_keys(self::CHANNELS), 'email'),
                         'subject' => $v->template($c, 'subject', SendEmailAction::MAX_SUBJECT, 'Enter an email subject.'),
                         'body' => $v->template($c, 'body', SendEmailAction::MAX_BODY, 'Enter an email message.'),
                     ],

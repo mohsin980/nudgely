@@ -175,6 +175,7 @@ class FollowUpService
             'due_at' => $dueAt->utc(),
             'subject' => $sent->subject,
             'body' => $sent->body,
+            'channel' => $sent->channel,
             'idempotency_key' => $key,
             'metadata' => [
                 'reason' => $sent->metadata['reason'] ?? null,

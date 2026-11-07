@@ -13,12 +13,14 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Message;
 use App\Models\WhatsAppConnection;
+use App\Services\AI\AiChatLog;
 use App\Services\Assistant\AssistantKnowledgeService;
 use App\Services\Assistant\WhatsAppAssistant;
 use App\Services\Conversations\ConversationService;
 use App\Services\Settings\BusinessSettingsService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
@@ -28,7 +30,10 @@ const AI_PHONE_ID = '106540352242999';
 const AI_SECRET = 'app-secret-assistant-0123456789';
 const LEAD = '923001234567';
 
+afterEach(fn () => File::deleteDirectory(app(AiChatLog::class)->path()));
+
 beforeEach(function () {
+    File::deleteDirectory(app(AiChatLog::class)->path());
     Queue::fake([SendEmailJob::class]);
     [$this->admin, $this->customer, $this->conversation] = followUpBusiness('Lahore Estates');
     $this->organization = $this->admin->organization;
@@ -119,6 +124,9 @@ test('a new WhatsApp lead gets an instant answer from the assistant, built from 
     leadSays('Hi, I need a 5 marla plot in DHA Phase 5')->assertOk();
 
     expect(sentToCustomer())->toBe(['Hi! I\'m Sara, the AI assistant for Lahore Estates. What is your budget?']);
+
+    expect(File::get(app(AiChatLog::class)->path(AiChatLog::FILE)))
+        ->toContain("Customer: Hi, I need a 5 marla plot in DHA Phase 5\nSara (AI): Hi! I'm Sara");
 
     $reply = Message::where('direction', MessageDirection::Outbound)->sole();
     $chat = AssistantChat::sole();

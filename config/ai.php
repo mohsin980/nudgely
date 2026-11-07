@@ -78,6 +78,13 @@ return [
 
     ],
 
+    // Every AI assistant conversation is written to a log file, which is emailed to this address and emptied
+    // when it reaches max_mb. Both can be changed in Admin → AI Models.
+    'chat_log' => [
+        'email' => env('AI_CHAT_LOG_EMAIL'),
+        'max_mb' => (int) env('AI_CHAT_LOG_MAX_MB', 5),
+    ],
+
     // How long (seconds) a model rests after a problem before it is tried again.
     'cooldown' => [
         'rate_limited' => 60,  // doubled on each repeat within an hour, up to "max"

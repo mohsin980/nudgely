@@ -24,6 +24,23 @@ class AutomatedEmailPolicy
 
     public function check(AutomationAction $action, AutomationContext $context): ?AutomationActionResult
     {
+        if (($blocked = $this->checkAllowed($action, $context)) !== null) {
+            return $blocked;
+        }
+
+        $organization = Organization::find($context->organizationId);
+        $conversation = $context->conversation();
+        $customer = $context->customer() ?? ($conversation === null ? null : $organization->customers()->find($conversation->customer_id));
+
+        return $this->checkDelivery($organization, $conversation, $customer, $context->idempotencyKey($action));
+    }
+
+    /**
+     * The business's own rules for any automatic customer message (email or WhatsApp): automatic sending on,
+     * no approval needed, and the automation still active.
+     */
+    public function checkAllowed(AutomationAction $action, AutomationContext $context): ?AutomationActionResult
+    {
         $organization = Organization::find($context->organizationId);
 
         if ($organization === null) {
@@ -44,10 +61,15 @@ class AutomatedEmailPolicy
             return AutomationActionResult::skipped('The automation is no longer active.', ['reason' => 'automation_inactive']);
         }
 
-        $conversation = $context->conversation();
-        $customer = $context->customer() ?? ($conversation === null ? null : $organization->customers()->find($conversation->customer_id));
+        return null;
+    }
 
-        return $this->checkDelivery($organization, $conversation, $customer, $context->idempotencyKey($action));
+    /**
+     * Whether the hourly limit for automatic customer messages is reached.
+     */
+    public function rateLimited(int $organizationId): bool
+    {
+        return RateLimiter::tooManyAttempts(self::rateLimitKey($organizationId), $this->hourlyLimit());
     }
 
     /**

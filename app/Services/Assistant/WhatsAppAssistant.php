@@ -13,6 +13,7 @@ use App\Models\AssistantChat;
 use App\Models\AssistantProfile;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\AI\AiChatLog;
 use App\Services\AI\Chat\ChatClient;
 use App\Services\AI\Chat\ChatReply;
 use App\Services\AI\Chat\ChatRequest;
@@ -44,6 +45,7 @@ class WhatsAppAssistant
         private readonly AssistantHandover $handover,
         private readonly EntitlementService $entitlements,
         private readonly LeadStageService $leadStages,
+        private readonly AiChatLog $log,
     ) {}
 
     /**
@@ -88,6 +90,9 @@ class WhatsAppAssistant
             }
         }
 
+        $assistantName = $profile->assistant_name ?: 'Assistant';
+        $customerMessages = $this->unansweredTexts($conversation);
+
         if ($chat->replies >= self::MAX_REPLIES) {
             $this->handover->handOver($chat, $profile, 'Long conversation: the assistant handed over after '.self::MAX_REPLIES.' replies.');
 
@@ -98,10 +103,12 @@ class WhatsAppAssistant
             $decision = $this->decide($organization, $profile, $conversation, $chat);
         } catch (AiRequestFailedException $e) {
             Log::warning('AI assistant could not answer; handing over.', ['organization_id' => $organization->id, 'conversation_id' => $conversation->id, 'reason' => $e->reason]);
-            $this->send($conversation, $chat, $chat->language === 'ur'
+            $fallback = $chat->language === 'ur'
                 ? 'آپ کے پیغام کا شکریہ! ہماری ٹیم جلد آپ سے رابطہ کرے گی۔'
-                : 'Thanks for your message! A member of our team will reply shortly.');
+                : 'Thanks for your message! A member of our team will reply shortly.';
+            $this->send($conversation, $chat, $fallback);
             $this->handover->handOver($chat, $profile, 'The AI was unavailable, so this chat needs a person.');
+            $this->log->record($chat, $assistantName, $customerMessages, $fallback, 'AI unavailable: handed over');
 
             return 'ai unavailable';
         }
@@ -109,6 +116,12 @@ class WhatsAppAssistant
         if ($this->send($conversation, $chat, $decision->reply) === null) {
             return 'not sent';
         }
+
+        $this->log->record($chat, $assistantName, $customerMessages, $decision->reply, match (true) {
+            $decision->handover => 'Handed over: '.$decision->handoverReason,
+            $decision->qualified && $chat->qualified_at === null => 'Lead qualified',
+            default => null,
+        });
 
         $chat->forceFill([
             'replies' => $chat->replies + 1,
@@ -153,6 +166,21 @@ class WhatsAppAssistant
 
             return null;
         }
+    }
+
+    /**
+     * The customer's messages since the business last wrote, oldest first.
+     *
+     * @return list<string>
+     */
+    private function unansweredTexts(Conversation $conversation): array
+    {
+        $lastOutbound = Message::query()->where('organization_id', $conversation->organization_id)->where('conversation_id', $conversation->id)
+            ->where('direction', MessageDirection::Outbound)->max('id');
+
+        return Message::query()->where('organization_id', $conversation->organization_id)->where('conversation_id', $conversation->id)
+            ->where('direction', MessageDirection::Inbound)->when($lastOutbound !== null, fn ($query) => $query->where('id', '>', $lastOutbound))
+            ->orderBy('id')->limit(20)->pluck('body_text')->map(fn ($text) => (string) $text)->all();
     }
 
     /**
