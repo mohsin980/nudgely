@@ -11,13 +11,6 @@ namespace App\Support;
  */
 final class PhoneNumber
 {
-    /** Country calling codes, with the national trunk prefix that is dropped (e.g. Pakistan's leading 0). */
-    private const COUNTRIES = [
-        'US' => ['1', ''], 'CA' => ['1', ''],
-        'PK' => ['92', '0'], 'GB' => ['44', '0'], 'AE' => ['971', '0'], 'SA' => ['966', '0'],
-        'IN' => ['91', '0'], 'AU' => ['61', '0'],
-    ];
-
     public static function toE164(?string $phone, string $country = 'US'): ?string
     {
         $phone = trim((string) $phone);
@@ -33,7 +26,7 @@ final class PhoneNumber
         } elseif (str_starts_with($digits, '00')) {
             $international = substr($digits, 2);
         } else {
-            [$code, $trunk] = self::COUNTRIES[strtoupper($country)] ?? self::COUNTRIES['US'];
+            [$code, $trunk] = Countries::dialing($country);
 
             if ($code === '1' && strlen($digits) === 11 && str_starts_with($digits, '1')) {
                 $international = $digits; // "1 214 555 0142"

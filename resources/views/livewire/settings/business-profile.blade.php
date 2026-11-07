@@ -1,40 +1,69 @@
-@php($field = 'mt-1 block w-full rounded-xl border-0 px-3.5 py-2.5 text-[15px] text-slate-900 ring-1 ring-slate-300 ring-inset focus:ring-2 focus:ring-violet-600 focus:ring-inset')
-@php($card = 'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-12px_rgba(76,29,149,0.12)]')
-@php($label = 'block text-sm font-medium text-slate-700')
+@php($field = 'mt-1.5 block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-[15px] text-slate-900 shadow-xs ring-1 ring-slate-200 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($iconField = 'block w-full rounded-xl border-0 bg-white py-2.5 pr-3.5 pl-10 text-[15px] text-slate-900 shadow-xs ring-1 ring-slate-200 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset')
+@php($fieldIcon = 'pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-slate-400')
+@php($card = 'rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6')
+@php($label = 'block text-sm font-semibold text-slate-800')
+@php($error = 'mt-1 text-sm text-red-700')
+@php($primaryButton = 'inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_-8px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600 disabled:opacity-50')
 <x-settings.shell title="Business Profile" description="How your business appears to customers on estimates and emails.">
     @include('livewire.settings.partials.status')
 
-    <form wire:submit="save" x-data="unsavedChanges" class="{{ $card }} space-y-5" aria-labelledby="profile-heading">
-        <h2 id="profile-heading" class="text-base font-bold text-slate-900">Business details</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
-            <div><label for="business-name" class="{{ $label }}">Business name</label><input id="business-name" type="text" wire:model="name" maxlength="100" required class="{{ $field }}">@error('name') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div><label for="legal-name" class="{{ $label }}">Legal name <span class="font-normal text-slate-500">(optional)</span></label><input id="legal-name" type="text" wire:model="legalName" maxlength="150" class="{{ $field }}">@error('legalName') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div><label for="business-email" class="{{ $label }}">Business email <span class="font-normal text-slate-500">(optional)</span></label><input id="business-email" type="email" wire:model="email" maxlength="255" placeholder="hello@dallashvac.com" class="{{ $field }}">@error('email') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div><label for="business-phone" class="{{ $label }}">Phone <span class="font-normal text-slate-500">(optional)</span></label><input id="business-phone" type="tel" wire:model="phone" maxlength="32" placeholder="(214) 555-1234" class="{{ $field }}">@error('phone') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-            <div class="sm:col-span-2"><label for="business-website" class="{{ $label }}">Website <span class="font-normal text-slate-500">(optional)</span></label><input id="business-website" type="url" wire:model="website" maxlength="255" placeholder="https://dallashvac.com" class="{{ $field }}">@error('website') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+    <form wire:submit="save" x-data="unsavedChanges" class="{{ $card }} grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]" aria-labelledby="profile-heading">
+        {{-- Why it matters --}}
+        <div class="hidden flex-col items-center justify-center rounded-2xl bg-linear-to-b from-violet-50 to-white p-5 text-center ring-1 ring-violet-100 lg:flex" aria-hidden="true">
+            <div class="relative">
+                <x-illustration name="store" class="w-40" />
+                <span class="absolute -right-1 -bottom-1 grid size-9 place-items-center rounded-full bg-emerald-500 text-white shadow-[0_6px_14px_-4px_rgba(5,150,105,0.6)] ring-4 ring-white"><x-ui-icon name="check" class="size-5 stroke-2" /></span>
+            </div>
+            <p class="mt-5 text-sm font-semibold text-slate-700">Your business profile helps customers trust your brand.</p>
         </div>
 
-        <fieldset class="space-y-4">
-            <legend class="text-sm font-semibold text-slate-900">Address <span class="font-normal text-slate-500">(optional)</span></legend>
+        <div class="min-w-0 space-y-5">
+            <h2 id="profile-heading" class="text-lg font-bold text-slate-900">Business details</h2>
             <div class="grid gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2"><label for="address-line1" class="{{ $label }}">Address line 1</label><input id="address-line1" type="text" wire:model="addressLine1" maxlength="150" autocomplete="address-line1" class="{{ $field }}">@error('addressLine1') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-                <div class="sm:col-span-2"><label for="address-line2" class="{{ $label }}">Address line 2</label><input id="address-line2" type="text" wire:model="addressLine2" maxlength="150" autocomplete="address-line2" class="{{ $field }}">@error('addressLine2') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-                <div><label for="city" class="{{ $label }}">City</label><input id="city" type="text" wire:model="city" maxlength="100" autocomplete="address-level2" class="{{ $field }}">@error('city') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-                <div><label for="state" class="{{ $label }}">State / province</label><input id="state" type="text" wire:model="state" maxlength="50" autocomplete="address-level1" class="{{ $field }}">@error('state') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-                <div><label for="postal-code" class="{{ $label }}">ZIP / postal code</label><input id="postal-code" type="text" wire:model="postalCode" maxlength="20" autocomplete="postal-code" class="{{ $field }}">@error('postalCode') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
-                <div><label for="country" class="{{ $label }}">Country</label>
-                    <select id="country" wire:model="country" class="{{ $field }}">@foreach ($countries as $code => $countryName)<option value="{{ $code }}">{{ $countryName }}</option>@endforeach</select>
-                    @error('country') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
+                <div><label for="business-name" class="{{ $label }}">Business name <span class="text-red-600">*</span></label>
+                    <div class="relative mt-1.5"><x-ui-icon name="building" class="{{ $fieldIcon }}" /><input id="business-name" type="text" wire:model="name" maxlength="100" required class="{{ $iconField }}"></div>
+                    @error('name') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                <div><label for="legal-name" class="{{ $label }}">Legal name <span class="font-normal text-slate-400">(optional)</span></label>
+                    <div class="relative mt-1.5"><x-ui-icon name="user" class="{{ $fieldIcon }}" /><input id="legal-name" type="text" wire:model="legalName" maxlength="150" placeholder="Enter legal name" class="{{ $iconField }}"></div>
+                    @error('legalName') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                <div><label for="business-email" class="{{ $label }}">Business email <span class="font-normal text-slate-400">(optional)</span></label>
+                    <div class="relative mt-1.5"><x-ui-icon name="envelope" class="{{ $fieldIcon }}" /><input id="business-email" type="email" wire:model="email" maxlength="255" placeholder="hello@yourbusiness.com" class="{{ $iconField }}"></div>
+                    @error('email') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                <div><label for="business-phone" class="{{ $label }}">Phone <span class="font-normal text-slate-400">(optional)</span></label>
+                    <div class="relative mt-1.5"><x-ui-icon name="phone" class="{{ $fieldIcon }}" /><input id="business-phone" type="tel" wire:model="phone" maxlength="32" placeholder="{{ $country === 'US' ? '(214) 555-1234' : 'Phone number' }}" class="{{ $iconField }}"></div>
+                    @error('phone') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                <div class="sm:col-span-2"><label for="business-website" class="{{ $label }}">Website <span class="font-normal text-slate-400">(optional)</span></label>
+                    <div class="relative mt-1.5"><x-ui-icon name="link" class="{{ $fieldIcon }}" /><input id="business-website" type="url" wire:model="website" maxlength="255" placeholder="https://yourbusiness.com" class="{{ $iconField }}"></div>
+                    @error('website') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
             </div>
-        </fieldset>
 
-        <div class="flex justify-end">
-            <button type="submit" wire:loading.attr="disabled" class="rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Save</button>
+            <fieldset class="space-y-4">
+                <legend class="text-[15px] font-semibold text-slate-900">Address <span class="font-normal text-slate-400">(optional)</span></legend>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div><label for="address-line1" class="{{ $label }}">Address line 1</label><input id="address-line1" type="text" wire:model="addressLine1" maxlength="150" autocomplete="address-line1" placeholder="123 Main Street" class="{{ $field }}">@error('addressLine1') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                    <div><label for="address-line2" class="{{ $label }}">Address line 2</label><input id="address-line2" type="text" wire:model="addressLine2" maxlength="150" autocomplete="address-line2" placeholder="Suite 100" class="{{ $field }}">@error('addressLine2') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                    <div><label for="city" class="{{ $label }}">City</label>
+                        <div class="relative mt-1.5"><x-ui-icon name="map-pin" class="{{ $fieldIcon }}" /><input id="city" type="text" wire:model="city" maxlength="100" autocomplete="address-level2" class="{{ $iconField }}"></div>
+                        @error('city') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                    <div><label for="state" class="{{ $label }}">{{ $regionLabel }}</label><input id="state" type="text" wire:model="state" maxlength="50" autocomplete="address-level1" class="{{ $field }}">@error('state') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                    <div><label for="postal-code" class="{{ $label }}">{{ $country === 'US' ? 'ZIP code' : 'Postal code' }}</label><input id="postal-code" type="text" wire:model="postalCode" maxlength="20" autocomplete="postal-code" class="{{ $field }}">@error('postalCode') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                    <div><label for="country" class="{{ $label }}">Country</label>
+                        <select id="country" wire:model.live="country" class="{{ $field }}">@foreach ($countries as $code => $countryName)<option value="{{ $code }}">{{ \App\Support\Countries::flag($code) }} {{ $countryName }}</option>@endforeach</select>
+                        @error('country') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror</div>
+                </div>
+            </fieldset>
+
+            <div class="flex justify-end">
+                <button type="submit" wire:loading.attr="disabled" class="{{ $primaryButton }}"><x-ui-icon name="check" class="size-4 stroke-2" />Save Changes</button>
+            </div>
         </div>
     </form>
 
     <section aria-labelledby="logo-heading" class="{{ $card }} space-y-4">
-        <h2 id="logo-heading" class="text-base font-bold text-slate-900">Logo</h2>
+        <h2 id="logo-heading" class="text-lg font-bold text-slate-900">Logo</h2>
         @if ($organization->logoUrl())
             <div class="flex flex-wrap items-center gap-4">
                 <img src="{{ $organization->logoUrl() }}" alt="{{ $organization->name }} logo" class="h-16 max-w-48 rounded border border-slate-200 bg-white object-contain p-1">
@@ -49,13 +78,13 @@
                 <input id="logo" type="file" wire:model="logo" accept="image/png,image/jpeg,image/webp" class="mt-1 block text-sm text-slate-700">
                 <p class="mt-1 text-xs text-slate-500">PNG, JPEG or WebP, up to 2 MB.</p>
             </div>
-            <button type="submit" wire:loading.attr="disabled" wire:target="logo,uploadLogo" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 disabled:opacity-50">Upload</button>
+            <button type="submit" wire:loading.attr="disabled" wire:target="logo,uploadLogo" class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50 disabled:opacity-50">Upload</button>
         </form>
         @error('logo') <p role="alert" class="text-sm text-red-700">{{ $message }}</p> @enderror
     </section>
 
     <section aria-labelledby="sender-heading" class="{{ $card }} space-y-3">
-        <h2 id="sender-heading" class="text-base font-bold text-slate-900">Business email sender</h2>
+        <h2 id="sender-heading" class="text-lg font-bold text-slate-900">Business email sender</h2>
         @if ($sender)
             <dl class="grid gap-2 text-sm sm:grid-cols-2">
                 <div><dt class="text-slate-500">From</dt><dd class="font-medium text-slate-900">{{ $sender->sender_email }}</dd></div>
@@ -65,7 +94,7 @@
             <p class="text-sm text-slate-500">No sender email yet. Customers can't be emailed until one is verified.</p>
         @endif
         @can('manage-email')
-            <a href="{{ route('settings.email') }}" wire:navigate class="inline-flex rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Manage Email</a>
+            <a href="{{ route('settings.email') }}" wire:navigate class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50"><x-ui-icon name="envelope" class="size-4" />Manage Email</a>
         @endcan
     </section>
 

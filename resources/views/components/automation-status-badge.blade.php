@@ -13,4 +13,4 @@
     };
 @endphp
 
-<span {{ $attributes->class(['inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-medium ring-1 ring-inset', $classes]) }}>{{ $label }}</span>
+<span {{ $attributes->class(['inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset', $classes]) }}><span aria-hidden="true" class="size-1.5 rounded-full bg-current"></span>{{ $label }}</span>

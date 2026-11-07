@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Settings\Concerns;
 
+use App\Billing\PaymentMethodSummary;
 use App\Enums\Team\Permission;
 use App\Exceptions\Billing\BillingException;
 use App\Models\Subscription;
 use App\Services\Billing\BillingService;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
@@ -70,6 +72,40 @@ trait ManagesSubscription
             $subscription->onTrial() => "Your {$name} trial ends on {$organization->formatDate($subscription->trial_ends_at)}.",
             default => "You're on the {$name} plan.",
         };
+    }
+
+    /**
+     * The saved card, or an explanation when the provider can't be asked right now.
+     *
+     * @return array{card: ?PaymentMethodSummary, error: ?string}
+     */
+    protected function payment(BillingService $billing): array
+    {
+        if ($this->organization()->billing_customer_id === null) {
+            return ['card' => null, 'error' => null];
+        }
+
+        try {
+            return ['card' => $billing->paymentMethod($this->user()), 'error' => null];
+        } catch (BillingException) {
+            return ['card' => null, 'error' => "Payment details can't be loaded right now."];
+        }
+    }
+
+    /**
+     * What the next charge is, if there is one: [label, date, plan name]. Cancelling subscriptions have none.
+     *
+     * @return array{date: CarbonInterface, plan: string}|null
+     */
+    protected function nextBilling(Subscription $subscription): ?array
+    {
+        if ($subscription->cancel_at_period_end || $subscription->current_period_end === null || ! $subscription->grantsAccess()) {
+            return null;
+        }
+
+        $next = $subscription->scheduled_plan !== null ? $subscription->scheduledPlanDefinition() : $subscription->planDefinition();
+
+        return $next === null ? null : ['date' => $subscription->current_period_end, 'plan' => $next->name];
     }
 
     protected function attempt(\Closure $action): void

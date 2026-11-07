@@ -116,7 +116,7 @@ test('6. the timezone must be a real IANA timezone', function () {
 test('7. the currency must be supported and is used for new estimates', function () {
     onMonday();
     Livewire::actingAs($this->owner)->test(BusinessPreferences::class)
-        ->set('currency', 'EUR')->call('save')->assertHasErrors('currency')
+        ->set('currency', 'XYZ')->call('save')->assertHasErrors('currency')
         ->set('currency', 'CAD')->set('dateFormat', 'm/d/Y')->set('timeFormat', '24h')->set('taskPriority', 'high')->call('save')->assertHasNoErrors();
 
     $organization = $this->organization->fresh();

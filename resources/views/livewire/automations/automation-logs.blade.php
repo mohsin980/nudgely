@@ -1,10 +1,10 @@
 <div class="space-y-6">
-    @php($card = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5')
+    @php($card = 'rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6')
     @php($automation = $this->automation)
     <div>
-        <a href="{{ route('automations.show', $automation->id) }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">&larr; {{ $automation->name }}</a>
+        <a href="{{ route('automations.show', $automation->id) }}" wire:navigate class="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:underline"><x-ui-icon name="arrow-left" class="size-4" />{{ $automation->name }}</a>
         <div class="mt-2 flex flex-wrap items-center gap-3">
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Execution logs</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Execution logs</h1>
             <x-automation-status-badge :status="$automation->status" />
         </div>
         <p class="text-sm text-slate-500">{{ $automation->name }} · When: {{ $automation->trigger_type->label() }}</p>
@@ -14,7 +14,7 @@
         @php($run = $this->selectedRun)
         <section aria-labelledby="run-heading" class="{{ $card }} space-y-4" data-section="execution">
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="run-heading" class="text-base font-semibold text-slate-900">Execution #{{ $run->id }}</h2>
+                <h2 id="run-heading" class="text-lg font-bold text-slate-900">Execution #{{ $run->id }}</h2>
                 <a href="{{ route('automations.logs', $automation->id) }}" wire:navigate class="text-sm font-medium text-violet-700 hover:underline">Close</a>
             </div>
 
@@ -90,18 +90,22 @@
 
     <section aria-labelledby="runs-heading" class="space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="runs-heading" class="text-sm font-semibold text-slate-500">Executions</h2>
-            <label class="flex items-center gap-2 text-sm text-slate-700">Status
-                <select wire:model.live="status" class="rounded-lg border-0 py-1 pr-8 pl-2 text-sm ring-1 ring-slate-300 ring-inset">
+            <h2 id="runs-heading" class="text-lg font-bold text-slate-900">Executions</h2>
+            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">Status
+                <select wire:model.live="status" class="rounded-xl border-0 bg-white py-2 pr-9 pl-3 text-sm font-medium shadow-xs ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
                     <option value="">All</option>
                     @foreach ($filters as $filter)<option value="{{ $filter }}">{{ ucfirst($filter) }}</option>@endforeach
                 </select>
             </label>
         </div>
         @if ($this->runs->isEmpty())
-            <p class="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">{{ $status === '' ? "This automation hasn't run yet." : 'No executions with this status.' }}</p>
+            <div class="{{ $card }} flex flex-col items-center px-6 py-12 text-center" data-empty>
+                <span class="grid size-32 place-items-center rounded-full bg-linear-to-b from-violet-50 to-white"><x-illustration name="logs" class="size-24" /></span>
+                <p class="mt-4 text-base font-bold text-slate-900">{{ $status === '' ? "This automation hasn't run yet." : 'No executions with this status.' }}</p>
+                @if ($status === '')<p class="mt-1 text-sm text-slate-500">Each time it runs, you'll see what triggered it, which conditions matched and what it did.</p>@endif
+            </div>
         @else
-            <ul role="list" class="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" data-section="runs">
+            <ul role="list" class="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70" data-section="runs">
                 @foreach ($this->runs as $listed)
                     <li wire:key="run-{{ $listed->id }}" @class(['bg-violet-50' => $listed->id === $runId])>
                         <a href="{{ route('automations.logs.show', [$automation->id, $listed->id]) }}" wire:navigate class="grid gap-1 px-4 py-3 hover:bg-slate-50 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-4">

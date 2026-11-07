@@ -16,7 +16,7 @@ use App\Services\Billing\EntitlementService;
 use App\Services\Email\EmailService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Onboarding\OnboardingState;
-use App\Services\Settings\BusinessSettingsService;
+use App\Support\Countries;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -148,6 +148,14 @@ class Wizard extends Component
         if ($suggestion !== null && ! $this->timezoneEdited) {
             $this->timezone = $suggestion;
         }
+    }
+
+    /**
+     * Outside the US the country alone suggests the timezone.
+     */
+    public function updatedCountry(OnboardingService $onboarding): void
+    {
+        $this->updatedStateCode($onboarding);
     }
 
     public function updatedTimezone(): void
@@ -371,8 +379,10 @@ class Wizard extends Component
                 'automations' => $organization->automations()->where('status', 'active')->count(),
                 'follow_ups' => $organization->followUps()->count(),
             ] : [],
-            'countries' => BusinessSettingsService::COUNTRIES,
-            'timezones' => BusinessPreferences::COMMON_TIMEZONES,
+            'countries' => Countries::names(),
+            'regionLabel' => Countries::regionLabel($this->country),
+            // US businesses pick from the US zones; elsewhere the country's own zone is offered first.
+            'timezones' => strtoupper($this->country) === 'US' ? BusinessPreferences::COMMON_TIMEZONES : array_filter([Countries::timezone($this->country) => Countries::names()[$this->country] ?? null]) + BusinessPreferences::COMMON_TIMEZONES,
         ]);
     }
 

@@ -29,36 +29,104 @@
         $microsoftReady = filled(config('email.oauth.microsoft.client_id'));
     @endphp
     <section aria-labelledby="accounts-heading" class="space-y-4">
-        <div>
-            <h2 id="accounts-heading" class="text-base font-bold text-slate-900">Connect your email account</h2>
-            <p class="mt-1 text-sm text-slate-500">Send from the mailbox you already use. No domain or DNS setup is needed.</p>
-        </div>
+        <div class="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div class="rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6">
+                <h2 id="accounts-heading" class="text-lg font-bold text-slate-900">Connect your email account</h2>
+                <p class="mt-1 text-sm text-slate-500">Send from the mailbox you already use. No domain or DNS setup is needed.</p>
 
-        <div class="grid gap-4 sm:grid-cols-3">
-            <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <p class="text-base font-semibold text-slate-900">Gmail</p>
-                <p class="mt-1 flex-1 text-sm text-slate-500">Gmail or Google Workspace. You approve access with Google; we never see your password.</p>
-                @if ($googleReady)
-                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'gmail']) }}" class="mt-4 inline-flex items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Connect Google</a>
-                @else
-                    <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Not set up on this server yet.</p>
-                @endif
+                <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                    <div class="flex flex-col items-center rounded-2xl bg-white p-5 text-center ring-1 ring-slate-200/80 shadow-xs">
+                        <x-provider-logo name="gmail" class="size-10" />
+                        <p class="mt-2 text-base font-bold text-slate-900">Gmail</p>
+                        <p class="mt-1 flex-1 text-xs text-slate-500">Gmail or Google Workspace. You approve access with Google; we never see your password.</p>
+                        @if ($googleReady)
+                            <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'gmail']) }}" class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Connect Google</a>
+                        @else
+                            <p class="mt-4 w-full rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Not set up on this server yet.</p>
+                        @endif
+                    </div>
+
+                    <div class="flex flex-col items-center rounded-2xl bg-white p-5 text-center ring-1 ring-slate-200/80 shadow-xs">
+                        <x-provider-logo name="microsoft" class="size-10" />
+                        <p class="mt-2 text-base font-bold text-slate-900">Outlook or Hotmail</p>
+                        <p class="mt-1 flex-1 text-xs text-slate-500">Outlook.com, Hotmail or Microsoft 365. You approve access with Microsoft.</p>
+                        @if ($microsoftReady)
+                            <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'microsoft']) }}" class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Connect Microsoft</a>
+                        @else
+                            <p class="mt-4 w-full rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Not set up on this server yet.</p>
+                        @endif
+                    </div>
+
+                    <div class="flex flex-col items-center rounded-2xl bg-white p-5 text-center ring-1 ring-slate-200/80 shadow-xs">
+                        <x-provider-logo name="smtp" class="size-10" />
+                        <p class="mt-2 text-base font-bold text-slate-900">Custom SMTP</p>
+                        <p class="mt-1 flex-1 text-xs text-slate-500">Any mail server that gives you a host, port and login. Encryption is required.</p>
+                        <button type="button" wire:click="openSmtpForm" class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Configure SMTP</button>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <p class="text-base font-semibold text-slate-900">Outlook or Hotmail</p>
-                <p class="mt-1 flex-1 text-sm text-slate-500">Outlook.com, Hotmail or Microsoft 365. You approve access with Microsoft.</p>
-                @if ($microsoftReady)
-                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => 'microsoft']) }}" class="mt-4 inline-flex items-center justify-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">Connect Microsoft</a>
-                @else
-                    <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Not set up on this server yet.</p>
+            <div class="rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6" aria-labelledby="connected-heading" data-connected-accounts>
+                <h2 id="connected-heading" class="text-lg font-bold text-slate-900">Your connected account{{ $this->accountConnections->count() > 1 ? 's' : '' }}</h2>
+                @if ($this->accountConnections->isEmpty())
+                    <div class="mt-5 flex flex-col items-center rounded-xl border border-dashed border-slate-300 p-6 text-center">
+                        <x-ui-icon name="envelope" class="size-8 text-slate-300" />
+                        <p class="mt-2 text-sm text-slate-500">No mailbox connected yet. Connect one to send from your own address.</p>
+                    </div>
                 @endif
-            </div>
+        @if ($this->accountConnections->isNotEmpty())
+            <ul role="list" class="mt-4 divide-y divide-slate-100">
+                @foreach ($this->accountConnections as $account)
+                    @php
+                        $label = match ($account->provider) { \App\Enums\EmailProvider::Gmail => 'Gmail', \App\Enums\EmailProvider::Microsoft => 'Outlook or Microsoft', default => 'Custom SMTP' };
+                    @endphp
+                    <li wire:key="account-{{ $account->id }}" class="flex flex-col gap-3 py-4 first:pt-0">
+                        <div class="flex min-w-0 items-start gap-3">
+                        <x-provider-logo :name="match ($account->provider) { \App\Enums\EmailProvider::Gmail => 'gmail', \App\Enums\EmailProvider::Microsoft => 'microsoft', default => 'smtp' }" class="size-9 shrink-0" />
+                        <div class="min-w-0">
+                            <p class="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
+                                <span class="min-w-0 break-all">{{ $account->sender_email }}</span>
+                                @if ($account->is_default)
+                                    <span class="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700">Default sender</span>
+                                @endif
+                            </p>
+                            <p class="mt-1 text-sm text-slate-500">{{ $label }}</p>
+                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE)
+                                <p class="mt-1.5 flex flex-wrap items-center gap-2 text-xs"><span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"><span class="size-1.5 rounded-full bg-current"></span>Connected</span>@if ($account->last_tested_at) <span class="text-slate-500">· last checked {{ $account->last_tested_at->diffForHumans() }}</span>@endif</p>
+                            @elseif ($account->connection_status === \App\Models\EmailConnection::STATUS_REAUTH_REQUIRED)
+                                <p class="mt-1 text-sm font-medium text-amber-700">Needs reconnecting. Emails will not send until you reconnect.</p>
+                            @else
+                                <p class="mt-1 text-sm text-slate-500">Disconnected</p>
+                            @endif
+                            @if ($account->status_message && $account->connection_status !== \App\Models\EmailConnection::STATUS_ACTIVE)
+                                <p class="mt-1 text-sm text-slate-500">{{ $account->status_message }}</p>
+                            @endif
+                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE && ! $account->bounce_scan_enabled && $account->provider !== \App\Enums\EmailProvider::Smtp)
+                                <p class="mt-1 text-sm text-slate-500" data-bounce-tracking="off">Bounce tracking is off. Reconnect to let QuoteFlow read bounce notices in this mailbox.</p>
+                            @endif
+                        </div>
+                        </div>
 
-            <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-                <p class="text-base font-semibold text-slate-900">Custom SMTP</p>
-                <p class="mt-1 flex-1 text-sm text-slate-500">Any mail server that gives you a host, port and login. Encryption is required.</p>
-                <button type="button" wire:click="openSmtpForm" class="mt-4 inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Configure SMTP</button>
+                        <div class="flex flex-wrap gap-2">
+                            @if ($account->connection_status !== \App\Models\EmailConnection::STATUS_DISCONNECTED || $account->provider !== \App\Enums\EmailProvider::Smtp)
+                                @if ($account->provider === \App\Enums\EmailProvider::Smtp)
+                                    <button type="button" wire:click="openSmtpForm" class="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50">Reconnect</button>
+                                @else
+                                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => $account->provider->value]) }}" class="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50">Reconnect</a>
+                                @endif
+                            @endif
+                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE && ! $account->is_default)
+                                <button type="button" wire:click="setDefault({{ $account->id }})" class="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50">Make default</button>
+                            @endif
+                            @if ($account->connection_status !== \App\Models\EmailConnection::STATUS_DISCONNECTED)
+                                <button type="button" wire:click="beginDisconnect({{ $account->id }})" class="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-red-700 shadow-xs ring-1 ring-red-200 ring-inset hover:bg-red-50">Disconnect</button>
+                            @endif
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+
             </div>
         </div>
 
@@ -113,56 +181,6 @@
             </form>
         @endif
 
-        @if ($this->accountConnections->isNotEmpty())
-            <ul role="list" class="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                @foreach ($this->accountConnections as $account)
-                    @php
-                        $label = match ($account->provider) { \App\Enums\EmailProvider::Gmail => 'Gmail', \App\Enums\EmailProvider::Microsoft => 'Outlook or Microsoft', default => 'Custom SMTP' };
-                    @endphp
-                    <li wire:key="account-{{ $account->id }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="min-w-0">
-                            <p class="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
-                                <span class="min-w-0 break-all">{{ $account->sender_email }}</span>
-                                @if ($account->is_default)
-                                    <span class="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700">Default sender</span>
-                                @endif
-                            </p>
-                            <p class="mt-1 text-sm text-slate-500">{{ $label }}</p>
-                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE)
-                                <p class="mt-1 text-sm"><span class="font-medium text-emerald-700">Connected</span>@if ($account->last_tested_at) <span class="text-slate-500">· last checked {{ $account->last_tested_at->diffForHumans() }}</span>@endif</p>
-                            @elseif ($account->connection_status === \App\Models\EmailConnection::STATUS_REAUTH_REQUIRED)
-                                <p class="mt-1 text-sm font-medium text-amber-700">Needs reconnecting. Emails will not send until you reconnect.</p>
-                            @else
-                                <p class="mt-1 text-sm text-slate-500">Disconnected</p>
-                            @endif
-                            @if ($account->status_message && $account->connection_status !== \App\Models\EmailConnection::STATUS_ACTIVE)
-                                <p class="mt-1 text-sm text-slate-500">{{ $account->status_message }}</p>
-                            @endif
-                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE && ! $account->bounce_scan_enabled && $account->provider !== \App\Enums\EmailProvider::Smtp)
-                                <p class="mt-1 text-sm text-slate-500" data-bounce-tracking="off">Bounce tracking is off. Reconnect to let QuoteFlow read bounce notices in this mailbox.</p>
-                            @endif
-                        </div>
-
-                        <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
-                            @if ($account->connection_status !== \App\Models\EmailConnection::STATUS_DISCONNECTED || $account->provider !== \App\Enums\EmailProvider::Smtp)
-                                @if ($account->provider === \App\Enums\EmailProvider::Smtp)
-                                    <button type="button" wire:click="openSmtpForm" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Reconnect</button>
-                                @else
-                                    <a href="{{ route('settings.email.oauth.redirect', ['provider' => $account->provider->value]) }}" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Reconnect</a>
-                                @endif
-                            @endif
-                            @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE && ! $account->is_default)
-                                <button type="button" wire:click="setDefault({{ $account->id }})" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50">Make default</button>
-                            @endif
-                            @if ($account->connection_status !== \App\Models\EmailConnection::STATUS_DISCONNECTED)
-                                <button type="button" wire:click="beginDisconnect({{ $account->id }})" class="rounded-lg px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Disconnect</button>
-                            @endif
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        @endif
-
         @if ($disconnectingId !== null && $this->accountConnections->firstWhere('id', $disconnectingId))
             @php
                 $target = $this->accountConnections->firstWhere('id', $disconnectingId);
@@ -187,7 +205,7 @@
     {{-- Section 1: current sending email(s) --}}
     <section aria-labelledby="connections-heading" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="connections-heading" class="text-base font-bold text-slate-900">Your business domain</h2>
+            <h2 id="connections-heading" class="text-lg font-bold text-slate-900">Your business domain</h2>
 
             @if ($this->domainConnections->isNotEmpty() && ! $showForm)
                 <button type="button" wire:click="create" class="inline-flex items-center rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]">

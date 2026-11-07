@@ -1,5 +1,6 @@
-@php($secondary = 'w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 ring-inset hover:bg-slate-50 disabled:opacity-50')
-@php($primary = 'w-full rounded-xl bg-violet-600 bg-linear-to-r from-violet-600 to-violet-500 px-3 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 shadow-[0_8px_20px_-8px_rgba(109,40,217,0.6)]')
+@php($secondary = 'w-full rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset hover:bg-slate-50 disabled:opacity-50')
+@php($primary = 'w-full rounded-xl bg-linear-to-r from-violet-600 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_-8px_rgba(109,40,217,0.65)] transition hover:from-violet-700 hover:to-violet-600 disabled:opacity-50')
+@php($popular = config('billing.popular_plan', 'pro'))
 <x-settings.shell title="Plans" description="Compare plans and change yours. Prices are per month in USD; limits are what each plan includes.">
     @include('livewire.settings.partials.billing-tabs')
     @include('livewire.settings.partials.status')
@@ -8,36 +9,49 @@
         <p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-800" data-cancellation>Your subscription is set to end on {{ $organization->formatDate($subscription->current_period_end) }}. Resume it from the <a href="{{ route('settings.billing') }}" wire:navigate class="font-medium underline">Plan page</a> to keep your plan.</p>
     @endif
 
-    <div class="grid gap-4 lg:grid-cols-3">
+    <div class="grid gap-5 pt-3 lg:grid-cols-3">
         @foreach ($plans as $option)
             @php($isCurrent = $option->key === ($subscription?->plan ?? $plan->key))
             @php($over = $option->priceCents < $plan->priceCents ? $overLimits($option) : [])
-            <div @class(['flex flex-col justify-between gap-4 rounded-lg border bg-white p-4 shadow-sm sm:p-5', 'border-violet-400 ring-1 ring-violet-400' => $isCurrent, 'border-slate-200' => ! $isCurrent]) data-plan="{{ $option->key }}">
+            @php($isPopular = $option->key === $popular)
+            <div @class(['relative flex flex-col justify-between gap-5 rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] sm:p-6', 'ring-2 ring-violet-500' => $isPopular || $isCurrent, 'ring-1 ring-slate-200/70' => ! $isPopular && ! $isCurrent]) data-plan="{{ $option->key }}">
+                @if ($isPopular)
+                    <span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-linear-to-r from-violet-600 to-violet-500 px-3 py-1 text-xs font-semibold whitespace-nowrap text-white shadow-[0_6px_14px_-6px_rgba(109,40,217,0.7)]">Most Popular</span>
+                @endif
                 <div>
                     <div class="flex items-center justify-between gap-2">
-                        <h2 class="text-lg font-semibold text-slate-900">{{ $option->name }}</h2>
-                        @if ($isCurrent)<span class="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">Current plan</span>@endif
+                        <div class="flex items-center gap-3">
+                            <span @class(['grid size-10 place-items-center rounded-xl ring-1 ring-inset', 'bg-violet-50 text-violet-600 ring-violet-100' => $isPopular, 'bg-slate-50 text-slate-500 ring-slate-200' => ! $isPopular])><x-ui-icon :name="$option->isFree() ? 'cube' : ($isPopular ? 'crown' : 'bolt')" class="size-5" /></span>
+                            <h2 class="text-lg font-bold text-slate-900">{{ $option->name }}</h2>
+                        </div>
+                        @if ($isCurrent)<span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 ring-inset">Current plan</span>@endif
                     </div>
-                    <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $option->isFree() ? '$0' : \App\Support\Money::format($option->priceCents) }}@unless ($option->isFree()) <span class="text-sm font-normal text-slate-500">/ {{ $option->interval->value }}</span>@endunless</p>
+                    <p class="mt-4 text-3xl font-bold tracking-tight text-slate-900">{{ $option->isFree() ? '$0' : \App\Support\Money::format($option->priceCents) }}@unless ($option->isFree()) <span class="text-sm font-medium text-slate-500">/ {{ $option->interval->value }}</span>@endunless</p>
 
-                    <ul class="mt-4 space-y-1.5 text-sm text-slate-700" aria-label="{{ $option->name }} limits">
+                    <ul class="mt-5 space-y-2 border-t border-slate-100 pt-4 text-sm text-slate-700" aria-label="{{ $option->name }} limits">
                         @foreach (\App\Enums\Billing\LimitKey::cases() as $limitKey)
-                            <li>{{ $option->limit($limitKey) === null ? 'Unlimited' : number_format($option->limit($limitKey)) }} {{ strtolower($limitKey->label()) }}</li>
+                            @php($limit = $option->limit($limitKey))
+                            <li class="flex items-start gap-2.5 {{ $limit === 0 ? 'text-slate-400' : '' }}"><x-ui-icon :name="$limit === 0 ? 'close' : 'check'" @class(['mt-0.5 size-4 shrink-0 stroke-2', 'text-emerald-600' => $limit !== 0, 'text-slate-300' => $limit === 0]) />@php($name = preg_match('/^[A-Z]{2}/', $limitKey->label()) ? $limitKey->label() : lcfirst($limitKey->label()))<span>{{ $limit === 0 ? 'No '.$name : ($limit === null ? 'Unlimited' : number_format($limit)).' '.$name }}</span></li>
                         @endforeach
                     </ul>
-                    <ul class="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-sm text-slate-700" aria-label="{{ $option->name }} features">
-                        @foreach ($option->features as $feature)
-                            <li>{{ $featureLabels[$feature] ?? ucfirst(str_replace('_', ' ', $feature)) }}</li>
-                        @endforeach
-                    </ul>
+                    @if ($option->features !== [])
+                        <ul class="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm text-slate-700" aria-label="{{ $option->name }} features">
+                            @foreach ($option->features as $feature)
+                                <li class="flex items-start gap-2.5"><x-ui-icon name="sparkles" class="mt-0.5 size-4 shrink-0 text-violet-500" /><span>{{ $featureLabels[$feature] ?? ucfirst(str_replace('_', ' ', $feature)) }}</span></li>
+                            @endforeach
+                        </ul>
+                    @endif
 
                     @if ($over)
-                        <p class="mt-3 text-xs text-amber-800" data-over-limits>You're over this plan's limits ({{ implode('; ', $over) }}). Nothing is deleted, but you won't be able to add more.</p>
+                        <p class="mt-3 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800" data-over-limits>You're over this plan's limits ({{ implode('; ', $over) }}). Nothing is deleted, but you won't be able to add more.</p>
                     @endif
                 </div>
 
                 <div class="space-y-2">
                     @if ($isCurrent)
+                        @if (! $subscription?->scheduled_plan)
+                            <button type="button" disabled class="{{ $secondary }}">Current plan</button>
+                        @endif
                         @if ($subscription?->scheduled_plan)
                             <button type="button" wire:click="choosePlan('{{ $option->key }}')" class="{{ $secondary }}">Keep {{ $option->name }}</button>
                             <p class="text-xs text-slate-500">Cancels your scheduled change to {{ $subscription->scheduledPlanDefinition()?->name }}.</p>

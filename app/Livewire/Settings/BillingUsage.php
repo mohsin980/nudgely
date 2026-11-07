@@ -3,7 +3,8 @@
 namespace App\Livewire\Settings;
 
 use App\Enums\Team\Permission;
-use App\Livewire\Settings\Concerns\SettingsPage;
+use App\Livewire\Settings\Concerns\ManagesSubscription;
+use App\Services\Billing\BillingService;
 use App\Services\Billing\EntitlementService;
 use App\Services\Billing\UsageService;
 use Livewire\Attributes\Layout;
@@ -17,17 +18,18 @@ use Livewire\Component;
 #[Title('Usage')]
 class BillingUsage extends Component
 {
-    use SettingsPage;
+    use ManagesSubscription;
 
     public function mount(): void
     {
         $this->authorize(Permission::ManageBilling->value);
     }
 
-    public function render(EntitlementService $entitlements, UsageService $usage)
+    public function render(EntitlementService $entitlements, UsageService $usage, BillingService $billing)
     {
         $organization = $this->organization();
         [$start, $end] = $usage->period($organization);
+        $subscription = $billing->currentSubscription($organization);
 
         return view('livewire.settings.billing-usage', [
             'organization' => $organization,
@@ -35,6 +37,8 @@ class BillingUsage extends Component
             'rows' => $entitlements->summary($organization),
             'periodStart' => $start,
             'periodEnd' => $end->subSecond(),
+            'nextBilling' => $subscription ? $this->nextBilling($subscription) : null,
+            'payment' => $this->payment($billing),
         ]);
     }
 }
