@@ -219,7 +219,7 @@ test('10. an automation needs explicit confirmation and shows exactly what it wi
     app(OnboardingService::class)->skipStep($owner, OnboardingStep::FollowUpChannels);
 
     $page = wizard($owner)->assertSee('Set up your first automation')->call('chooseTemplate', 'follow_up_after_estimate')
-        ->assertSee('Estimate sent')->assertSee('3 days')->assertSee('Customer has not replied')->assertSee('Send email')->assertSee('sales@dallashvac.com')->assertSee("the customer's email address")
+        ->assertSee('Estimate sent')->assertSee('3 days')->assertSee('Customer has not replied')->assertSee('Send message')->assertSee('sales@dallashvac.com')->assertSee("the customer's email address")
         ->assertSee('waits for your approval');
 
     // Not confirmed: nothing is created or activated.

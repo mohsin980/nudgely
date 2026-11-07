@@ -3,8 +3,11 @@
 namespace App\Services\Automation\Actions;
 
 use App\Contracts\Automation\AutomationActionInterface;
+use App\Enums\Automation\AutomationActionRunStatus;
+use App\Enums\MessageChannel;
 use App\Exceptions\Automation\InvalidEmailTemplateException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
+use App\Exceptions\WhatsApp\WhatsAppSendException;
 use App\Models\Automation;
 use App\Models\AutomationAction;
 use App\Models\Organization;
@@ -13,11 +16,14 @@ use App\Services\Automation\AutomationActionResult;
 use App\Services\Automation\AutomationContext;
 use App\Services\Automation\EmailTemplateRenderer;
 use App\Services\Email\EmailService;
+use App\Services\FollowUps\FollowUpProcessor;
 use App\Services\Team\TeamDirectory;
+use App\Services\WhatsApp\WhatsAppMessenger;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
- * send_email: emails the conversation's customer from the organization's verified sender.
+ * send_email ("Send message"): messages the conversation's customer by email (from the organization's verified
+ * sender), WhatsApp, or both: configuration "channel" is email, whatsapp, both, or customer (their own channel).
  *
  * Off by default. It sends only when the organization turned automatic emails on and
  * approval off, the action does not require approval, and AutomatedEmailPolicy passes
@@ -37,6 +43,7 @@ class SendEmailAction implements AutomationActionInterface
         private readonly AutomatedEmailPolicy $policy,
         private readonly EmailService $email,
         private readonly EmailTemplateRenderer $templates,
+        private readonly WhatsAppMessenger $whatsapp,
     ) {}
 
     public function execute(AutomationAction $action, AutomationContext $context): AutomationActionResult
@@ -60,14 +67,85 @@ class SendEmailAction implements AutomationActionInterface
             return $this->emailOwner($action, $context, $subject, $body);
         }
 
-        if (($blocked = $this->policy->check($action, $context)) !== null) {
+        if (($blocked = $this->policy->checkAllowed($action, $context)) !== null) {
             return $blocked;
         }
 
         $organization = Organization::findOrFail($context->organizationId);
         $conversation = $context->conversation();
+
+        if ($conversation === null) {
+            return AutomationActionResult::failed('A message to the customer needs their conversation.');
+        }
+
         $customer = $organization->customers()->findOrFail($conversation->customer_id);
+        [$byWhatsApp, $byEmail] = $this->channels((string) ($config['channel'] ?? 'email'), $customer, $organization);
+
+        $whatsApp = $byWhatsApp ? $this->sendWhatsApp($action, $context, $organization, $conversation, $customer, $body) : null;
+        $email = $byEmail ? $this->sendEmail($action, $context, $organization, $conversation, $customer, $subject, $body) : null;
+
+        return match (true) {
+            $whatsApp === null => $email,
+            $email === null => $whatsApp,
+            $whatsApp->status === AutomationActionRunStatus::Completed && $email->status === AutomationActionRunStatus::Completed => AutomationActionResult::completed('Sent to the customer by email and WhatsApp.', $email->data + ['whatsapp_message_id' => $whatsApp->data['message_id'] ?? null]),
+            $email->status === AutomationActionRunStatus::Completed => AutomationActionResult::completed($email->message.' WhatsApp: '.$whatsApp->message, $email->data),
+            default => $whatsApp->status === AutomationActionRunStatus::Completed ? AutomationActionResult::completed($whatsApp->message.' Email: '.$email->message, $whatsApp->data) : $email,
+        };
+    }
+
+    /**
+     * Which channels to use, as [WhatsApp, email]. "customer": their preference (FollowUpProcessor::channelFor), by
+     * email when WhatsApp can't reach them right now. Older automations without a choice send email.
+     *
+     * @return array{0: bool, 1: bool}
+     */
+    private function channels(string $channel, $customer, Organization $organization): array
+    {
+        return match ($channel) {
+            'whatsapp' => [true, false],
+            'both' => [$this->whatsapp->unavailableReason($customer) === null, true],
+            'customer' => app(FollowUpProcessor::class)->channelFor($customer, $organization) === MessageChannel::WhatsApp
+                && ($this->whatsapp->canSendAutomated($customer) || ! filter_var($customer->email, FILTER_VALIDATE_EMAIL)) ? [true, false] : [false, true],
+            default => [false, true],
+        };
+    }
+
+    private function sendWhatsApp(AutomationAction $action, AutomationContext $context, Organization $organization, $conversation, $customer, string $body): AutomationActionResult
+    {
         $key = $context->idempotencyKey($action);
+        $key = $key === null ? null : $key.'|whatsapp';
+
+        if ($key !== null && ($messageId = $this->policy->sentMessageId($organization, $key)) !== null) {
+            return AutomationActionResult::skipped('WhatsApp message already sent for this event.', ['reason' => 'already_exists', 'message_id' => $messageId]);
+        }
+
+        if (! $customer->isActive()) {
+            return AutomationActionResult::skipped('Not sent: the customer is marked inactive.', ['reason' => 'inactive']);
+        }
+
+        if ($this->policy->rateLimited($organization->id)) {
+            return AutomationActionResult::skipped('Not sent: the hourly limit for automatic messages was reached.', ['reason' => 'rate_limited']);
+        }
+
+        try {
+            $message = $this->whatsapp->sendAutomated($conversation, $context->renderTemplate($body),
+                array_filter(['type' => 'automation', 'automation_key' => $key, 'automation_action_id' => (string) $action->id]));
+        } catch (InvalidEmailTemplateException|WhatsAppSendException $e) {
+            return AutomationActionResult::failed($e->getMessage(), ['reason' => 'whatsapp_not_sent']);
+        }
+
+        $this->policy->recordSent($organization->id);
+
+        return AutomationActionResult::completed('WhatsApp message sent to the customer.', ['message_id' => $message->id]);
+    }
+
+    private function sendEmail(AutomationAction $action, AutomationContext $context, Organization $organization, $conversation, $customer, string $subject, string $body): AutomationActionResult
+    {
+        $key = $context->idempotencyKey($action);
+
+        if (($blocked = $this->policy->checkDelivery($organization, $conversation, $customer, $key)) !== null) {
+            return $blocked;
+        }
 
         try {
             $text = $context->renderTemplate($body);

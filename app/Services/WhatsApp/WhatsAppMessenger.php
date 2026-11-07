@@ -92,6 +92,42 @@ class WhatsAppMessenger
             fn (WhatsAppConnection $connection) => $this->client->sendTemplate($connection, $customer->phone_e164, $name, $language, $parameters));
     }
 
+    /**
+     * An automatic message (follow-up or automation): as written within 24 hours of the customer's last WhatsApp
+     * message, otherwise as the business's approved follow-up template with the customer's first name.
+     *
+     * @param  array<string, string>  $metadata
+     *
+     * @throws WhatsAppSendException when neither is possible, with the reason
+     */
+    public function sendAutomated(Conversation $conversation, string $text, array $metadata = []): Message
+    {
+        $customer = $this->customerFor($conversation);
+
+        if ($this->windowOpen($customer)) {
+            return $this->sendText($conversation, $text, $metadata);
+        }
+
+        $connection = $this->connection($customer->organization_id);
+
+        if (blank($connection?->follow_up_template)) {
+            throw new WhatsAppSendException('Not sent on WhatsApp: it has been more than 24 hours since the customer\'s last WhatsApp message, so WhatsApp needs an approved template. Add one in Settings → WhatsApp.');
+        }
+
+        return $this->sendTemplate($conversation, $connection->follow_up_template, $connection->follow_up_template_language ?: 'en',
+            [(string) ($customer->first_name ?: $customer->name)], 'WhatsApp template “'.$connection->follow_up_template.'”', $metadata);
+    }
+
+    /**
+     * Whether an automatic message can go on WhatsApp right now (connected, consent, number, and either the 24-hour
+     * window is open or an approved template is set).
+     */
+    public function canSendAutomated(Customer $customer): bool
+    {
+        return $this->unavailableReason($customer) === null
+            && ($this->windowOpen($customer) || filled($this->connection($customer->organization_id)?->follow_up_template));
+    }
+
     public function connection(int $organizationId): ?WhatsAppConnection
     {
         return WhatsAppConnection::query()->where('organization_id', $organizationId)->first();

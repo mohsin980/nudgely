@@ -95,6 +95,26 @@ class FollowUpProcessor
     }
 
     /**
+     * Which channels a follow-up goes on, as [WhatsApp, email]. Its own channel when an automation chose one
+     * ("email", "whatsapp" or "both"), otherwise the customer's channel (channelFor). With "both", a channel that
+     * isn't possible for this customer is left out.
+     *
+     * @return array{0: bool, 1: bool}
+     */
+    public function channelsFor(FollowUp $followUp, Customer $customer, Organization $organization): array
+    {
+        return match ($followUp->channel) {
+            'email' => [false, true],
+            'whatsapp' => [true, false],
+            'both' => [
+                $whatsapp = $this->whatsapp->unavailableReason($customer) === null,
+                (filter_var($customer->email, FILTER_VALIDATE_EMAIL) && ! $customer->hasOptedOutOfEmail() && ! $customer->isEmailSuppressed()) || ! $whatsapp,
+            ],
+            default => $this->channelFor($customer, $organization) === MessageChannel::WhatsApp ? [true, false] : [false, true],
+        };
+    }
+
+    /**
      * Scheduler step: mark due follow-ups and queue one job each. Cheap; no checks here.
      */
     public function markDue(): int
@@ -320,9 +340,16 @@ class FollowUpProcessor
         }
 
         $customer = $organization->customers()->find($followUp->customer_id);
-        $byEmail = $customer !== null && $this->channelFor($customer, $organization) === MessageChannel::Email;
 
-        if ($customer === null || ($byEmail && ! filter_var($customer->email, FILTER_VALIDATE_EMAIL))) {
+        if ($customer === null) {
+            return FollowUpSkipReason::CustomerUnavailable;
+        }
+
+        [$byWhatsApp, $byEmail] = $this->channelsFor($followUp, $customer, $organization);
+        $byEmail = $byEmail && ! $byWhatsApp; // email's own stop rules only matter when email is the only channel
+
+        if (($byEmail && ! filter_var($customer->email, FILTER_VALIDATE_EMAIL))
+            || ($followUp->channel === 'whatsapp' && $this->whatsapp->unavailableReason($customer) !== null)) {
             return FollowUpSkipReason::CustomerUnavailable;
         }
 
@@ -391,16 +418,26 @@ class FollowUpProcessor
         $customer = $organization->customers()->findOrFail($locked->customer_id);
         $key = hash('sha256', 'follow_up|'.$locked->id);
 
-        if ($this->channelFor($customer, $organization) === MessageChannel::WhatsApp) {
-            $sent = $this->deliverWhatsApp($locked, $organization, $conversation, $customer, $key, $actor);
+        [$byWhatsApp, $byEmail] = $this->channelsFor($locked, $customer, $organization);
+        $alongside = null;
+
+        if ($byWhatsApp && ! $byEmail) {
+            // The customer's channel may fall back to email; a follow-up set to "WhatsApp" never does.
+            $sent = $this->deliverWhatsApp($locked, $organization, $conversation, $customer, $key, $actor, fallbackToEmail: $locked->channel === null);
 
             if ($sent !== null) {
                 return $sent;
             }
             // Outside the 24-hour window with no template: email instead, through the usual email checks below.
+        } elseif ($byWhatsApp) {
+            $alongside = $this->sendAlongside($locked, $organization, $conversation, $customer); // "both": WhatsApp, then email
         }
 
         $blocked = $this->policy->checkDelivery($organization, $conversation, $customer, $key);
+
+        if ($blocked !== null && $alongside !== null && ($blocked->data['reason'] ?? null) !== 'already_exists') {
+            return $this->completeSent($locked, $alongside->id, $actor, channel: MessageChannel::WhatsApp); // the email part couldn't go
+        }
 
         if ($blocked !== null) {
             return match ($blocked->data['reason'] ?? null) {
@@ -435,7 +472,33 @@ class FollowUpProcessor
         RateLimiter::hit(self::hourKey($organization->id), 3600);
         RateLimiter::hit(self::dayKey($organization->id), 86400);
 
-        return $this->completeSent($locked, $message->id, $actor);
+        return $this->completeSent($locked, $message->id, $actor, alsoWhatsApp: $alongside !== null);
+    }
+
+    /**
+     * The WhatsApp half of a "both" follow-up: sent once (its own idempotency key), never failing the follow-up.
+     */
+    private function sendAlongside(FollowUp $locked, Organization $organization, Conversation $conversation, Customer $customer): ?Message
+    {
+        $key = hash('sha256', 'follow_up|'.$locked->id.'|whatsapp');
+
+        if (($existing = $this->policy->sentMessageId($organization, $key)) !== null) {
+            return Message::query()->find($existing);
+        }
+
+        try {
+            $estimate = $locked->estimate_id === null ? null : $organization->estimates()->find($locked->estimate_id);
+            $message = $this->whatsapp->sendAutomated($conversation, $this->templates->render($locked->body, $customer, $organization, $estimate),
+                ['type' => 'follow_up', 'automation_key' => $key, 'follow_up_id' => (string) $locked->id]);
+        } catch (InvalidEmailTemplateException|WhatsAppSendException|UniqueConstraintViolationException $e) {
+            Log::info('WhatsApp part of a follow-up not sent.', ['organization_id' => $organization->id, 'follow_up_id' => $locked->id]);
+
+            return null;
+        }
+
+        $this->policy->recordSent($organization->id);
+
+        return $message;
     }
 
     /**
@@ -445,32 +508,21 @@ class FollowUpProcessor
      *
      * @return array{0: string, 1: string}|null
      */
-    private function deliverWhatsApp(FollowUp $locked, Organization $organization, Conversation $conversation, Customer $customer, string $key, ?User $actor): ?array
+    private function deliverWhatsApp(FollowUp $locked, Organization $organization, Conversation $conversation, Customer $customer, string $key, ?User $actor, bool $fallbackToEmail = true): ?array
     {
         if (($existing = $this->policy->sentMessageId($organization, $key)) !== null) {
             return $this->completeSent($locked, (int) $existing, $actor, alreadySent: true);
         }
 
         $metadata = ['type' => 'follow_up', 'automation_key' => $key, 'follow_up_id' => (string) $locked->id];
-        $connection = $this->whatsapp->connection($organization->id);
+
+        if ($fallbackToEmail && ! $this->whatsapp->canSendAutomated($customer) && filter_var($customer->email, FILTER_VALIDATE_EMAIL)) {
+            return null; // outside the 24-hour window with no template: the caller emails instead
+        }
 
         try {
             $estimate = $locked->estimate_id === null ? null : $organization->estimates()->find($locked->estimate_id);
-            $text = $this->templates->render($locked->body, $customer, $organization, $estimate);
-
-            if ($this->whatsapp->windowOpen($customer)) {
-                $message = $this->whatsapp->sendText($conversation, $text, $metadata);
-            } elseif (filled($connection?->follow_up_template)) {
-                $message = $this->whatsapp->sendTemplate(
-                    $conversation, $connection->follow_up_template, $connection->follow_up_template_language ?: 'en',
-                    [(string) ($customer->first_name ?: $customer->name)],
-                    'WhatsApp template “'.$connection->follow_up_template.'”', $metadata,
-                );
-            } elseif (filter_var($customer->email, FILTER_VALIDATE_EMAIL)) {
-                return null;
-            } else {
-                return $this->failed($locked, 'Not sent: it has been more than 24 hours since the customer\'s last WhatsApp message, so WhatsApp needs an approved template. Add one in Settings → WhatsApp.', $actor);
-            }
+            $message = $this->whatsapp->sendAutomated($conversation, $this->templates->render($locked->body, $customer, $organization, $estimate), $metadata);
         } catch (InvalidEmailTemplateException|WhatsAppSendException $e) {
             return $this->failed($locked, $e->getMessage(), $actor);
         } catch (UniqueConstraintViolationException) {
@@ -487,9 +539,13 @@ class FollowUpProcessor
     /**
      * @return array{0: string, 1: string}
      */
-    private function completeSent(FollowUp $locked, int $messageId, ?User $actor, bool $alreadySent = false, MessageChannel $channel = MessageChannel::Email): array
+    private function completeSent(FollowUp $locked, int $messageId, ?User $actor, bool $alreadySent = false, MessageChannel $channel = MessageChannel::Email, bool $alsoWhatsApp = false): array
     {
-        $what = $channel === MessageChannel::WhatsApp ? 'Follow-up sent on WhatsApp' : 'Follow-up email sent';
+        $what = match (true) {
+            $alsoWhatsApp => 'Follow-up sent by email and WhatsApp',
+            $channel === MessageChannel::WhatsApp => 'Follow-up sent on WhatsApp',
+            default => 'Follow-up email sent',
+        };
         $outcome = $actor === null ? $what.' automatically.' : "{$what} by {$actor->name}.";
 
         $locked->forceFill([

@@ -85,6 +85,12 @@ class ScheduleFollowUpAction implements AutomationActionInterface
                 'estimate_id' => $context->estimate()?->id,
                 'automation_action_id' => $action->id,
                 'automation_run_id' => $this->runId($action, $context),
+                // null: the customer's own channel. Older automations without a choice send email.
+                'channel' => match ($config['channel'] ?? 'email') {
+                    'customer' => null,
+                    'whatsapp', 'both' => $config['channel'],
+                    default => 'email',
+                },
             ],
         );
 

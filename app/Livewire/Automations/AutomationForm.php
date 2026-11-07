@@ -99,7 +99,7 @@ class AutomationForm extends Component
         $this->conditions = array_map(fn (array $c) => ['type' => $c['type'], 'operator' => $c['operator'], 'value' => $this->displayValue($c['type'], $c['value'])], $input['conditions']);
         $this->actions = array_map(fn (array $a) => [
             'type' => $a['type'],
-            'configuration' => array_map(fn ($v) => is_bool($v) ? $v : (string) $v, $a['configuration']),
+            'configuration' => $this->storedConfiguration((string) $a['type'], $a['configuration']),
             'requires_approval' => (bool) $a['requires_approval'],
         ], $input['actions']);
         $this->step = $this->furthestStep = 5;
@@ -392,6 +392,24 @@ class AutomationForm extends Component
      * @param  array<string, mixed>  $defaults
      * @return array<string, string>
      */
+    /**
+     * A saved action's settings for the form: fields it left out show their defaults (so fields that depend on them,
+     * like the follow-up's subject, appear), except the channel, which was email before it could be chosen.
+     *
+     * @param  array<string, mixed>  $configuration
+     * @return array<string, string|bool>
+     */
+    private function storedConfiguration(string $type, array $configuration): array
+    {
+        $defaults = array_map(fn ($v) => $v === null ? '' : (string) $v, ActionRegistry::find($type)?->defaults() ?? []);
+
+        if (array_key_exists('channel', $defaults)) {
+            $defaults['channel'] = 'email';
+        }
+
+        return array_map(fn ($v) => is_bool($v) ? $v : (string) $v, $configuration) + $defaults;
+    }
+
     private function stringDefaults(array $defaults): array
     {
         $defaults = array_map(fn ($v) => $v === null ? '' : (string) $v, $defaults);

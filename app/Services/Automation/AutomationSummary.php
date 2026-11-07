@@ -80,16 +80,29 @@ final class AutomationSummary
         $quote = fn (?string $text) => $text ? ' “'.Str::limit($text, 60).'”' : '';
 
         return match ($definition->key()) {
-            'send_email' => (($c['recipient'] ?? 'customer') === 'owner' ? 'Email me' : 'Send email to the customer').$quote($c['subject'] ?? null),
+            'send_email' => (($c['recipient'] ?? 'customer') === 'owner' ? 'Email me' : 'Send the customer '.self::by($c['channel'] ?? 'email')).$quote($c['subject'] ?? null),
             'schedule_follow_up' => ($c['kind'] ?? 'email') === 'reminder'
                 ? 'Create a follow-up reminder in '.self::days($c['delay_days'] ?? null).$quote($c['title'] ?? null)
-                : 'Create a follow-up email in '.self::days($c['delay_days'] ?? null).$quote($c['subject'] ?? null),
+                : 'Create a follow-up '.self::by($c['channel'] ?? 'email').' in '.self::days($c['delay_days'] ?? null).$quote($c['subject'] ?? null),
             'create_task' => 'Create task'.$quote($c['title'] ?? null).(isset($c['priority']) ? ' ('.ucfirst((string) $c['priority']).' priority)' : ''),
             'notify_user' => 'Notify '.(($c['recipients'] ?? 'admins') === 'members' ? 'everyone' : 'owners and admins').$quote($c['message'] ?? null),
             'add_customer_tag' => 'Tag the customer'.$quote($c['tag'] ?? null),
             'remove_customer_tag' => 'Remove the tag'.$quote($c['tag'] ?? null),
             'update_conversation_status' => 'Set the conversation to “'.(ConversationStatus::tryFrom((string) ($c['status'] ?? ''))?->label() ?? '…').'”',
             default => $definition->label,
+        };
+    }
+
+    /**
+     * "an email", "a WhatsApp message", "an email and WhatsApp message", "a message on their channel".
+     */
+    private static function by(string $channel): string
+    {
+        return match ($channel) {
+            'whatsapp' => 'a WhatsApp message',
+            'both' => 'an email and WhatsApp message',
+            'customer' => 'a message on their channel',
+            default => 'an email',
         };
     }
 

@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\Platform\PlatformPermission;
 use App\Filament\Concerns\RequiresPlatformPermission;
 use App\Models\AiModelSetting;
+use App\Services\AI\AiChatLog;
 use App\Services\AI\Chat\AiModelSettings;
 use App\Services\AI\Chat\ChatClient;
 use App\Services\AI\Chat\ChatModel;
@@ -57,6 +58,62 @@ class AiModels extends Page implements HasTable
     public function getSubheading(): ?string
     {
         return 'Tried top to bottom, each provider\'s keys in order: when a key hits its limit, the next key or provider answers and the limited key rests. Free keys: aistudio.google.com, console.groq.com, openrouter.ai (":free" models).';
+    }
+
+    /**
+     * @return list<Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        $log = app(AiChatLog::class);
+
+        return [
+            Action::make('chat_log')
+                ->label('Chat log')
+                ->icon('heroicon-o-document-text')
+                ->color('gray')
+                ->modalHeading('AI chat log')
+                ->modalDescription('Every AI assistant conversation is saved to a file. When the file reaches the size below, it is emailed to you as an attachment and a new file starts. It contains customers\' messages: keep the emails private.')
+                ->fillForm(fn () => $log->settings())
+                ->schema([
+                    Toggle::make('enabled')->label('Save AI conversations'),
+                    TextInput::make('email')->label('Email the full file to')->email()->maxLength(255)->placeholder('you@example.com')
+                        ->helperText('If empty, full files are kept on the server until you add an address and press "Email log now".'),
+                    TextInput::make('max_mb')->label('Email when the file reaches (MB)')->numeric()->minValue(1)->maxValue(20)->required(),
+                    Text::make(fn () => 'Current file: '.number_format($log->size() / 1024 / 1024, 2).' MB.'),
+                ])
+                ->modalSubmitActionLabel('Save')
+                ->action(function (array $data, Action $action) use ($log) {
+                    try {
+                        $log->updateSettings(['enabled' => (bool) ($data['enabled'] ?? false), 'email' => $data['email'] ?? null, 'max_mb' => $data['max_mb'] ?? 5], auth()->user());
+                    } catch (AuthorizationException|ValidationException $e) {
+                        Notification::make()->title('Not saved')->body($e instanceof ValidationException ? collect($e->errors())->flatten()->implode(' ') : $e->getMessage())->danger()->send();
+                        $action->halt();
+
+                        return;
+                    }
+
+                    Notification::make()->title('Chat log settings saved')->success()->send();
+                }),
+            Action::make('email_log_now')
+                ->label('Email log now')
+                ->icon('heroicon-o-envelope')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalHeading('Email the AI chat log now?')
+                ->modalDescription(fn () => 'The current file ('.number_format($log->size() / 1024 / 1024, 2).' MB) is emailed to '.($log->settings()['email'] ?? 'the log address (not set yet)').' and a new file starts.')
+                ->action(function () use ($log) {
+                    if ($log->settings()['email'] === null) {
+                        Notification::make()->title('Add an email address in "Chat log" first.')->warning()->send();
+
+                        return;
+                    }
+
+                    $log->sendNow()
+                        ? Notification::make()->title('The chat log is being emailed.')->success()->send()
+                        : Notification::make()->title('The chat log is empty.')->send();
+                }),
+        ];
     }
 
     public function content(Schema $schema): Schema
