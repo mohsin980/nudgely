@@ -9,6 +9,7 @@ use App\Models\WhatsAppConnection;
 use App\Support\PhoneNumber;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -39,13 +40,14 @@ class WhatsAppConnectionService
     {
         $organization = $this->organizationOf($actor);
         $existing = $organization->whatsappConnection()->first();
+        $keepSecrets = $existing !== null && ! $existing->isEmbeddedSignup();
 
         $data = Validator::make($input, [
             'phone_number_id' => ['required', 'regex:/^\d{6,30}$/', Rule::unique('whatsapp_connections', 'phone_number_id')->ignore($existing?->id)],
             'business_account_id' => ['required', 'regex:/^\d{6,30}$/'],
-            // Secrets can be left empty to keep the ones already saved.
-            'access_token' => [$existing ? 'nullable' : 'required', 'string', 'min:20', 'max:1000', 'regex:/^\S+$/'],
-            'app_secret' => [$existing ? 'nullable' : 'required', 'string', 'min:16', 'max:200', 'regex:/^\S+$/'],
+            // Secrets can be left empty to keep the ones already saved (not when switching from one-click connect).
+            'access_token' => [$keepSecrets ? 'nullable' : 'required', 'string', 'min:20', 'max:1000', 'regex:/^\S+$/'],
+            'app_secret' => [$keepSecrets ? 'nullable' : 'required', 'string', 'min:16', 'max:200', 'regex:/^\S+$/'],
         ], [
             'phone_number_id.regex' => 'The phone number ID is a long number, found in WhatsApp → API Setup.',
             'business_account_id.regex' => 'The WhatsApp Business account ID is a long number, found in WhatsApp → API Setup.',
@@ -59,6 +61,7 @@ class WhatsAppConnectionService
             'organization_id' => $organization->id,
             'phone_number_id' => $data['phone_number_id'],
             'business_account_id' => $data['business_account_id'],
+            'connected_via' => WhatsAppConnection::VIA_MANUAL,
             'webhook_verify_token' => $connection->webhook_verify_token ?: Str::random(40),
             'status' => WhatsAppConnection::STATUS_PENDING,
             'last_error' => null,
@@ -74,6 +77,71 @@ class WhatsAppConnectionService
 
         $connection->save();
         OrganizationActivity::record($organization, 'whatsapp_connected', $actor, ['phone_number_id' => $connection->phone_number_id]);
+
+        return $this->check($connection);
+    }
+
+    /**
+     * Whether one-click connect (Meta Embedded Signup through QuoteFlow's Meta app) is set up on this server.
+     */
+    public static function embeddedSignupEnabled(): bool
+    {
+        $config = (array) config('services.whatsapp.embedded');
+
+        return filled($config['app_id'] ?? null) && filled($config['app_secret'] ?? null) && filled($config['config_id'] ?? null);
+    }
+
+    /**
+     * Finish one-click connect. The browser hands over Meta's one-time sign-in code and the IDs Meta's popup
+     * reported. Nothing from the browser is trusted on its own: the code is exchanged for a token by the server,
+     * and the number must belong to the WhatsApp Business account that token was granted for.
+     *
+     * Then QuoteFlow's app is subscribed to the account (so replies arrive) and the number is registered for the
+     * Cloud API with a PIN QuoteFlow keeps.
+     *
+     * @throws AuthorizationException|ValidationException|RuntimeException
+     */
+    public function completeEmbeddedSignup(User $actor, string $code, string $phoneNumberId, string $businessAccountId): WhatsAppConnection
+    {
+        $organization = $this->organizationOf($actor);
+
+        if (! self::embeddedSignupEnabled()) {
+            throw new RuntimeException('One-click WhatsApp connect isn\'t set up on this server. Connect manually instead.');
+        }
+
+        $existing = $organization->whatsappConnection()->first();
+        $data = Validator::make(['code' => $code, 'phone_number_id' => $phoneNumberId, 'business_account_id' => $businessAccountId], [
+            'code' => ['required', 'string', 'max:2000', 'regex:/^\S+$/'],
+            'phone_number_id' => ['required', 'regex:/^\d{6,30}$/', Rule::unique('whatsapp_connections', 'phone_number_id')->ignore($existing?->id)],
+            'business_account_id' => ['required', 'regex:/^\d{6,30}$/'],
+        ], [
+            'phone_number_id.unique' => 'This WhatsApp number is already connected to another business.',
+            'phone_number_id.regex' => 'Meta did not share a WhatsApp number. Finish every step in the Facebook window, including adding a number.',
+            'business_account_id.regex' => 'Meta did not share a WhatsApp Business account. Try again.',
+        ])->validate();
+
+        $token = $this->exchangeCode($data['code']);
+        $this->assertNumberInAccount($token, $data['phone_number_id'], $data['business_account_id']);
+        $this->request(fn () => $this->client->graphWithToken($token)->post($data['business_account_id'].'/subscribed_apps'), 'Meta did not let QuoteFlow receive messages for this account');
+
+        $pin = $existing?->registration_pin ?: (string) random_int(100000, 999999);
+        $this->register($token, $data['phone_number_id'], $pin, $organization->id);
+
+        $connection = $existing ?? new WhatsAppConnection;
+        $connection->forceFill([
+            'organization_id' => $organization->id,
+            'phone_number_id' => $data['phone_number_id'],
+            'business_account_id' => $data['business_account_id'],
+            'connected_via' => WhatsAppConnection::VIA_EMBEDDED_SIGNUP,
+            'access_token' => $token,
+            'app_secret' => null,
+            'registration_pin' => $pin,
+            'webhook_verify_token' => $connection->webhook_verify_token ?: Str::random(40),
+            'status' => WhatsAppConnection::STATUS_PENDING,
+            'last_error' => null,
+        ])->save();
+
+        OrganizationActivity::record($organization, 'whatsapp_connected', $actor, ['phone_number_id' => $connection->phone_number_id, 'via' => 'embedded_signup']);
 
         return $this->check($connection);
     }
@@ -176,9 +244,95 @@ class WhatsAppConnectionService
         $organization = $this->organizationOf($actor);
 
         if (($connection = $organization->whatsappConnection()->first()) !== null) {
+            // Connected through QuoteFlow's Meta app: stop Meta sending this account's messages to us (best effort).
+            if ($connection->isEmbeddedSignup()) {
+                try {
+                    $this->client->graph($connection)->delete($connection->business_account_id.'/subscribed_apps');
+                } catch (ConnectionException) {
+                    // Meta unreachable: webhooks for an unknown number are refused anyway.
+                }
+            }
+
             $connection->delete();
             OrganizationActivity::record($organization, 'whatsapp_disconnected', $actor);
         }
+    }
+
+    /**
+     * The one-time sign-in code becomes a token for the business's WhatsApp account. Only the server can do this
+     * (it needs QuoteFlow's app secret), and a code works once.
+     *
+     * @throws RuntimeException
+     */
+    private function exchangeCode(string $code): string
+    {
+        $response = $this->request(fn () => $this->client->graphWithToken(null)->get('oauth/access_token', [
+            'client_id' => config('services.whatsapp.embedded.app_id'),
+            'client_secret' => config('services.whatsapp.embedded.app_secret'),
+            'code' => $code,
+        ]), 'Meta did not accept the Facebook sign-in');
+
+        $token = $response->json('access_token');
+
+        if (! is_string($token) || $token === '') {
+            throw new RuntimeException('Meta did not return access to your WhatsApp account. Try connecting again.');
+        }
+
+        return $token;
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function assertNumberInAccount(string $token, string $phoneNumberId, string $businessAccountId): void
+    {
+        $response = $this->request(fn () => $this->client->graphWithToken($token)->get($businessAccountId.'/phone_numbers', ['fields' => 'id', 'limit' => 100]),
+            'Meta did not let QuoteFlow read this WhatsApp Business account');
+
+        $ids = array_map('strval', array_column((array) $response->json('data'), 'id'));
+
+        if (! in_array($phoneNumberId, $ids, true)) {
+            throw new RuntimeException('That WhatsApp number isn\'t in the account you shared. Connect again and pick the number you want to use.');
+        }
+    }
+
+    /**
+     * Register the number for the Cloud API. A number that is already registered (e.g. connected before) may
+     * refuse a new PIN; it still works, so this only logs, and check() decides whether the connection is usable.
+     */
+    private function register(string $token, string $phoneNumberId, string $pin, int $organizationId): void
+    {
+        try {
+            $response = $this->client->graphWithToken($token)->post($phoneNumberId.'/register', ['messaging_product' => 'whatsapp', 'pin' => $pin]);
+        } catch (ConnectionException) {
+            Log::warning('WhatsApp number registration could not reach Meta.', ['organization_id' => $organizationId]);
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            Log::warning('WhatsApp number registration was refused.', ['organization_id' => $organizationId, 'meta_error' => WhatsAppClient::metaError($response)]);
+        }
+    }
+
+    /**
+     * @param  \Closure(): Response  $call
+     *
+     * @throws RuntimeException
+     */
+    private function request(\Closure $call, string $failure): Response
+    {
+        try {
+            $response = $call();
+        } catch (ConnectionException) {
+            throw new RuntimeException('Meta could not be reached. Try again in a minute.');
+        }
+
+        if (! $response->successful()) {
+            throw new RuntimeException($failure.': '.WhatsAppClient::metaError($response));
+        }
+
+        return $response;
     }
 
     private function failed(WhatsAppConnection $connection, string $error): WhatsAppConnection

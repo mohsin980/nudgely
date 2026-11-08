@@ -71,7 +71,25 @@
             <p role="alert" class="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-800" data-whatsapp-error><span class="font-semibold">Meta says:</span> {{ $connection->last_error }}</p>
         @endif
 
+        @if ($canManage && $embeddedSignup)
+            <div class="mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200" x-data="whatsappEmbeddedSignup(@js($embeddedSignup))" data-embedded-signup>
+                <div class="min-w-0 flex-1">
+                    <p class="font-semibold text-slate-900">{{ $connection ? 'Use a different number' : 'Connect in about 2 minutes' }}</p>
+                    <p class="mt-0.5 text-sm text-slate-600">Sign in with Facebook, pick or create your WhatsApp Business account and number. QuoteFlow sets up the rest, including receiving replies.</p>
+                    <p x-show="error" x-text="error" role="alert" class="mt-2 text-sm font-medium text-rose-700" x-cloak></p>
+                </div>
+                <button type="button" x-on:click="start()" x-bind:disabled="busy" class="inline-flex items-center gap-2 rounded-xl bg-[#1877F2] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#166fe0] disabled:opacity-60">
+                    <svg viewBox="0 0 24 24" class="size-5 fill-current" aria-hidden="true"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.62 23.1 24 18.1 24 12.07"/></svg>
+                    <span x-text="busy ? 'Connecting…' : 'Continue with Facebook'">Continue with Facebook</span>
+                </button>
+            </div>
+        @endif
+
         @if ($canManage)
+            @if ($embeddedSignup)
+                <details class="group mt-4" @if ($connection && ! $connection->isEmbeddedSignup()) open @endif>
+                    <summary class="cursor-pointer text-sm font-semibold text-violet-700 hover:underline">Connect manually with your own Meta app (advanced)</summary>
+            @endif
             <form wire:submit="connect" class="mt-5 grid gap-4 sm:grid-cols-2" autocomplete="off">
                 <div><label for="wa-phone-id" class="{{ $label }}">Phone number ID</label><input id="wa-phone-id" type="text" inputmode="numeric" wire:model="phoneNumberId" placeholder="e.g. 106540352242922" class="{{ $field }}">@error('phoneNumberId') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                 <div><label for="wa-waba-id" class="{{ $label }}">WhatsApp Business account ID</label><input id="wa-waba-id" type="text" inputmode="numeric" wire:model="businessAccountId" placeholder="e.g. 102290129340398" class="{{ $field }}">@error('businessAccountId') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
@@ -79,16 +97,26 @@
                 <div><label for="wa-secret" class="{{ $label }}">App secret</label><input id="wa-secret" type="password" wire:model="appSecret" placeholder="{{ $connection ? 'Saved. Leave empty to keep it' : 'From App settings → Basic' }}" class="{{ $field }}">@error('appSecret') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                 <div class="flex flex-wrap items-center gap-3 sm:col-span-2">
                     <button type="submit" wire:loading.attr="disabled" wire:target="connect" class="{{ $primaryButton }}"><span wire:loading.remove wire:target="connect">{{ $connection ? 'Save and check again' : 'Connect WhatsApp' }}</span><span wire:loading wire:target="connect">Checking with Meta…</span></button>
-                    @if ($connection)
+                    @if ($connection && ! $connection->isEmbeddedSignup())
                         <button type="button" wire:click="recheck" class="{{ $secondaryButton }}">Check connection</button>
                         <button type="button" wire:click="disconnect" wire:confirm="Disconnect WhatsApp? Follow-ups will go by email until you connect it again." class="rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50">Disconnect</button>
                     @endif
                 </div>
             </form>
+            @if ($embeddedSignup)
+                </details>
+            @endif
+            @if ($connection?->isEmbeddedSignup())
+                <div class="mt-4 flex flex-wrap gap-3">
+                    <button type="button" wire:click="recheck" class="{{ $secondaryButton }}">Check connection</button>
+                    <button type="button" wire:click="disconnect" wire:confirm="Disconnect WhatsApp? Follow-ups will go by email until you connect it again." class="rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50">Disconnect</button>
+                </div>
+            @endif
         @endif
     </section>
 
-    @if ($connection)
+    {{-- Numbers connected with one click receive replies through QuoteFlow's Meta app: nothing to paste. --}}
+    @if ($connection && ! $connection->isEmbeddedSignup())
         {{-- 3. Webhook for replies --}}
         <section class="{{ $card }}" aria-labelledby="webhook-heading">
             <div class="flex items-center gap-4">
@@ -150,14 +178,19 @@
             <span class="flex items-center gap-4">
                 <span class="{{ $badge }} bg-violet-100 text-violet-600"><x-ui-icon name="list" class="size-6" /></span>
                 <span>
-                    <span id="guide-heading" class="block text-lg font-bold text-slate-900">How to connect (about 20 minutes, once)</span>
+                    <span id="guide-heading" class="block text-lg font-bold text-slate-900">How to connect ({{ $embeddedSignup ? 'about 2 minutes' : 'about 20 minutes, once' }})</span>
                     <span class="block text-sm text-slate-500">Everything here is free to set up. Meta charges per message once you start sending.</span>
                 </span>
             </span>
             <x-ui-icon name="chevron-down" class="size-5 text-slate-500 transition" ::class="open && 'rotate-180'" />
         </button>
         <ol x-show="open" x-cloak class="mt-5 space-y-4 text-[15px] text-slate-700" data-section="whatsapp-guide">
-            @foreach ([
+            @foreach ($embeddedSignup ? [
+                ['Have your number ready', 'Use a number that isn\'t on the regular WhatsApp or WhatsApp Business app, or delete it from that app first. You\'ll need to receive a code on it by SMS or call.'],
+                ['Press "Continue with Facebook"', 'Sign in with your Facebook account and allow QuoteFlow when asked.'],
+                ['Pick your business and number', 'Choose (or create) your business and WhatsApp Business account, add your number and enter the code Meta sends. QuoteFlow then connects it and starts receiving replies.'],
+                ['Add a payment method in Meta', 'In WhatsApp Manager → Payment settings. Meta bills you directly; QuoteFlow adds nothing on top.'],
+            ] : [
                 ['Create a Meta Business account', 'Go to business.facebook.com and create an account for your business (skip if you have one).'],
                 ['Create an app with WhatsApp', 'At developers.facebook.com → My Apps → Create app → choose "Business", then add the WhatsApp product. Meta gives you a test number to start; add your own number under WhatsApp → API Setup when ready.'],
                 ['Copy the IDs and a permanent token', 'In WhatsApp → API Setup copy the Phone number ID and WhatsApp Business account ID. For a token that doesn\'t expire, create a System User in Business Settings with the "whatsapp_business_messaging" permission and generate its token. Copy the App secret from App settings → Basic. Paste all four above and press Connect.'],

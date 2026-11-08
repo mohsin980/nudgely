@@ -53,10 +53,19 @@ class WhatsAppClient
 
     public function graph(WhatsAppConnection $connection): PendingRequest
     {
-        return Http::baseUrl(rtrim((string) config('services.whatsapp.graph_url'), '/').'/'.config('services.whatsapp.graph_version'))
-            ->withToken((string) $connection->access_token)
+        return $this->graphWithToken((string) $connection->access_token);
+    }
+
+    /**
+     * Meta's Graph API with a given token, or with none (for exchanging a sign-in code).
+     */
+    public function graphWithToken(?string $token): PendingRequest
+    {
+        $request = Http::baseUrl(rtrim((string) config('services.whatsapp.graph_url'), '/').'/'.config('services.whatsapp.graph_version'))
             ->acceptJson()
             ->timeout((int) config('services.whatsapp.timeout', 10));
+
+        return $token === null ? $request : $request->withToken($token);
     }
 
     /**

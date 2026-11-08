@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\WhatsApp\WhatsAppConnectionService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,12 +19,15 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        // Settings → WhatsApp opens Meta's signup popup, which reports back to this page with postMessage.
+        $facebook = $request->routeIs('settings.whatsapp') && WhatsAppConnectionService::embeddedSignupEnabled();
+
         $headers = [
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
             'Permissions-Policy' => 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
-            'Cross-Origin-Opener-Policy' => 'same-origin',
+            'Cross-Origin-Opener-Policy' => $facebook ? 'same-origin-allow-popups' : 'same-origin',
         ];
 
         if (config('security.hsts') && app()->isProduction() && $request->isSecure()) {
@@ -42,7 +46,7 @@ class SecurityHeaders
             $header = $mode === 'enforce' ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only';
 
             if (! $response->headers->has($header)) {
-                $response->headers->set($header, $this->policy());
+                $response->headers->set($header, $this->policy($facebook));
             }
         }
 
@@ -54,21 +58,24 @@ class SecurityHeaders
      * them; everything that matters for injection is still closed: no objects, no foreign frames, forms
      * and base URLs only to ourselves, and no remote scripts.
      */
-    private function policy(): string
+    private function policy(bool $facebook = false): string
     {
         $dev = app()->environment('local') ? ' '.config('security.csp_dev_sources') : '';
+        // Only on Settings → WhatsApp with one-click connect: Meta's SDK and its signup frames.
+        $fb = $facebook ? ' https://connect.facebook.net https://www.facebook.com https://web.facebook.com' : '';
 
-        return implode('; ', [
+        return implode('; ', array_filter([
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'".$dev,
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'".$fb.$dev,
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net".$dev,
             "font-src 'self' https://fonts.bunny.net data:",
-            "img-src 'self' data:",
-            "connect-src 'self'".$dev,
+            "img-src 'self' data:".($facebook ? ' https://www.facebook.com' : ''),
+            "connect-src 'self'".($facebook ? ' https://graph.facebook.com https://www.facebook.com' : '').$dev,
+            $facebook ? 'frame-src https://www.facebook.com https://web.facebook.com https://staticxx.facebook.com' : null,
             "object-src 'none'",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
-        ]);
+        ]));
     }
 }

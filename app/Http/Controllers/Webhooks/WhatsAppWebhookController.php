@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Log;
  *
  * GET: Meta's one-time check. It sends the verify token the business copied from QuoteFlow; the matching
  * business's challenge is echoed back. POST: events (customer messages, delivery updates). Each is signed
- * with the business's own app secret (X-Hub-Signature-256) and rejected otherwise. Accepted events are
+ * with the business's own app secret, or QuoteFlow's for numbers connected with one click (X-Hub-Signature-256),
+ * and rejected otherwise. Accepted events are
  * queued for WhatsAppInboundProcessor, which stores customer messages and delivery updates.
  */
 class WhatsAppWebhookController extends Controller
@@ -24,7 +25,12 @@ class WhatsAppWebhookController extends Controller
         $token = (string) $request->query('hub_verify_token', $request->query('hub.verify_token', ''));
         $mode = (string) $request->query('hub_mode', $request->query('hub.mode', ''));
 
-        if ($mode !== 'subscribe' || $token === '' || ! WhatsAppConnection::query()->where('webhook_verify_token', $token)->exists()) {
+        // QuoteFlow's own Meta app (one-click connect) uses the platform token; numbers connected by hand use their own.
+        $platformToken = (string) config('services.whatsapp.embedded.verify_token');
+        $known = ($platformToken !== '' && hash_equals($platformToken, $token))
+            || WhatsAppConnection::query()->where('webhook_verify_token', $token)->exists();
+
+        if ($mode !== 'subscribe' || $token === '' || ! $known) {
             return response('Forbidden', 403);
         }
 
@@ -53,10 +59,12 @@ class WhatsAppWebhookController extends Controller
 
     private function signedBy(WhatsAppConnection $connection, string $payload, string $header): bool
     {
-        if (! str_starts_with($header, 'sha256=') || blank($connection->app_secret)) {
+        $secret = $connection->webhookSecret();
+
+        if (! str_starts_with($header, 'sha256=') || blank($secret)) {
             return false;
         }
 
-        return hash_equals(hash_hmac('sha256', $payload, (string) $connection->app_secret), substr($header, 7));
+        return hash_equals(hash_hmac('sha256', $payload, (string) $secret), substr($header, 7));
     }
 }

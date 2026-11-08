@@ -25,7 +25,7 @@ beforeEach(function () {
 
 function notificationsFor(User $user): array
 {
-    return DB::table('notifications')->where('notifiable_id', $user->id)->pluck('data')->map(fn ($data) => json_decode($data, true)['message'] ?? '')->all();
+    return DB::table('notifications')->where('notifiable_id', $user->id)->orderBy('created_at')->pluck('data')->map(fn ($data) => json_decode($data, true)['message'] ?? '')->all();
 }
 
 // ─── Assigning ──────────────────────────────────────────────────────────────────────────

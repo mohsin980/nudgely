@@ -19,6 +19,15 @@ return [
         'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
         'timeout' => 10,
+        // One-click connect (Meta Embedded Signup) through QuoteFlow's own Meta app. Turned on when all three of
+        // app_id, app_secret and config_id are set. Its webhook (callback /webhooks/whatsapp) is set up once in
+        // that Meta app with verify_token; businesses connected this way are signed with app_secret.
+        'embedded' => [
+            'app_id' => env('META_APP_ID'),
+            'app_secret' => env('META_APP_SECRET'),
+            'config_id' => env('META_WHATSAPP_CONFIG_ID'),
+            'verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
+        ],
         // Photos, voice notes, videos and documents customers send are downloaded (Meta keeps them only ~30 days),
         // stored privately, and deleted after media_keep_days. Larger files are not downloaded.
         'media_max_mb' => (int) env('WHATSAPP_MEDIA_MAX_MB', 25),
