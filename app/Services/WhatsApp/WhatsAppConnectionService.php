@@ -88,7 +88,29 @@ class WhatsAppConnectionService
     {
         $config = (array) config('services.whatsapp.embedded');
 
-        return filled($config['app_id'] ?? null) && filled($config['app_secret'] ?? null) && filled($config['config_id'] ?? null);
+        return self::isMetaId($config['app_id'] ?? null) && filled($config['app_secret'] ?? null) && self::isMetaId($config['config_id'] ?? null);
+    }
+
+    /**
+     * Meta IDs are plain digits. Facebook rejects anything else (e.g. a secret pasted in, or quotes around the value).
+     */
+    public static function isMetaId(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^\d{5,25}$/', trim($value)) === 1;
+    }
+
+    /**
+     * What is wrong with the Meta setup, for the settings page; null when it is fine or not set at all.
+     */
+    public static function embeddedSignupProblem(): ?string
+    {
+        $appId = config('services.whatsapp.embedded.app_id');
+
+        if (filled($appId) && ! self::isMetaId($appId)) {
+            return 'META_APP_ID must be the App ID from Meta (numbers only, App settings → Basic). The value on this server isn\'t a valid App ID, so one-click connect is off.';
+        }
+
+        return null;
     }
 
     /**

@@ -191,6 +191,7 @@ class WhatsAppSettings extends Component
             'organization' => $organization,
             'connection' => $organization->whatsappConnection()->first(),
             'webhookUrl' => route('webhooks.whatsapp'),
+            'embeddedProblem' => WhatsAppConnectionService::embeddedSignupProblem(),
             'embeddedSignup' => WhatsAppConnectionService::embeddedSignupEnabled() ? [
                 'appId' => (string) config('services.whatsapp.embedded.app_id'),
                 'configId' => (string) config('services.whatsapp.embedded.config_id'),

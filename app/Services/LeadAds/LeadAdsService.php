@@ -17,6 +17,7 @@ use App\Models\OrganizationActivity;
 use App\Models\User;
 use App\Services\Billing\EntitlementService;
 use App\Services\Team\ActivityNotifications;
+use App\Services\WhatsApp\WhatsAppConnectionService;
 use App\Support\PhoneNumber;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -57,7 +58,7 @@ class LeadAdsService
 
     public static function enabled(): bool
     {
-        return filled(config('services.whatsapp.embedded.app_id')) && filled(config('services.whatsapp.embedded.app_secret'));
+        return WhatsAppConnectionService::isMetaId(config('services.whatsapp.embedded.app_id')) && filled(config('services.whatsapp.embedded.app_secret'));
     }
 
     // ─── Connecting Pages ────────────────────────────────────────────────────────────────
