@@ -22,6 +22,40 @@ document.addEventListener('alpine:init', () => {
     }));
 });
 
+// Facebook's JavaScript SDK, loaded only when a Facebook button is pressed.
+function loadFacebookSdk(config) {
+    return new Promise((resolve, reject) => {
+        if (window.FB) {
+            resolve();
+            return;
+        }
+
+        window.fbAsyncInit = () => {
+            window.FB.init({ appId: config.appId, autoLogAppEvents: false, xfbml: false, version: config.version });
+            resolve();
+        };
+
+        const script = document.createElement('script');
+        script.src = 'https://connect.facebook.net/en_US/sdk.js';
+        script.async = true;
+        script.crossOrigin = 'anonymous';
+        script.onerror = () => reject(new Error('sdk'));
+        document.body.appendChild(script);
+    });
+}
+
+// Reached by in-page navigation: reload once so the page's own security headers (which allow Facebook's popup
+// and script) apply. Returns true when a reload was started.
+function reloadForFacebookHeaders() {
+    const entry = performance.getEntriesByType('navigation')[0];
+    if (entry && new URL(entry.name).pathname !== window.location.pathname) {
+        window.location.reload();
+        return true;
+    }
+
+    return false;
+}
+
 // Settings → WhatsApp: one-click connect with Meta's Embedded Signup popup. Meta's popup reports the WhatsApp
 // Business account and number it set up with postMessage; FB.login returns a one-time code. Both go to the
 // server (completeEmbeddedSignup), which checks everything with Meta itself.
@@ -33,11 +67,7 @@ document.addEventListener('alpine:init', () => {
         session: null,
 
         init() {
-            // Reached by in-page navigation: reload once so this page's own security headers (which allow Meta's
-            // popup and script) apply.
-            const entry = performance.getEntriesByType('navigation')[0];
-            if (entry && new URL(entry.name).pathname !== window.location.pathname) {
-                window.location.reload();
+            if (reloadForFacebookHeaders()) {
                 return;
             }
 
@@ -76,24 +106,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         loadSdk() {
-            return new Promise((resolve, reject) => {
-                if (window.FB) {
-                    resolve();
-                    return;
-                }
-
-                window.fbAsyncInit = () => {
-                    window.FB.init({ appId: config.appId, autoLogAppEvents: false, xfbml: false, version: config.version });
-                    resolve();
-                };
-
-                const script = document.createElement('script');
-                script.src = 'https://connect.facebook.net/en_US/sdk.js';
-                script.async = true;
-                script.crossOrigin = 'anonymous';
-                script.onerror = () => reject(new Error('sdk'));
-                document.body.appendChild(script);
-            });
+            return loadFacebookSdk(config);
         },
 
         async start() {
@@ -141,6 +154,46 @@ document.addEventListener('alpine:init', () => {
             const [code, session] = [this.code, this.session];
             this.code = null;
             this.$wire.completeEmbeddedSignup(code, session.phone, session.account).finally(() => { this.busy = false; });
+        },
+    }));
+});
+
+// Settings → Lead Ads: sign in with Facebook to list the Pages that run lead ads. Only the short-lived token goes
+// to the server, which checks it with Meta and keeps the Page tokens to itself.
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('metaLeadAdsLogin', (config) => ({
+        busy: false,
+        error: '',
+
+        init() {
+            reloadForFacebookHeaders();
+        },
+
+        async start() {
+            this.error = '';
+            this.busy = true;
+
+            try {
+                await loadFacebookSdk(config);
+            } catch {
+                this.error = 'Facebook could not be loaded. Check your connection or ad blocker, then try again.';
+                this.busy = false;
+                return;
+            }
+
+            const options = config.configId ? { config_id: config.configId } : { scope: config.scope, return_scopes: true };
+
+            window.FB.login((response) => {
+                const token = response.authResponse?.accessToken;
+
+                if (! token) {
+                    this.error = 'The Facebook window was closed before your Page was shared.';
+                    this.busy = false;
+                    return;
+                }
+
+                this.$wire.loadPages(token).finally(() => { this.busy = false; });
+            }, options);
         },
     }));
 });

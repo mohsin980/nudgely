@@ -7,8 +7,10 @@ use App\Enums\FollowUpStatus;
 use App\Enums\Team\NotificationType;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\Estimate;
 use App\Models\FollowUp;
+use App\Models\LeadAdsLead;
 use App\Models\Organization;
 use App\Models\Task;
 use App\Models\User;
@@ -108,6 +110,23 @@ class ActivityNotifications
             $this->notifier->notify(Organization::findOrFail($task->organization_id), NotificationType::TaskAssigned, [$assignee],
                 ($actor ? "{$actor->name} assigned you a task: " : 'New task for you: ').$task->title,
                 $url, "task:{$task->id}:assigned:{$assignee->id}", $actor, ['task_id' => $task->id]);
+        });
+    }
+
+    /**
+     * Someone filled in a Facebook or Instagram lead form: the owner and managers, plus whoever handles the lead.
+     */
+    public function adLead(LeadAdsLead $lead, Customer $customer): void
+    {
+        $this->safely(function () use ($lead, $customer) {
+            $handler = $customer->assigned_to ? $this->team->activeMember($customer->organization_id, $customer->assigned_to) : null;
+            $source = $lead->platformLabel().' lead ad'.($lead->form_name ? ' “'.$lead->form_name.'”' : '');
+            $message = $lead->status === LeadAdsLead::STATUS_MATCHED
+                ? "{$customer->name} filled in your {$source} again."
+                : "New lead from your {$source}: {$customer->name}.";
+
+            $this->notifier->notify($customer->organization, NotificationType::AdLead, $this->recipients($handler, $this->team->leaders($customer->organization_id)),
+                $message, route('customers.show', $customer->id), "ad-lead:{$lead->id}", data: ['customer_id' => $customer->id]);
         });
     }
 

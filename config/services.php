@@ -28,6 +28,9 @@ return [
             'config_id' => env('META_WHATSAPP_CONFIG_ID'),
             'verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
         ],
+        // Facebook and Instagram Lead Ads use the same Meta app (app_id, app_secret, verify_token above). Optional:
+        // a Facebook Login for Business configuration; without it the Pages permissions are asked for directly.
+        'lead_ads_config_id' => env('META_LEAD_ADS_CONFIG_ID'),
         // Photos, voice notes, videos and documents customers send are downloaded (Meta keeps them only ~30 days),
         // stored privately, and deleted after media_keep_days. Larger files are not downloaded.
         'media_max_mb' => (int) env('WHATSAPP_MEDIA_MAX_MB', 25),
