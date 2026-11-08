@@ -454,7 +454,7 @@ class LeadAdsService
     private function noteFor(LeadAdsLead $lead, array $answers): string
     {
         $standard = ['full_name', 'first_name', 'last_name', 'email', 'work_email', 'phone_number', 'phone', 'work_phone_number', 'company_name'];
-        $lines = ['Lead from '.$lead->platformLabel().' ad'.($lead->ad_name ? ' “'.$lead->ad_name.'”' : '').($lead->form_name ? ' (form “'.$lead->form_name.'”)' : '').', '.now()->toDateString().'.'];
+        $lines = ['Lead from '.$lead->platformLabel().' ad'.($lead->ad_name ? ' “'.$lead->ad_name.'”' : '').($lead->form_name ? ' (form “'.$lead->form_name.'”)' : '').', '.$lead->organization->formatDate(now()).'.'];
 
         foreach (array_diff_key($answers, array_flip($standard)) as $question => $answer) {
             $lines[] = Str::headline($question).': '.$answer;

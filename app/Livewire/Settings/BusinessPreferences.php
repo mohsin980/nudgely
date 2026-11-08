@@ -7,8 +7,9 @@ use App\Enums\Team\Permission;
 use App\Livewire\Settings\Concerns\SettingsPage;
 use App\Models\Organization;
 use App\Services\Settings\BusinessSettingsService;
+use App\Support\Countries;
 use App\Support\Settings\OrganizationSettings;
-use DateTimeZone;
+use App\Support\Timezones;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -22,12 +23,6 @@ use Livewire\Component;
 class BusinessPreferences extends Component
 {
     use SettingsPage;
-
-    /** Offered first; any IANA timezone is accepted. */
-    public const COMMON_TIMEZONES = [
-        'America/New_York' => 'Eastern', 'America/Chicago' => 'Central', 'America/Denver' => 'Mountain', 'America/Phoenix' => 'Arizona',
-        'America/Los_Angeles' => 'Pacific', 'America/Anchorage' => 'Alaska', 'Pacific/Honolulu' => 'Hawaii',
-    ];
 
     public string $timezone = '';
 
@@ -109,8 +104,11 @@ class BusinessPreferences extends Component
     {
         return view('livewire.settings.business-preferences', [
             'organization' => $this->organization(),
-            'commonTimezones' => self::COMMON_TIMEZONES,
-            'allTimezones' => DateTimeZone::listIdentifiers(),
+            'timezoneGroups' => Timezones::grouped($this->organization()->country),
+            'localTime' => Timezones::valid($this->timezone) ? now($this->timezone) : null,
+            'outsideCountry' => $this->organization()->country !== null && Timezones::valid($this->timezone)
+                && Timezones::forCountry($this->organization()->country) !== [] && ! Timezones::belongsTo($this->timezone, $this->organization()->country)
+                ? (Countries::names()[$this->organization()->country] ?? $this->organization()->country) : null,
             'currencies' => Organization::CURRENCIES,
             'dateFormats' => Organization::DATE_FORMATS,
             'timeFormats' => Organization::TIME_FORMATS,

@@ -10,6 +10,7 @@ use App\Models\OrganizationActivity;
 use App\Models\User;
 use App\Services\Billing\BillingService;
 use App\Services\Onboarding\OnboardingService;
+use App\Support\Timezones;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,11 +39,15 @@ class RegistrationController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'email:rfc', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', Password::defaults(), 'confirmed'],
+            // The owner's device timezone, filled in by the page; ignored if it isn't a real timezone.
+            'timezone' => ['nullable', 'string', 'max:64'],
         ], [], ['business_name' => 'business name', 'name' => 'your name']);
 
         $user = DB::transaction(function () use ($data) {
             $organization = new Organization;
-            $organization->forceFill(['name' => trim($data['business_name']), 'timezone' => config('follow_ups.default_timezone')])->save();
+            // Start in the owner's own timezone and country (from their device); onboarding confirms both.
+            $timezone = Timezones::valid($data['timezone'] ?? null) ? $data['timezone'] : config('follow_ups.default_timezone');
+            $organization->forceFill(['name' => trim($data['business_name']), 'timezone' => $timezone, 'country' => Timezones::countryOf($timezone)])->save();
 
             $user = new User;
             $user->forceFill([

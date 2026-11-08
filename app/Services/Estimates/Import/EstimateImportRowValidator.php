@@ -23,7 +23,7 @@ final class EstimateImportRowValidator
      * @param  array<string, string>  $values  mapped values, keyed by ImportColumns field
      * @return array{data: ?array<string, mixed>, errors: list<string>, warnings: list<string>}
      */
-    public function validate(array $values, string $currency): array
+    public function validate(array $values, string $currency, ?string $timezone = null): array
     {
         $errors = [];
         $warnings = [];
@@ -63,7 +63,8 @@ final class EstimateImportRowValidator
             $errors[] = 'The expiration date is before the estimate date.';
         }
 
-        if ($expires !== null && $expires < CarbonImmutable::today()->toDateString()) {
+        // "Today" is the business's today, not the server's.
+        if ($expires !== null && $expires < CarbonImmutable::now($timezone ?? config('app.timezone'))->toDateString()) {
             $warnings[] = 'The expiration date has passed. It is imported, but it must be changed before the estimate can be sent.';
         }
 

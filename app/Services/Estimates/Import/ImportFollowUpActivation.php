@@ -15,7 +15,6 @@ use App\Models\EstimateImport;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\FollowUps\FollowUpService;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -176,7 +175,7 @@ class ImportFollowUpActivation
             return 'not_confirmed_sent';
         }
 
-        if ($estimate->valid_until !== null && $estimate->valid_until->lt(CarbonImmutable::today())) {
+        if ($estimate->organization !== null && $estimate->isPastValidUntil($estimate->organization)) {
             return 'expired';
         }
 

@@ -67,15 +67,19 @@ class BusinessProfile extends Component
     {
         $this->authorize(Permission::ManageBusinessProfile->value);
 
+        $timezone = $this->organization()->timezone();
+
         try {
-            $settings->updateProfile($this->user(), collect(self::FIELDS)->mapWithKeys(fn ($property, $column) => [$column => $this->{$property}])->all());
+            $organization = $settings->updateProfile($this->user(), collect(self::FIELDS)->mapWithKeys(fn ($property, $column) => [$column => $this->{$property}])->all());
         } catch (ValidationException $e) {
             $this->showErrors($e, self::FIELDS);
 
             return;
         }
 
-        $this->saved('Business profile saved.');
+        $this->saved($organization->timezone() === $timezone
+            ? 'Business profile saved.'
+            : 'Business profile saved. The timezone is now '.$organization->timezone().' to match '.(Countries::names()[$organization->country] ?? $organization->country).'; you can change it in Business Preferences.');
     }
 
     public function uploadLogo(BusinessSettingsService $settings): void
