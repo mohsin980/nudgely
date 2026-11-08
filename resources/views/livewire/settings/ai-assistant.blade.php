@@ -89,7 +89,7 @@
 
     {{-- Tabs --}}
     <nav aria-label="Assistant sections" class="flex gap-1 overflow-x-auto rounded-2xl bg-white p-1.5 ring-1 ring-slate-200/70">
-        @foreach (['profile' => ['building', 'Business profile', 'Profile', null], 'faqs' => ['chat', 'Questions & answers', 'Q&A', $faqCount], 'catalog' => ['cube', 'Catalog', 'Catalog', $itemCount]] as $value => [$icon, $text, $short, $count])
+        @foreach (['profile' => ['building', 'Business profile', 'Profile', null], 'faqs' => ['chat', 'Questions & answers', 'Q&A', $faqCount], 'catalog' => ['cube', 'Catalog', 'Catalog', $itemCount], 'appointments' => ['calendar', 'Appointments', 'Times', $openAppointments]] as $value => [$icon, $text, $short, $count])
             <button type="button" wire:click="$set('tab', '{{ $value }}')" @if ($tab === $value) aria-current="page" @endif data-tab="{{ $value }}"
                 @class(['inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2.5 sm:gap-2 sm:px-4 text-sm font-semibold transition', 'bg-violet-600 text-white shadow-[0_8px_18px_-8px_rgba(109,40,217,0.8)]' => $tab === $value, 'text-slate-600 hover:bg-slate-50' => $tab !== $value])>
                 <x-ui-icon :name="$icon" class="hidden size-4 sm:block" /><span class="sm:hidden">{{ $short }}</span><span class="hidden sm:inline">{{ $text }}</span>
@@ -135,9 +135,8 @@
                     @error('serviceArea') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="assistant-hours" class="{{ $label }}">Opening hours <span class="font-normal text-slate-400">(optional)</span></label>
-                    <input id="assistant-hours" type="text" wire:model="hours" maxlength="500" class="{{ $field }}" placeholder="e.g. Mon–Sat 10am–7pm">
-                    @error('hours') <p role="alert" class="{{ $error }}">{{ $message }}</p> @enderror
+                    <p class="{{ $label }}">Opening hours</p>
+                    <p class="mt-1.5 text-sm text-slate-600">The assistant uses your weekly hours from Settings → Business Preferences, the same ones that decide "open now" and appointment times.</p>
                 </div>
             </div>
             <div>
@@ -333,5 +332,33 @@
                 </div>
             @endif
         </form>
+    @endif
+
+    {{-- Appointments: times the assistant held for a person to confirm --}}
+    @if ($tab === 'appointments')
+        <section class="{{ $card }} space-y-4" aria-labelledby="appointments-heading" data-section="appointments">
+            <div>
+                <h2 id="appointments-heading" class="text-lg font-bold text-slate-900">Appointment times</h2>
+                <p class="mt-1 text-sm text-slate-500">When a customer picks a free time in a chat, the assistant holds it here. Confirm it and we tell them on WhatsApp; decline it and they're asked for another time.</p>
+            </div>
+            @forelse ($appointments as $appointment)
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200" wire:key="appt-{{ $appointment->id }}" data-appointment="{{ $appointment->id }}">
+                    <div class="min-w-0">
+                        <p class="font-semibold text-slate-900">{{ $appointment->customer?->name ?? 'Customer' }}</p>
+                        <p class="text-sm text-slate-600">{{ $organization->formatDate($appointment->starts_at) }} at {{ $organization->formatTime($appointment->starts_at) }}</p>
+                    </div>
+                    @if ($appointment->isOpen())
+                        <div class="flex gap-2">
+                            <button type="button" wire:click="confirmAppointment({{ $appointment->id }})" wire:loading.attr="disabled" class="{{ $primaryButton }}">Confirm</button>
+                            <button type="button" wire:click="declineAppointment({{ $appointment->id }})" wire:confirm="Decline this time? The customer will be asked for another." class="{{ $secondaryButton }}">Decline</button>
+                        </div>
+                    @else
+                        <span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 ring-inset">Confirmed</span>
+                    @endif
+                </div>
+            @empty
+                <p class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">No appointment times yet.</p>
+            @endforelse
+        </section>
     @endif
 </x-settings.shell>

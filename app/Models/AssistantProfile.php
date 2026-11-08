@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class AssistantProfile extends Model
 {
-    public const LANGUAGES = ['en' => 'English', 'ur' => 'Urdu'];
+    public const LANGUAGES = ['en' => 'English', 'ur' => 'Urdu', 'ar' => 'Arabic'];
 
     protected function casts(): array
     {

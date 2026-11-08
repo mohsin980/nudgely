@@ -46,6 +46,7 @@ class WhatsAppAssistant
         private readonly EntitlementService $entitlements,
         private readonly LeadStageService $leadStages,
         private readonly AiChatLog $log,
+        private readonly AppointmentBooking $appointments,
     ) {}
 
     /**
@@ -107,9 +108,11 @@ class WhatsAppAssistant
             $decision = $this->decide($organization, $profile, $conversation, $chat);
         } catch (AiRequestFailedException $e) {
             Log::warning('AI assistant could not answer; handing over.', ['organization_id' => $organization->id, 'conversation_id' => $conversation->id, 'reason' => $e->reason]);
-            $fallback = $chat->language === 'ur'
-                ? 'آپ کے پیغام کا شکریہ! ہماری ٹیم جلد آپ سے رابطہ کرے گی۔'
-                : 'Thanks for your message! A member of our team will reply shortly.';
+            $fallback = match ($chat->language) {
+                'ur' => 'آپ کے پیغام کا شکریہ! ہماری ٹیم جلد آپ سے رابطہ کرے گی۔',
+                'ar' => 'شكرا لرسالتك! سيتواصل معك أحد أعضاء فريقنا قريبا.',
+                default => 'Thanks for your message! A member of our team will reply shortly.',
+            };
             $this->send($conversation, $chat, $fallback);
             $this->handover->handOver($chat, $profile, 'The AI was unavailable, so this chat needs a person.');
             $this->log->record($chat, $assistantName, $customerMessages, $fallback, 'AI unavailable: handed over');
@@ -137,6 +140,14 @@ class WhatsAppAssistant
         if ($decision->qualified && $chat->qualified_at === null) {
             $chat->forceFill(['qualified_at' => now()])->save();
             $this->leadStages->advance($organization->id, $customer->id, LeadStage::Qualified, 'assistant_qualified', $conversation->id);
+        }
+
+        // A time the customer picked is held for a person to confirm, and the chat goes to that person.
+        if ($decision->appointmentSlot !== null) {
+            $appointment = $this->appointments->request($organization, $customer, $conversation, $chat, $decision->appointmentSlot);
+            $decision = $decision->withHandover($appointment !== null
+                ? 'Appointment requested for '.$organization->formatDateTime($appointment->starts_at).'. Confirm it in Settings → AI Assistant.'
+                : 'The customer asked for a time that is no longer free. Offer another one.');
         }
 
         if ($decision->handover) {

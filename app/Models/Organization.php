@@ -181,6 +181,11 @@ class Organization extends Model
         return static::query()->select('id')->whereNotNull('suspended_at');
     }
 
+    public function appointmentRequests(): HasMany
+    {
+        return $this->hasMany(AppointmentRequest::class);
+    }
+
     public function status(): OrganizationStatus
     {
         return $this->isSuspended() ? OrganizationStatus::Suspended : OrganizationStatus::Active;

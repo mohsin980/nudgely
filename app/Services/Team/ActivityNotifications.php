@@ -5,6 +5,7 @@ namespace App\Services\Team;
 use App\Enums\Automation\AutomationRunStatus;
 use App\Enums\FollowUpStatus;
 use App\Enums\Team\NotificationType;
+use App\Models\AppointmentRequest;
 use App\Models\AutomationRun;
 use App\Models\Conversation;
 use App\Models\Customer;
@@ -127,6 +128,21 @@ class ActivityNotifications
 
             $this->notifier->notify($customer->organization, NotificationType::AdLead, $this->recipients($handler, $this->team->leaders($customer->organization_id)),
                 $message, route('customers.show', $customer->id), "ad-lead:{$lead->id}", data: ['customer_id' => $customer->id]);
+        });
+    }
+
+    /**
+     * A customer picked an appointment time through the AI assistant: the owner and managers, plus whoever handles them.
+     */
+    public function appointmentRequested(AppointmentRequest $request, string $label): void
+    {
+        $this->safely(function () use ($request, $label) {
+            $customer = $request->customer;
+            $handler = $customer?->assigned_to ? $this->team->activeMember($request->organization_id, $customer->assigned_to) : null;
+
+            $this->notifier->notify($request->organization, NotificationType::AppointmentRequested, $this->recipients($handler, $this->team->leaders($request->organization_id)),
+                ($customer?->name ?? 'A customer').' asked for an appointment on '.$label.'. Confirm it in Settings → AI Assistant.',
+                route('inbox.show', $request->conversation_id), "appointment:{$request->id}", data: ['appointment_request_id' => $request->id]);
         });
     }
 
