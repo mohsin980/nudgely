@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\LeadAds\LeadAdsService;
 use App\Services\WhatsApp\WhatsAppConnectionService;
 use Closure;
 use Illuminate\Http\Request;
@@ -19,8 +20,9 @@ class SecurityHeaders
     {
         $response = $next($request);
 
-        // Settings → WhatsApp opens Meta's signup popup, which reports back to this page with postMessage.
-        $facebook = $request->routeIs('settings.whatsapp') && WhatsAppConnectionService::embeddedSignupEnabled();
+        // Settings → WhatsApp and Lead Ads open Meta's sign-in popup, which reports back to the page.
+        $facebook = ($request->routeIs('settings.whatsapp') && WhatsAppConnectionService::embeddedSignupEnabled())
+            || ($request->routeIs('settings.lead-ads') && LeadAdsService::enabled());
 
         $headers = [
             'X-Content-Type-Options' => 'nosniff',

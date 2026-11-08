@@ -14,6 +14,7 @@ use App\Http\Controllers\Settings\LogoController;
 use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\Webhooks\DeliveryEventWebhookController;
 use App\Http\Controllers\Webhooks\InboundEmailWebhookController;
+use App\Http\Controllers\Webhooks\MetaLeadsWebhookController;
 use App\Http\Controllers\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Http\Controllers\WhatsAppMediaController;
@@ -46,6 +47,7 @@ use App\Livewire\Settings\BusinessProfile;
 use App\Livewire\Settings\EmailSettings;
 use App\Livewire\Settings\EstimateDefaults;
 use App\Livewire\Settings\FollowUpDefaults;
+use App\Livewire\Settings\LeadAdsSettings;
 use App\Livewire\Settings\NotificationSettings;
 use App\Livewire\Settings\RolesPermissions;
 use App\Livewire\Settings\TeamMembers;
@@ -115,6 +117,7 @@ Route::middleware(['auth', 'can:access-organization'])->prefix('settings')->name
         ->middleware('can:viewAny,'.EmailConnection::class)
         ->name('email');
     Route::get('/whatsapp', WhatsAppSettings::class)->middleware('can:manage-email')->name('whatsapp');
+    Route::get('/lead-ads', LeadAdsSettings::class)->middleware('can:manage-email')->name('lead-ads');
     Route::get('/assistant', AiAssistant::class)->middleware('can:manage-business-profile')->name('assistant');
     Route::get('/notifications', NotificationSettings::class)->name('notifications');
 
@@ -196,6 +199,8 @@ Route::get('/inbox/{conversationId}', fn (int $conversationId) => redirect()->ro
 // Called by Stripe: authenticated by its signature, not by user sessions.
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:email-webhooks')->name('webhooks.whatsapp.verify');
 Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->middleware('throttle:email-webhooks')->name('webhooks.whatsapp');
+Route::get('/webhooks/meta/leads', [MetaLeadsWebhookController::class, 'verify'])->middleware('throttle:email-webhooks')->name('webhooks.meta-leads.verify');
+Route::post('/webhooks/meta/leads', [MetaLeadsWebhookController::class, 'receive'])->middleware('throttle:email-webhooks')->name('webhooks.meta-leads');
 Route::post('/webhooks/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.stripe');
 
 // Called by email providers: authenticated by the provider handler, not by user sessions.

@@ -107,6 +107,7 @@ Schedule::command('follow-ups:process-due')->everyMinute()->withoutOverlapping()
 Schedule::command('follow-ups:notify-overdue')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('customers:mark-unresponsive')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('leads:remind-outcomes')->dailyAt('10:13')->withoutOverlapping()->onOneServer();
+Schedule::command('lead-ads:sync')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('estimates:expire')->hourly()->withoutOverlapping()->onOneServer();
 Schedule::command('automations:resume-waiting')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('automations:recover-stalled')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();

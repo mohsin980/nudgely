@@ -30,6 +30,8 @@ enum NotificationType: string
 
     case LeadOutcomeReminder = 'lead_outcome_reminder';
 
+    case AdLead = 'ad_lead';
+
     public function label(): string
     {
         return match ($this) {
@@ -51,6 +53,7 @@ enum NotificationType: string
             self::AssistantHandover => 'AI assistant needs you',
             self::LeadAssigned => 'Lead assigned to me',
             self::LeadOutcomeReminder => 'Won / Lost reminder',
+            self::AdLead => 'New lead from Facebook or Instagram ads',
         };
     }
 
@@ -78,6 +81,7 @@ enum NotificationType: string
             self::AssistantHandover => 'Know when the AI assistant hands a WhatsApp chat over to you.',
             self::LeadAssigned => 'Know when a lead is given to you to handle.',
             self::LeadOutcomeReminder => 'Get reminded to mark a lead Won or Lost when it has gone quiet.',
+            self::AdLead => 'Know the moment someone fills in your lead ad form.',
         };
     }
 
