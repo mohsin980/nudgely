@@ -86,10 +86,12 @@
                         default => ['bell', 'Stay on track', 'Never miss a follow-up with smart reminders.', 'Open reminders', route('follow-ups.index')],
                     })
                     <div class="hidden px-[18px] pt-6 pb-5 lg:block [@media(max-height:760px)]:hidden" data-sidebar-promo
-                         x-data="{ key: 'promo-hidden-{{ $promo[0] }}', hidden: false }"
-                         x-init="try { hidden = localStorage.getItem(key) === '1' } catch (e) {}" x-show="! hidden">
+                         x-data="{ key: 'promo-hidden-{{ $promo[0] }}', hidden: false,
+                                   init() { try { this.hidden = localStorage.getItem(this.key) === '1' } catch (e) {} },
+                                   hide() { this.hidden = true; try { localStorage.setItem(this.key, '1') } catch (e) {} } }"
+                         x-show="! hidden">
                         <div class="relative rounded-[20px] bg-linear-to-b from-[#f4f1ff] to-[#faf9ff] px-4 pt-5 pb-[22px] text-center shadow-[0_12px_30px_-16px_rgba(91,33,182,0.35)] ring-1 ring-violet-100/80">
-                            <button type="button" x-on:click="hidden = true; try { localStorage.setItem(key, '1') } catch (e) {}" class="absolute top-2.5 left-2.5 grid size-6 place-items-center rounded-full text-slate-300 transition hover:bg-white hover:text-slate-500" title="Hide">
+                            <button type="button" x-on:click="hide()" class="absolute top-2.5 left-2.5 grid size-6 place-items-center rounded-full text-slate-300 transition hover:bg-white hover:text-slate-500" title="Hide">
                                 <x-ui-icon name="close" class="size-3.5 stroke-2" /><span class="sr-only">Hide this tip</span>
                             </button>
                             <x-illustration :name="$promo[0]" class="mx-auto size-[68px]" />

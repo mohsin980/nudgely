@@ -93,6 +93,41 @@ class WhatsAppSettings extends Component
             : $this->failed('Saved, but Meta did not accept these details: '.$connection->last_error);
     }
 
+    /**
+     * Called by the "Continue with Facebook" button once Meta's popup finishes (see resources/js/app.js).
+     */
+    public function completeEmbeddedSignup(string $code, string $phoneNumberId, string $businessAccountId): void
+    {
+        $key = 'whatsapp-embedded-signup:'.$this->organization()->id;
+
+        if (RateLimiter::tooManyAttempts($key, 10)) {
+            $this->failed('Too many attempts. Please wait a minute and try again.');
+
+            return;
+        }
+
+        RateLimiter::hit($key, 60);
+
+        try {
+            $connection = app(WhatsAppConnectionService::class)->completeEmbeddedSignup($this->user(), $code, $phoneNumberId, $businessAccountId);
+        } catch (ValidationException $e) {
+            $this->failed(collect($e->errors())->flatten()->first() ?? 'Meta did not share the WhatsApp details. Try again.');
+
+            return;
+        } catch (AuthorizationException|RuntimeException $e) {
+            $this->failed($e->getMessage());
+
+            return;
+        }
+
+        $this->phoneNumberId = $connection->phone_number_id;
+        $this->businessAccountId = $connection->business_account_id;
+
+        $connection->isActive()
+            ? $this->saved('WhatsApp is connected: '.($connection->display_phone_number ?? $connection->phone_number_id).'. Customer replies will arrive in Conversations.')
+            : $this->failed('Connected, but Meta reported a problem with the number: '.$connection->last_error);
+    }
+
     public function recheck(WhatsAppConnectionService $whatsapp): void
     {
         $connection = $this->organization()->whatsappConnection()->first() ?? abort(404);
@@ -156,6 +191,11 @@ class WhatsAppSettings extends Component
             'organization' => $organization,
             'connection' => $organization->whatsappConnection()->first(),
             'webhookUrl' => route('webhooks.whatsapp'),
+            'embeddedSignup' => WhatsAppConnectionService::embeddedSignupEnabled() ? [
+                'appId' => (string) config('services.whatsapp.embedded.app_id'),
+                'configId' => (string) config('services.whatsapp.embedded.config_id'),
+                'version' => (string) config('services.whatsapp.graph_version'),
+            ] : null,
             'canManage' => $this->user()->can('manage-email'),
         ]);
     }
