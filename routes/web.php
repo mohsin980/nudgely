@@ -94,9 +94,12 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
 
 // Confirming the email address after sign-up (EnsureEmailVerified keeps unconfirmed people here).
+// The link in the email works from any browser, signed in or not: the signed URL is the proof.
+Route::get('/verify-email/{id}/{hash}', [EmailVerificationController::class, 'verify'])->whereNumber('id')
+    ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+
 Route::middleware('auth')->prefix('verify-email')->name('verification.')->group(function () {
     Route::get('/', [EmailVerificationController::class, 'notice'])->name('notice');
-    Route::get('/{id}/{hash}', [EmailVerificationController::class, 'verify'])->middleware(['signed', 'throttle:6,1'])->name('verify');
     Route::post('/send', [EmailVerificationController::class, 'send'])->middleware('throttle:3,1')->name('send');
 });
 

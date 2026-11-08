@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use App\Models\User;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -20,11 +21,27 @@ class EmailVerificationController extends Controller
             : view('auth.verify-email', ['email' => $request->user()->email]);
     }
 
-    public function verify(EmailVerificationRequest $request): RedirectResponse
+    /**
+     * The link from the email. It is signed and carries the account's ID and a hash of its address, so it works
+     * in any browser, including one where nobody is signed in.
+     */
+    public function verify(Request $request, int $id, string $hash): RedirectResponse
     {
-        $request->fulfill();
+        $user = User::query()->find($id);
 
-        return redirect('/')->with('status', 'Thanks, your email address is confirmed.');
+        if ($user === null || ! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+            abort(403);
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+            event(new Verified($user));
+        }
+
+        $signedIn = $request->user('web')?->is($user);
+
+        return redirect($signedIn ? '/' : route('login'))
+            ->with('status', 'Thanks, your email address is confirmed.'.($signedIn ? '' : ' You can sign in now.'));
     }
 
     public function send(Request $request): RedirectResponse

@@ -306,7 +306,10 @@ function confirmEmail(string $email): void
 {
     $user = User::query()->where('email', strtolower($email))->sole();
 
-    test()->get(URL::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)]))->assertRedirect('/');
+    test()->get(URL::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)]))->assertRedirect();
+
+    // The next request is a fresh one, as in a browser: forget the user the test client still has.
+    app('auth')->forgetGuards();
 }
 
 function seedPlatformRoles(): void

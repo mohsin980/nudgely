@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -69,6 +70,11 @@ class RegistrationController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         $user->sendEmailVerificationNotification();
+
+        // The platform's own mailer (MAIL_MAILER). With "log" the confirmation email is written to the log, not sent.
+        if (app()->isProduction() && config('mail.default') === 'log') {
+            Log::warning('Sign-up confirmation email was not sent: MAIL_MAILER is set to log.', ['user_id' => $user->id]);
+        }
 
         return redirect()->route('verification.notice');
     }
