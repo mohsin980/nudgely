@@ -32,6 +32,8 @@ enum NotificationType: string
 
     case AdLead = 'ad_lead';
 
+    case AppointmentRequested = 'appointment_requested';
+
     public function label(): string
     {
         return match ($this) {
@@ -54,6 +56,7 @@ enum NotificationType: string
             self::LeadAssigned => 'Lead assigned to me',
             self::LeadOutcomeReminder => 'Won / Lost reminder',
             self::AdLead => 'New lead from Facebook or Instagram ads',
+            self::AppointmentRequested => 'Appointment requested',
         };
     }
 
@@ -82,6 +85,7 @@ enum NotificationType: string
             self::LeadAssigned => 'Know when a lead is given to you to handle.',
             self::LeadOutcomeReminder => 'Get reminded to mark a lead Won or Lost when it has gone quiet.',
             self::AdLead => 'Know the moment someone fills in your lead ad form.',
+            self::AppointmentRequested => 'Know when a customer picks an appointment time through the AI assistant.',
         };
     }
 

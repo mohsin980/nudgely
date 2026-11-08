@@ -12,6 +12,9 @@ final readonly class AssistantDecision
 {
     public const DETAIL_FIELDS = ['requirement', 'budget', 'location', 'timeline', 'other'];
 
+    /** Languages the assistant can reply in (codes match AssistantProfile::LANGUAGES). */
+    public const LANGUAGES = ['en', 'ur', 'ar'];
+
     /**
      * @param  array<string, ?string>  $details
      */
@@ -23,7 +26,25 @@ final readonly class AssistantDecision
         public ?string $handoverReason,
         public string $summary,
         public array $details,
+        public ?string $appointmentSlot = null,
     ) {}
+
+    /**
+     * The same decision, handed to a person (used when the assistant booked a time for the team to confirm).
+     */
+    public function withHandover(string $reason): self
+    {
+        return new self(
+            reply: $this->reply,
+            language: $this->language,
+            qualified: $this->qualified,
+            handover: true,
+            handoverReason: $reason,
+            summary: $this->summary,
+            details: $this->details,
+            appointmentSlot: $this->appointmentSlot,
+        );
+    }
 
     /**
      * @throws InvalidModelOutputException
@@ -52,7 +73,9 @@ final readonly class AssistantDecision
             }
         }
 
-        $language = in_array($data['language'] ?? null, ['en', 'ur'], true) ? $data['language'] : 'en';
+        $language = in_array($data['language'] ?? null, self::LANGUAGES, true) ? $data['language'] : 'en';
+        $slot = is_string($data['appointment_slot'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $data['appointment_slot'])
+            ? $data['appointment_slot'] : null;
         $details = [];
 
         foreach (self::DETAIL_FIELDS as $field) {
@@ -70,6 +93,7 @@ final readonly class AssistantDecision
             handoverReason: $data['handover'] ? ($reason ?? 'The assistant asked for a person to take over.') : null,
             summary: mb_substr(trim(is_string($data['summary'] ?? null) ? $data['summary'] : ''), 0, 600),
             details: $details,
+            appointmentSlot: $slot,
         );
     }
 
@@ -85,10 +109,11 @@ final readonly class AssistantDecision
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['reply', 'language', 'qualified', 'handover', 'handover_reason', 'summary', 'details'],
+            'required' => ['reply', 'language', 'qualified', 'handover', 'handover_reason', 'summary', 'details', 'appointment_slot'],
             'properties' => [
                 'reply' => ['type' => 'string', 'description' => 'The WhatsApp message to send to the customer now.'],
-                'language' => ['type' => 'string', 'enum' => ['en', 'ur']],
+                'language' => ['type' => 'string', 'enum' => self::LANGUAGES],
+                'appointment_slot' => ['type' => ['string', 'null'], 'description' => 'The key of the offered appointment time the customer picked, exactly as listed under OPEN APPOINTMENT TIMES; otherwise null.'],
                 'qualified' => ['type' => 'boolean'],
                 'handover' => ['type' => 'boolean'],
                 'handover_reason' => $text,

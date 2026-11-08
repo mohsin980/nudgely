@@ -50,6 +50,8 @@
               get strength() { return ['', 'Weak', 'Fair', 'Good', 'Strong'][this.score]; },
           }">
         @csrf
+        <input type="hidden" name="timezone" id="device-timezone" value="{{ old('timezone') }}">
+        <script>try { document.getElementById('device-timezone').value = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}</script>
 
         <div class="grid gap-[22px] sm:grid-cols-2 sm:gap-4">
             @foreach ([

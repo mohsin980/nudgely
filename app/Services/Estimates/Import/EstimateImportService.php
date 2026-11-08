@@ -310,7 +310,7 @@ class EstimateImportService
                 }
             }
 
-            $result = $this->validator->validate($values, $currency);
+            $result = $this->validator->validate($values, $currency, $import->organization->timezone());
             $errors = $result['errors'];
 
             $reference = $result['data']['external_reference'] ?? null;

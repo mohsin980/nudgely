@@ -4,7 +4,9 @@ namespace App\Livewire\Settings;
 
 use App\Enums\Billing\LimitKey;
 use App\Livewire\Settings\Concerns\SettingsPage;
+use App\Models\AppointmentRequest;
 use App\Models\AssistantProfile;
+use App\Services\Assistant\AppointmentBooking;
 use App\Services\Assistant\AssistantKnowledgeService;
 use App\Services\Assistant\CatalogImportService;
 use App\Services\Billing\EntitlementService;
@@ -34,7 +36,7 @@ class AiAssistant extends Component
     use SettingsPage;
     use WithFileUploads;
 
-    public const TABS = ['profile', 'faqs', 'catalog'];
+    public const TABS = ['profile', 'faqs', 'catalog', 'appointments'];
 
     #[Url]
     public string $tab = 'profile';
@@ -242,6 +244,38 @@ class AiAssistant extends Component
         return response()->streamDownload(fn () => print (CatalogImportService::sample()), 'catalog-sample.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    public function confirmAppointment(AppointmentBooking $booking, int $id): void
+    {
+        $this->decideAppointment($booking, $id, confirm: true);
+    }
+
+    public function declineAppointment(AppointmentBooking $booking, int $id): void
+    {
+        $this->decideAppointment($booking, $id, confirm: false);
+    }
+
+    /**
+     * Confirm or decline a time the assistant held. The customer is told on WhatsApp.
+     */
+    private function decideAppointment(AppointmentBooking $booking, int $id, bool $confirm): void
+    {
+        abort_unless($this->user()->can('manage-business-profile'), 403);
+
+        $request = AppointmentRequest::query()->where('organization_id', $this->organization()->id)->findOrFail($id);
+
+        try {
+            $warning = $confirm ? $booking->confirm($this->user(), $request) : $booking->decline($this->user(), $request);
+        } catch (AuthorizationException|RuntimeException $e) {
+            $this->failed($e->getMessage());
+
+            return;
+        }
+
+        $warning !== null
+            ? $this->failed($warning)
+            : $this->saved($confirm ? 'Appointment confirmed and the customer was told on WhatsApp.' : 'Appointment declined and the customer was told on WhatsApp.');
+    }
+
     public function render(AssistantKnowledgeService $knowledge): View
     {
         $organization = $this->organization();
@@ -263,7 +297,14 @@ class AiAssistant extends Component
                     ->orderBy('category')->orderBy('name')->limit(200)->get()
                 : collect(),
             'itemCount' => $organization->catalogItems()->count(),
+            'organization' => $organization,
             'languageOptions' => AssistantProfile::LANGUAGES,
+            'appointments' => $this->tab === 'appointments'
+                ? AppointmentRequest::query()->where('organization_id', $organization->id)
+                    ->whereIn('status', AppointmentRequest::HOLDING)->where('starts_at', '>=', now()->subDay())
+                    ->with('customer:id,name')->orderBy('starts_at')->limit(50)->get()
+                : collect(),
+            'openAppointments' => $organization->appointmentRequests()->where('status', AppointmentRequest::STATUS_REQUESTED)->count(),
         ]);
     }
 

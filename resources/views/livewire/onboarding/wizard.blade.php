@@ -204,8 +204,9 @@
                 <div>
                     <label for="timezone" class="{{ $label }}">Timezone</label>
                     <select id="timezone" wire:model.live="timezone" class="{{ $input }}">
-                        @foreach ($timezones as $zone => $label)<option value="{{ $zone }}">{{ $label }} ({{ $zone }})</option>@endforeach
-                        @unless (array_key_exists($timezone, $timezones))<option value="{{ $timezone }}">{{ $timezone }}</option>@endunless
+                        @foreach ($timezoneGroups as $groupLabel => $zones)
+                            <optgroup label="{{ $groupLabel }}">@foreach ($zones as $zone => $zoneLabel)<option value="{{ $zone }}">{{ $zoneLabel }}</option>@endforeach</optgroup>
+                        @endforeach
                     </select>
                     <p class="mt-1 text-xs text-slate-500">Suggested from your {{ $country === 'US' ? 'state' : 'country' }}. Change it if it's wrong.</p>
                     @error('timezone') <p class="mt-1 text-sm text-red-700" role="alert">{{ $message }}</p> @enderror

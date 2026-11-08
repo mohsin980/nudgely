@@ -8,7 +8,6 @@ use App\Enums\Onboarding\OnboardingStep;
 use App\Exceptions\Billing\PlanLimitException;
 use App\Exceptions\Email\EmailSendingNotAllowedException;
 use App\Exceptions\Estimates\EstimateException;
-use App\Livewire\Settings\BusinessPreferences;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Billing\BillingService;
@@ -17,6 +16,7 @@ use App\Services\Email\EmailService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Onboarding\OnboardingState;
 use App\Support\Countries;
+use App\Support\Timezones;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -381,8 +381,8 @@ class Wizard extends Component
             ] : [],
             'countries' => Countries::names(),
             'regionLabel' => Countries::regionLabel($this->country),
-            // US businesses pick from the US zones; elsewhere the country's own zone is offered first.
-            'timezones' => strtoupper($this->country) === 'US' ? BusinessPreferences::COMMON_TIMEZONES : array_filter([Countries::timezone($this->country) => Countries::names()[$this->country] ?? null]) + BusinessPreferences::COMMON_TIMEZONES,
+            // The country's own zones first, then popular ones, then every timezone.
+            'timezoneGroups' => Timezones::grouped($this->country),
         ]);
     }
 

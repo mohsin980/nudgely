@@ -24,6 +24,11 @@ class LeadAdsLead extends Model
         return ['submitted_at' => 'datetime'];
     }
 
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
     public function page(): BelongsTo
     {
         return $this->belongsTo(LeadAdsPage::class, 'lead_ads_page_id');

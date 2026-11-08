@@ -7,9 +7,11 @@ use App\Enums\Team\Permission;
 use App\Models\Organization;
 use App\Models\OrganizationActivity;
 use App\Models\User;
+use App\Services\Onboarding\OnboardingService;
 use App\Support\Countries;
 use App\Support\Settings\BusinessHours;
 use App\Support\Settings\OrganizationSettings;
+use App\Support\Timezones;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -71,7 +73,21 @@ class BusinessSettingsService
         $data = array_map(fn ($v) => $v === '' ? null : $v, $data);
         $data['email'] = isset($data['email']) ? Str::lower($data['email']) : null;
 
-        return $this->saveColumns($actor, $data, self::PROFILE_LABELS, 'business_profile_updated');
+        // Moved to another country: follow its timezone, unless the business already uses one of that country's
+        // zones (it can still pick any timezone afterwards in Business Preferences).
+        $organization = $actor->organization;
+        $labels = self::PROFILE_LABELS;
+
+        if ($organization !== null && $data['country'] !== $organization->country && ! Timezones::belongsTo($organization->timezone(), $data['country'])) {
+            $suggested = app(OnboardingService::class)->suggestedTimezone($data['country'], $data['state'] ?? null);
+
+            if ($suggested !== null) {
+                $data['timezone'] = $suggested;
+                $labels['timezone'] = 'Timezone';
+            }
+        }
+
+        return $this->saveColumns($actor, $data, $labels, 'business_profile_updated');
     }
 
     /**

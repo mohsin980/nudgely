@@ -14,21 +14,25 @@
                 <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,11rem)]">
                     <div>
                         <label for="timezone" class="{{ $label }}">Timezone</label>
-                        <select id="timezone" wire:model="timezone" class="{{ $field }}">
-                            <optgroup label="United States">
-                                @foreach ($commonTimezones as $zone => $zoneLabel)<option value="{{ $zone }}">{{ $zoneLabel }} ({{ $zone }})</option>@endforeach
-                            </optgroup>
-                            <optgroup label="All timezones">
-                                @foreach ($allTimezones as $zone)@unless (isset($commonTimezones[$zone]))<option value="{{ $zone }}">{{ $zone }}</option>@endunless @endforeach
-                            </optgroup>
+                        <select id="timezone" wire:model.live="timezone" class="{{ $field }}">
+                            @foreach ($timezoneGroups as $groupLabel => $zones)
+                                <optgroup label="{{ $groupLabel }}">
+                                    @foreach ($zones as $zone => $zoneLabel)<option value="{{ $zone }}">{{ $zoneLabel }}</option>@endforeach
+                                </optgroup>
+                            @endforeach
                         </select>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" x-data="{ device: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch (e) { return '' } })() }">
+                            @if ($localTime)<span class="text-slate-600" data-local-time>Local time now: <strong class="font-semibold text-slate-800">{{ $localTime->format(($timeFormat === '24h' ? 'H:i' : 'g:i A').', D') }}</strong></span>@endif
+                            <button type="button" x-show="device && device !== $wire.timezone" x-cloak x-on:click="$wire.set('timezone', device)" class="font-semibold text-violet-700 hover:underline">Use this device's timezone (<span x-text="device"></span>)</button>
+                        </div>
+                        @if ($outsideCountry)<p class="mt-1 text-xs text-amber-700" data-timezone-warning>This timezone isn't in {{ $outsideCountry }}. That's fine if it's where you work; QuoteFlow will use it.</p>@endif
                         @error('timezone') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
                     </div>
                     <div><label for="task-priority" class="{{ $label }}">Default task priority</label>
                         <select id="task-priority" wire:model="taskPriority" class="{{ $field }}">@foreach ($priorities as $priority)<option value="{{ $priority->value }}">{{ ucfirst($priority->value) }}</option>@endforeach</select>
                         @error('taskPriority') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                 </div>
-                <p class="-mt-2 {{ $help }}">Follow-ups, automations and business hours use this timezone.</p>
+                <p class="-mt-2 {{ $help }}">Follow-ups, reminders, automations, business hours and every date in QuoteFlow use this timezone. Pick any timezone; your country's are listed first.</p>
                 <div><label for="currency" class="{{ $label }}">Currency</label>
                     <select id="currency" wire:model="currency" class="{{ $field }}">@foreach ($currencies as $code => $name)<option value="{{ $code }}">{{ $name }}</option>@endforeach</select>
                     <p class="{{ $help }}">Used for new estimates. No currency conversion.</p>
