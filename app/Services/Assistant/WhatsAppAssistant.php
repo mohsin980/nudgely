@@ -47,6 +47,7 @@ class WhatsAppAssistant
         private readonly LeadStageService $leadStages,
         private readonly AiChatLog $log,
         private readonly AppointmentBooking $appointments,
+        private readonly AssistantBudget $budget,
     ) {}
 
     /**
@@ -104,15 +105,20 @@ class WhatsAppAssistant
             return 'handed over';
         }
 
+        if (! $this->budget->take($organization)) {
+            $fallback = $this->fallbackReply($chat);
+            $this->send($conversation, $chat, $fallback);
+            $this->handover->handOver($chat, $profile, 'The AI assistant has used this hour\'s replies, so a person needs to reply.');
+            $this->log->record($chat, $assistantName, $customerMessages, $fallback, 'AI hourly budget reached: handed over');
+
+            return 'ai budget reached';
+        }
+
         try {
             $decision = $this->decide($organization, $profile, $conversation, $chat);
         } catch (AiRequestFailedException $e) {
             Log::warning('AI assistant could not answer; handing over.', ['organization_id' => $organization->id, 'conversation_id' => $conversation->id, 'reason' => $e->reason]);
-            $fallback = match ($chat->language) {
-                'ur' => 'آپ کے پیغام کا شکریہ! ہماری ٹیم جلد آپ سے رابطہ کرے گی۔',
-                'ar' => 'شكرا لرسالتك! سيتواصل معك أحد أعضاء فريقنا قريبا.',
-                default => 'Thanks for your message! A member of our team will reply shortly.',
-            };
+            $fallback = $this->fallbackReply($chat);
             $this->send($conversation, $chat, $fallback);
             $this->handover->handOver($chat, $profile, 'The AI was unavailable, so this chat needs a person.');
             $this->log->record($chat, $assistantName, $customerMessages, $fallback, 'AI unavailable: handed over');
@@ -157,6 +163,16 @@ class WhatsAppAssistant
         }
 
         return 'replied';
+    }
+
+    /** The message the customer gets when the AI can't answer, in the chat's language. */
+    private function fallbackReply(AssistantChat $chat): string
+    {
+        return match ($chat->language) {
+            'ur' => 'آپ کے پیغام کا شکریہ! ہماری ٹیم جلد آپ سے رابطہ کرے گی۔',
+            'ar' => 'شكرا لرسالتك! سيتواصل معك أحد أعضاء فريقنا قريبا.',
+            default => 'Thanks for your message! A member of our team will reply shortly.',
+        };
     }
 
     private function decide($organization, AssistantProfile $profile, Conversation $conversation, AssistantChat $chat): AssistantDecision
