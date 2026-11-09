@@ -147,6 +147,17 @@ class ActivityNotifications
     }
 
     /**
+     * The AI assistant is close to, or at, its replies for the hour: the owner and managers.
+     */
+    public function aiLimit(Organization $organization, string $message, string $key): void
+    {
+        $this->safely(function () use ($organization, $message, $key) {
+            $this->notifier->notify($organization, NotificationType::AiLimit, $this->team->leaders($organization->id),
+                $message, route('settings.assistant'), $key);
+        });
+    }
+
+    /**
      * @param  Collection<int, User>  $others
      * @return Collection<int, User>
      */

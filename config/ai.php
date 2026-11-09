@@ -92,6 +92,14 @@ return [
         'max_mb' => (int) env('AI_CHAT_LOG_MAX_MB', 5),
     ],
 
+    // AI assistant replies a business may get in one hour, by plan. Past it, new replies go to a person.
+    'hourly_replies' => [
+        'free' => (int) env('AI_HOURLY_REPLIES_FREE', 30),
+        'starter' => (int) env('AI_HOURLY_REPLIES_STARTER', 60),
+        'pro' => (int) env('AI_HOURLY_REPLIES_PRO', 150),
+    ],
+    'hourly_warn_percent' => 80,
+
     // How long (seconds) a model rests after a problem before it is tried again.
     'cooldown' => [
         'rate_limited' => 60,  // doubled on each repeat within an hour, up to "max"

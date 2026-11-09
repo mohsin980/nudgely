@@ -295,3 +295,26 @@ test('a customer who writes in Arabic gets an Arabic reply, and the chat remembe
     expect(AssistantChat::query()->latest('id')->first()->language)->toBe('ar')
         ->and(implode(' ', supportSent()))->toContain('مرحبا');
 });
+
+// ─── Hourly reply budget ────────────────────────────────────────────────────────────────
+
+test('when the hour\'s AI replies are used up, the customer is told a person will reply and the chat goes to the team', function () {
+    config(['ai.hourly_replies.free' => 2]);
+    $this->travelTo(CarbonImmutable::parse('2026-11-09 10:30', 'America/Chicago'));
+    supportAi(['reply' => 'Happy to help.']);
+
+    supportSays('Do you do boilers?', 'wamid.BUDGET1');
+    supportSays('And AC repairs?', 'wamid.BUDGET2');
+    expect(AssistantChat::query()->sole()->replies)->toBe(2);
+
+    supportSays('Can someone call me?', 'wamid.BUDGET3');
+
+    $chat = AssistantChat::query()->sole();
+    expect($chat->replies)->toBe(2)
+        ->and($chat->isActive())->toBeFalse()
+        ->and(last(supportSent()))->toBe('Thanks for your message! A member of our team will reply shortly.');
+
+    // The owner hears at 80% of the hour's budget and again when it is used up.
+    $limitMessages = $this->admin->notifications()->get()->pluck('data.message')->filter(fn ($m) => preg_match("/has used (\\d+% of|this hour's \\d+ replies)/", (string) $m) === 1);
+    expect($limitMessages)->toHaveCount(2);
+});
