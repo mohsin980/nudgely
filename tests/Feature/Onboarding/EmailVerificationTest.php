@@ -36,7 +36,33 @@ test('the link in the email confirms the address and opens the app', function ()
     $this->get($link)->assertRedirect('/');
 
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
+    // A real browser makes a fresh request; the test client keeps the signed-in user from before, so reset it.
+    app('auth')->forgetGuards();
     $this->get('/onboarding')->assertOk();
+});
+
+test('the link works in another browser where nobody is signed in, and the person can then sign in', function () {
+    Notification::fake();
+    $user = signUpUnverified();
+    $link = URL::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)]);
+
+    auth()->guard('web')->logout();
+    session()->flush();
+
+    $this->get($link)->assertRedirect(route('login'));
+    expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
+
+    $this->post('/login', ['email' => 'mohsin@example.com', 'password' => 'Sup3r-Secret-Pass!'])->assertRedirect('/dashboard');
+    $this->assertAuthenticatedAs($user->fresh());
+});
+
+test('an expired confirmation link is refused', function () {
+    Notification::fake();
+    $user = signUpUnverified();
+    $link = URL::temporarySignedRoute('verification.verify', now()->subMinute(), ['id' => $user->id, 'hash' => sha1($user->email)]);
+
+    $this->get($link)->assertForbidden();
+    expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
 });
 
 test('a tampered or unsigned link does not confirm the address', function () {

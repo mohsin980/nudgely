@@ -71,6 +71,10 @@
             <p role="alert" class="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-800" data-whatsapp-error><span class="font-semibold">Meta says:</span> {{ $connection->last_error }}</p>
         @endif
 
+        @if ($embeddedProblem && $canManage)
+            <p role="alert" class="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200 ring-inset" data-embedded-problem>{{ $embeddedProblem }}</p>
+        @endif
+
         @if ($canManage && $embeddedSignup)
             <div class="mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200" x-data="whatsappEmbeddedSignup(@js($embeddedSignup))" data-embedded-signup>
                 <div class="min-w-0 flex-1">

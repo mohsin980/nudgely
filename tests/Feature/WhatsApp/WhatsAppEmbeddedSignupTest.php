@@ -34,6 +34,14 @@ function metaEmbeddedSignupAccepts(array $numbers = [ES_PHONE]): void
     ]);
 }
 
+test('a Meta App ID that is not numbers turns one-click connect off, and the page says why', function () {
+    config(['services.whatsapp.embedded.app_id' => 'my-app-id "quoted"']);
+
+    Livewire::actingAs($this->owner)->test(WhatsAppSettings::class)
+        ->assertDontSee('Continue with Facebook')
+        ->assertSee('META_APP_ID must be the App ID from Meta');
+});
+
 test('the Continue with Facebook button appears only when one-click connect is set up', function () {
     Livewire::actingAs($this->owner)->test(WhatsAppSettings::class)
         ->assertSee('Continue with Facebook')->assertSee('about 2 minutes')
