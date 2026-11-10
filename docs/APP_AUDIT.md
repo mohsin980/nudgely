@@ -2,6 +2,8 @@
 
 **Purpose of this document:** a plain record of what has been built in QuoteFlow, why each part was built, what it is for, and where its status stands. It is written for audit and review.
 
+**Companion document:** step-by-step workflows with diagrams are in `docs/APP_WORKFLOWS.md`.
+
 **Scope:** the `main` branch of `mohsin980/nudgely` (245 non-merge commits at the time of writing), plus the branches described in section 12.
 
 **How to read each item:** every area has four parts.
