@@ -120,7 +120,7 @@ class BillingService
      *
      * @throws AuthorizationException|BillingException
      */
-    public function startCheckout(User $actor, string $planKey, string $successUrl, string $cancelUrl): CheckoutSession
+    public function startCheckout(User $actor, string $planKey, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession
     {
         $organization = $this->authorize($actor);
         $plan = $this->paidPlan($planKey);
@@ -129,12 +129,25 @@ class BillingService
             throw new BillingException('This business already has a subscription. Change its plan instead.');
         }
 
+        // The payment provider charges a customer in one currency for life, so an earlier subscription decides.
+        $currency = $this->currencyOfEarlierSubscription($organization) ?? $currency;
+
         $provider = $this->provider();
-        $session = $provider->createCheckout($organization, $this->customerId($organization, $provider), $plan, $this->trialDaysFor($organization), $successUrl, $cancelUrl);
+        $session = $provider->createCheckout($organization, $this->customerId($organization, $provider), $plan, $this->trialDaysFor($organization), $successUrl, $cancelUrl, $currency);
 
         Log::info('Checkout started.', ['event' => 'billing.checkout.started', 'organization_id' => $organization->id, 'plan' => $plan->key, 'provider' => $provider->name()]);
 
         return $session;
+    }
+
+    /**
+     * The currency of this business's most recent subscription, if it ever had one.
+     */
+    private function currencyOfEarlierSubscription(Organization $organization): ?string
+    {
+        $currency = Subscription::query()->where('organization_id', $organization->id)->latest('id')->value('currency');
+
+        return is_string($currency) && $currency !== '' ? strtoupper($currency) : null;
     }
 
     /**

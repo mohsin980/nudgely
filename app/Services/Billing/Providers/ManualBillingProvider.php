@@ -34,7 +34,7 @@ class ManualBillingProvider implements BillingProviderInterface
         return 'manual_cus_'.Str::lower(Str::random(24));
     }
 
-    public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl): CheckoutSession
+    public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession
     {
         $id = 'manual_cs_'.Str::lower(Str::random(24));
         Cache::put("billing:manual-checkout:{$id}", ['organization_id' => $organization->id, 'customer_id' => $customerId, 'plan' => $plan->key, 'trial_days' => $trialDays], now()->addDay());

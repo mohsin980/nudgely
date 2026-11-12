@@ -44,7 +44,7 @@
             <div class="rounded-xl bg-linear-to-br from-violet-50 to-white p-4 ring-1 ring-violet-100 ring-inset">
                 <p class="text-xs font-semibold tracking-wide text-violet-700 uppercase">Current plan</p>
                 <p class="mt-1 text-xl font-bold text-slate-900">{{ $plan->name }}</p>
-                <p class="text-sm text-slate-500">{{ $plan->priceLabel() }}</p>
+                <p class="text-sm text-slate-500">{{ $plan->priceLabel($currency) }}</p>
             </div>
             <dl class="space-y-3 text-sm">
                 <div class="flex items-center justify-between gap-3">

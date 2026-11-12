@@ -39,6 +39,7 @@ class BillingUsage extends Component
             'periodEnd' => $end->subSecond(),
             'nextBilling' => $subscription ? $this->nextBilling($subscription) : null,
             'payment' => $this->payment($billing),
+            'currency' => $this->billingCurrency($subscription),
         ]);
     }
 }

@@ -253,7 +253,7 @@ class PlanSettingsService
     private function ladderErrors(Plan $edited, array $limits): array
     {
         $ladder = collect($this->plans->all())
-            ->map(fn (Plan $plan) => $plan->key === $edited->key ? new Plan($plan->key, $plan->name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId) : $plan)
+            ->map(fn (Plan $plan) => $plan->key === $edited->key ? new Plan($plan->key, $plan->name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId, $plan->prices, $plan->providerPriceIds) : $plan)
             ->sortBy(fn (Plan $plan) => $plan->priceCents)->values();
 
         $errors = [];

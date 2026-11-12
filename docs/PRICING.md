@@ -1,8 +1,21 @@
 # QuoteFlow: Pricing Package
 
-**Status: proposed.** The plan prices below are the values already in `config/billing.php`. The add-on prices are new proposals and need the owner's approval before they go on the public site or into Stripe. All prices are USD, billed monthly. There is no annual billing yet.
+**Status: proposed.** The plan prices below are the values already in `config/billing.php`. The add-on prices are new proposals and need the owner's approval before they go on the public site or into Stripe. Prices are billed monthly, in USD or in PKR (see section 0). There is no annual billing yet.
 
 The single source of truth is `config/billing.php`. Change prices there, not in the views or the docs. Then update this page to match.
+
+---
+
+## 0. Currency
+
+- **Visitors from Pakistan** (country code `PK`) see and pay in **PKR**. Everyone else sees and pays in **USD**.
+- The country comes from the CDN in front of the app (Cloudflare `CF-IPCountry` or CloudFront `CloudFront-Viewer-Country`). No third-party lookup is made, and the IP address is not stored for this purpose. Without a configured CDN header, every visitor sees USD.
+- The currency is chosen on first visit and kept for the session, so the price a visitor saw is the price they pay.
+- A business keeps **one currency for life**. Its first subscription sets it, because the payment provider locks a customer to the currency of its first charge. Plan changes stay in that currency. A business that subscribed in USD is billed in USD if it later visits from Pakistan.
+- Amounts are displayed with two decimal places in both currencies (for example "PKR 8,000.00" and "$29.00"). The amounts below are written without decimals for readability.
+- The PKR amounts are **proposals** based on an approximate rate of PKR 280 to USD. Review them against the current rate before launch. Stripe must also be able to charge PKR for the account; confirm this in Stripe before enabling PKR checkout.
+
+Configuration: `billing.currencies` (supported currencies and country rules) and `billing.geo.country_headers` (set `BILLING_COUNTRY_HEADERS=CF-IPCountry` only when the CDN strips any copy the visitor sends).
 
 ---
 
@@ -10,7 +23,8 @@ The single source of truth is `config/billing.php`. Change prices there, not in 
 
 | | **Free** | **Starter** | **Pro** |
 |---|---|---|---|
-| Price | $0 / month | **$29 / month** | **$79 / month** |
+| Price (USD) | $0 / month | **$29 / month** | **$79 / month** |
+| Price (PKR) | PKR 0 / month | **PKR 8,000 / month** | **PKR 22,000 / month** |
 | Trial | — | 14 days, no card (sign-up trial) | 14 days on first paid subscription |
 | Customers | 100 | 500 | 2,000 |
 | Automations | 3 | 15 | 50 |
@@ -43,14 +57,14 @@ The single source of truth is `config/billing.php`. Change prices there, not in 
 
 Add-ons are optional extras bought on top of a plan. They never replace the plan. Each add-on adds to the plan's limits (it does not reset them) and only appears on the plans listed.
 
-| Add-on | Price / month | Adds | Available on |
-|---|---:|---|---|
-| **AI WhatsApp assistant** | **$19** | Turns on the AI assistant and gives 100 AI conversations a month | Free |
-| **+200 AI conversations** | $12 | 200 more AI conversations a month | Starter, Pro |
-| **+1,000 customers** | $10 | 1,000 more customers | Free, Starter, Pro |
-| **+5 team members** | $10 | 5 more people, each with their own role | Free, Starter, Pro |
-| **+10,000 emails a month** | $8 | 10,000 more outbound emails a month | Free, Starter, Pro |
-| **Custom branding** | $9 | Logo and colours on emails and estimates | Free (already included in Starter and Pro) |
+| Add-on | Price (USD) / month | Price (PKR) / month | Adds | Available on |
+|---|---:|---:|---|---|
+| **AI WhatsApp assistant** | **$19** | **PKR 5,000** | Turns on the AI assistant and gives 100 AI conversations a month | Free |
+| **+200 AI conversations** | $12 | PKR 3,500 | 200 more AI conversations a month | Starter, Pro |
+| **+1,000 customers** | $10 | PKR 2,800 | 1,000 more customers | Free, Starter, Pro |
+| **+5 team members** | $10 | PKR 2,800 | 5 more people, each with their own role | Free, Starter, Pro |
+| **+10,000 emails a month** | $8 | PKR 2,200 | 10,000 more outbound emails a month | Free, Starter, Pro |
+| **Custom branding** | $9 | PKR 2,500 | Logo and colours on emails and estimates | Free (already included in Starter and Pro) |
 
 **Example combinations**
 
@@ -108,6 +122,19 @@ STRIPE_PRICE_ADDON_CUSTOMERS=price_...
 STRIPE_PRICE_ADDON_TEAM_MEMBERS=price_...
 STRIPE_PRICE_ADDON_OUTBOUND_EMAILS=price_...
 STRIPE_PRICE_ADDON_CUSTOM_BRANDING=price_...
+
+# PKR prices (one per plan and add-on, in PKR, not USD)
+STRIPE_PRICE_STARTER_PKR=price_...
+STRIPE_PRICE_PRO_PKR=price_...
+STRIPE_PRICE_ADDON_AI_ASSISTANT_PKR=price_...
+STRIPE_PRICE_ADDON_AI_CONVERSATIONS_PKR=price_...
+STRIPE_PRICE_ADDON_CUSTOMERS_PKR=price_...
+STRIPE_PRICE_ADDON_TEAM_MEMBERS_PKR=price_...
+STRIPE_PRICE_ADDON_OUTBOUND_EMAILS_PKR=price_...
+STRIPE_PRICE_ADDON_CUSTOM_BRANDING_PKR=price_...
+
+# Which CDN header gives the visitor's country (leave empty to show USD to everyone)
+BILLING_COUNTRY_HEADERS=CF-IPCountry
 ```
 
 3. Run `php artisan optimize:clear` after changing environment values.
@@ -120,6 +147,8 @@ Do not put price IDs or secret keys in code or in this document.
 
 | Part | Status |
 |---|---|
+| Currency by visitor country (USD, PKR) | Built: `BillingCurrency`, session pinning, PKR prices on plans and add-ons, PKR checkout and plan changes |
+| Subscription currency stored | Built (`subscriptions.currency`, migration `2026_11_12_000000`) |
 | Plan definitions, limits and features | Built (`config/billing.php`) |
 | Add-on definitions and validation | Built (`AddonCatalog`, tests) |
 | Add-on purchase (Stripe checkout) | **Not built** |

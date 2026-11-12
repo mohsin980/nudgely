@@ -50,7 +50,20 @@ return [
     // The "trial/subscription ended" banner stays this many days.
     'ended_banner_days' => (int) env('BILLING_ENDED_BANNER_DAYS', 30),
 
-    'currency' => 'USD',
+    // Prices are shown and charged in one currency per business: PKR for visitors from Pakistan, USD elsewhere.
+    // The currency is decided from the visitor's country (see BillingCurrency) and pinned for their session.
+    'currencies' => [
+        'default' => 'USD',
+        'supported' => ['USD', 'PKR'],
+        'by_country' => ['PK' => 'PKR'],
+    ],
+
+    // Where the visitor's country comes from. Only enable a header when a CDN in front of the app sets it and
+    // strips any copy sent by the visitor: Cloudflare (CF-IPCountry) or CloudFront (CloudFront-Viewer-Country).
+    // Without one, every visitor gets the default currency.
+    'geo' => [
+        'country_headers' => array_values(array_filter(explode(',', (string) env('BILLING_COUNTRY_HEADERS', '')))),
+    ],
 
     // Plan limits are enforced where things are created. A switch (not a per-plan setting) so a
     // rollout can start with it off; it stays on in production. Tests turn it off unless testing limits.
@@ -75,6 +88,8 @@ return [
             'price_cents' => 0,
             'interval' => 'month',
             'provider_price_id' => null,
+            'prices' => ['PKR' => 0],
+            'provider_price_ids' => [],
             'limits' => [
                 'customers' => 100,
                 'automations' => 3,
@@ -91,6 +106,9 @@ return [
             'price_cents' => 2900,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_STARTER'),
+            // Minor units (paisa): PKR 8,000.
+            'prices' => ['PKR' => 8000 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_STARTER_PKR')],
             'limits' => [
                 'customers' => 500,
                 'automations' => 15,
@@ -107,6 +125,9 @@ return [
             'price_cents' => 7900,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_PRO'),
+            // Minor units (paisa): PKR 22,000.
+            'prices' => ['PKR' => 22000 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_PRO_PKR')],
             'limits' => [
                 'customers' => 2000,
                 'automations' => 50,
@@ -135,6 +156,8 @@ return [
             'price_cents' => 1900,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_ADDON_AI_ASSISTANT'),
+            'prices' => ['PKR' => 5000 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_ADDON_AI_ASSISTANT_PKR')],
             'applies_to' => ['free'],
             'features' => ['ai_assistant'],
             'limits' => ['ai_conversations' => 100],
@@ -146,6 +169,8 @@ return [
             'price_cents' => 1200,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_ADDON_AI_CONVERSATIONS'),
+            'prices' => ['PKR' => 3500 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_ADDON_AI_CONVERSATIONS_PKR')],
             'applies_to' => ['starter', 'pro'],
             'features' => [],
             'limits' => ['ai_conversations' => 200],
@@ -157,6 +182,8 @@ return [
             'price_cents' => 1000,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_ADDON_CUSTOMERS'),
+            'prices' => ['PKR' => 2800 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_ADDON_CUSTOMERS_PKR')],
             'applies_to' => ['free', 'starter', 'pro'],
             'features' => [],
             'limits' => ['customers' => 1000],
@@ -168,6 +195,8 @@ return [
             'price_cents' => 1000,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_ADDON_TEAM_MEMBERS'),
+            'prices' => ['PKR' => 2800 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_ADDON_TEAM_MEMBERS_PKR')],
             'applies_to' => ['free', 'starter', 'pro'],
             'features' => [],
             'limits' => ['team_members' => 5],
@@ -179,6 +208,8 @@ return [
             'price_cents' => 800,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_ADDON_OUTBOUND_EMAILS'),
+            'prices' => ['PKR' => 2200 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_ADDON_OUTBOUND_EMAILS_PKR')],
             'applies_to' => ['free', 'starter', 'pro'],
             'features' => [],
             'limits' => ['outbound_emails' => 10000],
@@ -190,6 +221,8 @@ return [
             'price_cents' => 900,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_ADDON_CUSTOM_BRANDING'),
+            'prices' => ['PKR' => 2500 * 100],
+            'provider_price_ids' => ['PKR' => env('STRIPE_PRICE_ADDON_CUSTOM_BRANDING_PKR')],
             'applies_to' => ['free'],
             'features' => ['custom_branding'],
             'limits' => [],

@@ -26,7 +26,7 @@
                         </div>
                         @if ($isCurrent)<span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 ring-inset">Current plan</span>@endif
                     </div>
-                    <p class="mt-4 text-3xl font-bold tracking-tight text-slate-900">{{ $option->isFree() ? '$0' : \App\Support\Money::format($option->priceCents) }}@unless ($option->isFree()) <span class="text-sm font-medium text-slate-500">/ {{ $option->interval->value }}</span>@endunless</p>
+                    <p class="mt-4 text-3xl font-bold tracking-tight text-slate-900">{{ $option->amountLabel($currency) }}@unless ($option->isFree()) <span class="text-sm font-medium text-slate-500">/ {{ $option->interval->value }}</span>@endunless</p>
 
                     <ul class="mt-5 space-y-2 border-t border-slate-100 pt-4 text-sm text-slate-700" aria-label="{{ $option->name }} limits">
                         @foreach (\App\Enums\Billing\LimitKey::cases() as $limitKey)

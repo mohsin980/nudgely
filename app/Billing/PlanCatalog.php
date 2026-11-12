@@ -95,7 +95,7 @@ final class PlanCatalog
         }
 
         foreach ($this->resolved() as $plan) {
-            if ($plan->providerPriceId === $priceId) {
+            if ($plan->providerPriceId === $priceId || in_array($priceId, $plan->providerPriceIds, true)) {
                 return $plan;
             }
         }
@@ -142,7 +142,17 @@ final class PlanCatalog
             $limits[$limit->value] = $value;
         }
 
-        return new Plan($key, $plan['name'], $price, $interval, $limits, array_values($plan['features'] ?? []), $plan['provider_price_id'] ?? null);
+        $prices = $plan['prices'] ?? [];
+        $providerPriceIds = $plan['provider_price_ids'] ?? [];
+
+        foreach ($prices as $currency => $amount) {
+            if (! is_string($currency) || ! is_int($amount) || $amount < 0) {
+                throw BillingException::invalidConfiguration("plan [{$key}] price for [{$currency}] must be a whole number of minor units.");
+            }
+        }
+
+        return new Plan($key, $plan['name'], $price, $interval, $limits, array_values($plan['features'] ?? []), $plan['provider_price_id'] ?? null,
+            $prices, array_filter($providerPriceIds, fn ($id) => filled($id)));
     }
 
     /**
@@ -190,6 +200,7 @@ final class PlanCatalog
         }
 
         // Price, interval, features and the provider price ID are never overridden.
-        return new Plan($plan->key, $name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId);
+        return new Plan($plan->key, $name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId,
+            $plan->prices, $plan->providerPriceIds);
     }
 }

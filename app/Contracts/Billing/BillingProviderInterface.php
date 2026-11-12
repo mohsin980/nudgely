@@ -38,7 +38,7 @@ interface BillingProviderInterface
      *
      * @throws BillingException
      */
-    public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl): CheckoutSession;
+    public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession;
 
     /**
      * The result of a checkout, or null while it isn't complete.

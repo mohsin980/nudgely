@@ -64,7 +64,7 @@ class StripeBillingProvider implements BillingProviderInterface
         return (string) $customer['id'];
     }
 
-    public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl): CheckoutSession
+    public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession
     {
         $subscriptionData = ['metadata' => ['organization_id' => (string) $organization->id, 'plan' => $plan->key]];
 
@@ -76,7 +76,7 @@ class StripeBillingProvider implements BillingProviderInterface
             'mode' => 'subscription',
             'customer' => $customerId,
             'client_reference_id' => (string) $organization->id,
-            'line_items' => [['price' => $this->priceId($plan), 'quantity' => 1]],
+            'line_items' => [['price' => $this->priceId($plan, $currency), 'quantity' => 1]],
             'subscription_data' => $subscriptionData,
             'metadata' => ['organization_id' => (string) $organization->id, 'plan' => $plan->key],
             'success_url' => $successUrl,
@@ -115,7 +115,7 @@ class StripeBillingProvider implements BillingProviderInterface
         $remote = $this->subscription($subscription);
 
         $updated = $this->send('post', 'subscriptions/'.rawurlencode($subscription->provider_subscription_id), [
-            'items' => [['id' => $remote['items']['data'][0]['id'], 'price' => $this->priceId($plan)]],
+            'items' => [['id' => $remote['items']['data'][0]['id'], 'price' => $this->priceId($plan, $this->currencyOf($remote))]],
             'proration_behavior' => 'create_prorations',
             'cancel_at_period_end' => 'false',
         ], idempotencyKey: "quotefollow-change-{$subscription->id}-{$plan->key}-".($remote['items']['data'][0]['price']['id'] ?? ''));
@@ -135,7 +135,7 @@ class StripeBillingProvider implements BillingProviderInterface
             'proration_behavior' => 'none',
             'phases' => [
                 ['items' => [['price' => $currentPrice, 'quantity' => 1]], 'start_date' => $this->periodStart($remote), 'end_date' => $at->getTimestamp()],
-                ['items' => [['price' => $this->priceId($plan), 'quantity' => 1]], 'start_date' => $at->getTimestamp(), 'iterations' => 1],
+                ['items' => [['price' => $this->priceId($plan, $this->currencyOf($remote)), 'quantity' => 1]], 'start_date' => $at->getTimestamp(), 'iterations' => 1],
             ],
         ]);
 
@@ -255,6 +255,7 @@ class StripeBillingProvider implements BillingProviderInterface
             scheduledPlanKey: $scheduledPlan,
             scheduledChangeAt: $scheduledAt,
             scheduleId: $scheduledPlan === null ? null : $this->scheduleIdOf($s),
+            currency: $this->currencyOf($s),
         );
     }
 
@@ -303,9 +304,31 @@ class StripeBillingProvider implements BillingProviderInterface
         return (int) ($s['current_period_start'] ?? $s['items']['data'][0]['current_period_start'] ?? CarbonImmutable::now()->getTimestamp());
     }
 
-    private function priceId(Plan $plan): string
+    /**
+     * The provider price for a plan in a currency. A subscription keeps its currency, so plan changes use the
+     * currency of the subscription's current price.
+     */
+    private function priceId(Plan $plan, string $currency = 'USD'): string
     {
-        return $plan->providerPriceId ?: throw new BillingException("The {$plan->name} plan isn't available for purchase yet.");
+        $priceId = $plan->providerPriceIdFor($currency);
+
+        if (filled($priceId)) {
+            return $priceId;
+        }
+
+        throw new BillingException($currency === 'USD'
+            ? "The {$plan->name} plan isn't available for purchase yet."
+            : "The {$plan->name} plan isn't available in {$currency} yet.");
+    }
+
+    /**
+     * The currency a subscription is charged in (ISO code, upper case).
+     *
+     * @param  array<string, mixed>  $s
+     */
+    private function currencyOf(array $s): string
+    {
+        return strtoupper((string) ($s['items']['data'][0]['price']['currency'] ?? 'usd'));
     }
 
     /**

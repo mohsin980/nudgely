@@ -34,7 +34,8 @@ class BillingPlans extends Component
         return view('livewire.settings.billing-plans', [
             'organization' => $organization,
             'plan' => $entitlements->plan($organization),
-            'subscription' => $billing->currentSubscription($organization),
+            'subscription' => $subscription = $billing->currentSubscription($organization),
+            'currency' => $this->billingCurrency($subscription),
             'plans' => $billing->plans(),
             'trialDays' => $billing->trialDaysFor($organization),
             'featureLabels' => config('billing.feature_labels', []),

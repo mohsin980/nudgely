@@ -57,6 +57,7 @@ class BillingOverview extends Component
             'organization' => $organization,
             'plan' => $entitlements->plan($organization),
             'subscription' => $subscription,
+            'currency' => $this->billingCurrency($subscription),
             'notice' => $subscription ? $this->describe($subscription) : null,
             'nextBilling' => $subscription ? $this->nextBilling($subscription) : null,
             'signupTrial' => $entitlements->trial($organization),

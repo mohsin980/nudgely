@@ -24,6 +24,7 @@ final class ProviderSubscription
         public readonly ?string $scheduledPlanKey = null,
         public readonly ?CarbonImmutable $scheduledChangeAt = null,
         public readonly ?string $scheduleId = null,
+        public readonly string $currency = 'USD',
     ) {}
 
     /**
@@ -44,6 +45,7 @@ final class ProviderSubscription
             'scheduled_plan' => $this->scheduledPlanKey,
             'scheduled_change_at' => $this->scheduledChangeAt,
             'provider_schedule_id' => $this->scheduleId,
+            'currency' => $this->currency,
         ];
     }
 }

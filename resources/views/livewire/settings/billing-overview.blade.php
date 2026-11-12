@@ -9,7 +9,7 @@
         <h2 id="plan-heading" class="text-base font-bold text-slate-900">Current plan</h2>
         <div class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <p class="text-2xl font-semibold text-slate-900" data-plan-name>{{ $plan->name }}</p>
-            <p class="text-sm text-slate-500" data-plan-price>{{ $plan->priceLabel() }}</p>
+            <p class="text-sm text-slate-500" data-plan-price>{{ $plan->priceLabel($currency) }}</p>
             @if ($subscription)
                 <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800" data-status>{{ $subscription->status->label() }}</span>
             @endif

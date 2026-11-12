@@ -64,6 +64,12 @@ final class AddonCatalog
                 $errors[] = "{$prefix}: price_cents must be a positive whole number of cents.";
             }
 
+            foreach ($addon['prices'] ?? [] as $currency => $amount) {
+                if (! is_int($amount) || $amount <= 0) {
+                    $errors[] = "{$prefix}: the {$currency} price must be a positive whole number of minor units.";
+                }
+            }
+
             if (($addon['interval'] ?? null) !== 'month') {
                 $errors[] = "{$prefix}: interval must be 'month'.";
             }

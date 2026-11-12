@@ -54,6 +54,14 @@ class FakeStripe
         return $fake;
     }
 
+    /**
+     * Price IDs ending in "_pkr" are PKR prices, as Stripe reports them; everything else is USD.
+     */
+    private function currencyOf(string $priceId): string
+    {
+        return str_ends_with($priceId, '_pkr') ? 'pkr' : 'usd';
+    }
+
     public function failWith(int $status = 500, string $type = 'api_error'): void
     {
         $this->failure = ['status' => $status, 'type' => $type];
@@ -85,7 +93,7 @@ class FakeStripe
             'status' => $trialEnd ? 'trialing' : 'active', 'trial_end' => $trialEnd,
             'cancel_at_period_end' => false, 'canceled_at' => null, 'ended_at' => null, 'schedule' => null,
             'metadata' => $session['subscription_data']['metadata'] ?? [],
-            'items' => ['data' => [['id' => 'si_'.$this->next++, 'price' => ['id' => $session['line_items'][0]['price']],
+            'items' => ['data' => [['id' => 'si_'.$this->next++, 'price' => ['id' => $session['line_items'][0]['price'], 'currency' => $this->currencyOf($session['line_items'][0]['price'])],
                 'current_period_start' => $now, 'current_period_end' => $trialEnd ?? $now + 30 * 86400]]],
         ];
         $session['status'] = 'complete';
@@ -113,6 +121,7 @@ class FakeStripe
         if ($sub['schedule'] !== null) {
             $phases = $this->schedules[$sub['schedule']]['phases'];
             $item['price']['id'] = $phases[1]['items'][0]['price'];
+            $item['price']['currency'] = $this->currencyOf($item['price']['id']);
             unset($this->schedules[$sub['schedule']]);
             $sub['schedule'] = null;
         }
@@ -198,6 +207,7 @@ class FakeStripe
 
         if (isset($data['items'][0]['price'])) {
             $sub['items']['data'][0]['price']['id'] = $data['items'][0]['price'];
+            $sub['items']['data'][0]['price']['currency'] = $this->currencyOf($data['items'][0]['price']);
             $sub['last_proration_behavior'] = $data['proration_behavior'] ?? null;
         }
 

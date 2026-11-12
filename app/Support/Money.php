@@ -64,6 +64,7 @@ final class Money
         $sign = $cents < 0 ? '-' : '';
         $cents = abs($cents);
         $whole = number_format(intdiv($cents, 100));
+
         $amount = $whole.'.'.str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
 
         return $sign.($currency === 'USD' ? '$'.$amount : $currency.' '.$amount);

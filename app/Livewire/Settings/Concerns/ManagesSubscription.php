@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings\Concerns;
 
+use App\Billing\BillingCurrency;
 use App\Billing\PaymentMethodSummary;
 use App\Enums\Team\Permission;
 use App\Exceptions\Billing\BillingException;
@@ -16,6 +17,16 @@ use Illuminate\Support\Facades\RateLimiter;
  */
 trait ManagesSubscription
 {
+    /**
+     * The currency prices are shown in: the subscription's own (fixed for the business's life), or the visitor's.
+     */
+    protected function billingCurrency(?Subscription $subscription = null): string
+    {
+        $currency = $subscription?->currency;
+
+        return is_string($currency) && $currency !== '' ? strtoupper($currency) : app(BillingCurrency::class)->forRequest(request());
+    }
+
     use SettingsPage;
 
     /**
@@ -29,7 +40,8 @@ trait ManagesSubscription
             if ($billing->currentSubscription($this->organization()) === null) {
                 $session = $billing->startCheckout($this->user(), $planKey,
                     route('settings.billing').'?checkout=success&session_id={CHECKOUT_SESSION_ID}',
-                    route('settings.billing', ['checkout' => 'cancelled']));
+                    route('settings.billing', ['checkout' => 'cancelled']),
+                    app(BillingCurrency::class)->forRequest(request()));
                 $this->redirect($session->url);
 
                 return;
