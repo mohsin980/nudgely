@@ -43,4 +43,10 @@ class AssistantChat extends Model
     {
         return $this->status === self::ACTIVE;
     }
+
+    /** Started on the business's calendar day (in its timezone). */
+    public function createdToday(string $timezone): bool
+    {
+        return $this->created_at !== null && $this->created_at->setTimezone($timezone)->isSameDay(now($timezone));
+    }
 }

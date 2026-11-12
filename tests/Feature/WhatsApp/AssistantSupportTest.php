@@ -318,3 +318,20 @@ test('when the hour\'s AI replies are used up, the customer is told a person wil
     $limitMessages = $this->admin->notifications()->get()->pluck('data.message')->filter(fn ($m) => preg_match("/has used (\\d+% of|this hour's \\d+ replies)/", (string) $m) === 1);
     expect($limitMessages)->toHaveCount(2);
 });
+
+// ─── One chat per day ───────────────────────────────────────────────────────────────────
+
+test('a customer gets one assistant chat per day: messages on the same day share it, the next day starts a new one', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-09 10:30', 'America/Chicago'));
+    supportAi(['reply' => 'Happy to help.']);
+
+    supportSays('Do you do boilers?', 'wamid.DAY1A');
+    supportSays('And AC repairs?', 'wamid.DAY1B');
+    expect(AssistantChat::query()->count())->toBe(1);
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-10 10:30', 'America/Chicago'));
+    supportSays('Good morning again', 'wamid.DAY2');
+
+    expect(AssistantChat::query()->count())->toBe(2)
+        ->and(AssistantChat::query()->latest('id')->first()->replies)->toBe(1);
+});

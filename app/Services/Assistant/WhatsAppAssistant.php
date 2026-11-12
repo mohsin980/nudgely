@@ -84,7 +84,8 @@ class WhatsAppAssistant
             return 'handled by a person';
         }
 
-        if ($chat === null) {
+        // One chat per customer per day: a chat from an earlier day starts a new one, which counts as a new conversation.
+        if ($chat === null || ! $chat->createdToday($organization->timezone ?: config('app.timezone'))) {
             if ($customer->lead_stage->isClosed() || $this->personIsHandling($conversation)) {
                 return 'handled by a person';
             }
