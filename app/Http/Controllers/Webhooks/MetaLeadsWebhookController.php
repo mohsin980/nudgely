@@ -31,15 +31,17 @@ class MetaLeadsWebhookController extends Controller
     public function receive(Request $request, LeadAdsService $leadAds): Response
     {
         $payload = $request->getContent();
+
+        // Size first, so an oversized body is refused before anything else is done with it.
+        if (strlen($payload) > 1024 * 1024) {
+            return response('Payload too large', 413);
+        }
+
         $secret = (string) config('services.whatsapp.embedded.app_secret');
         $header = (string) $request->header('X-Hub-Signature-256');
 
         if ($secret === '' || ! str_starts_with($header, 'sha256=') || ! hash_equals(hash_hmac('sha256', $payload, $secret), substr($header, 7))) {
             return response('Invalid signature', 401);
-        }
-
-        if (strlen($payload) > 1024 * 1024) {
-            return response('Payload too large', 413);
         }
 
         $received = 0;

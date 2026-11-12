@@ -1,0 +1,141 @@
+# QuoteFlow: Pricing Package
+
+**Status: proposed.** The plan prices below are the values already in `config/billing.php`. The add-on prices are new proposals and need the owner's approval before they go on the public site or into Stripe. All prices are USD, billed monthly. There is no annual billing yet.
+
+The single source of truth is `config/billing.php`. Change prices there, not in the views or the docs. Then update this page to match.
+
+---
+
+## 1. Plans
+
+| | **Free** | **Starter** | **Pro** |
+|---|---|---|---|
+| Price | $0 / month | **$29 / month** | **$79 / month** |
+| Trial | — | 14 days, no card (sign-up trial) | 14 days on first paid subscription |
+| Customers | 100 | 500 | 2,000 |
+| Automations | 3 | 15 | 50 |
+| Team members | 1 | 3 | 10 |
+| Outbound emails / month | 500 | 2,500 | 10,000 |
+| Estimates / month | 50 | 250 | 1,000 |
+| AI assistant conversations / month | 0 | 100 | 300 |
+
+**Features**
+
+| Feature | Free | Starter | Pro |
+|---|:---:|:---:|:---:|
+| Estimates | ✓ | ✓ | ✓ |
+| Automatic follow-ups | ✓ | ✓ | ✓ |
+| Automations | ✓ | ✓ | ✓ |
+| AI reply sorting | ✓ | ✓ | ✓ |
+| AI WhatsApp assistant | — | ✓ | ✓ |
+| Team roles & permissions | — | ✓ | ✓ |
+| Custom branding | — | ✓ | ✓ |
+| Priority support | — | — | ✓ |
+
+**Who each plan is for**
+- **Free:** a sole trader who wants to try estimates and follow-ups.
+- **Starter:** a small team that needs the WhatsApp AI assistant and several people on the account.
+- **Pro:** a larger business with many customers, more staff, and priority support.
+
+---
+
+## 2. Add-ons
+
+Add-ons are optional extras bought on top of a plan. They never replace the plan. Each add-on adds to the plan's limits (it does not reset them) and only appears on the plans listed.
+
+| Add-on | Price / month | Adds | Available on |
+|---|---:|---|---|
+| **AI WhatsApp assistant** | **$19** | Turns on the AI assistant and gives 100 AI conversations a month | Free |
+| **+200 AI conversations** | $12 | 200 more AI conversations a month | Starter, Pro |
+| **+1,000 customers** | $10 | 1,000 more customers | Free, Starter, Pro |
+| **+5 team members** | $10 | 5 more people, each with their own role | Free, Starter, Pro |
+| **+10,000 emails a month** | $8 | 10,000 more outbound emails a month | Free, Starter, Pro |
+| **Custom branding** | $9 | Logo and colours on emails and estimates | Free (already included in Starter and Pro) |
+
+**Example combinations**
+
+| Business | Monthly cost | What they get |
+|---|---:|---|
+| Free + AI WhatsApp assistant | $19 | Free features, plus the assistant with 100 conversations |
+| Starter + AI conversations pack | $41 | 300 AI conversations a month |
+| Starter + team pack (+5) | $39 | 8 team members |
+| Pro + customers pack | $89 | 3,000 customers |
+
+---
+
+## 3. Limits and what happens at the limit
+
+- When a plan limit is reached, the action is blocked with a plain message, and the owner is told which limit was hit. Nothing is deleted.
+- Monthly limits reset with the billing period (the calendar month if there is no subscription).
+- The platform's usage monitor warns when a business reaches 80% of a limit (`BILLING_USAGE_WARNING_PERCENT`). Whether owners see the same warning on their own billing page was not checked.
+- A failed payment keeps the plan for 7 days (the grace period), then paid-only limits stop applying. Data is never deleted.
+
+---
+
+## 4. How add-ons are defined
+
+Add-ons are in `config/billing.php` under `addons`:
+
+```php
+'ai_assistant' => [
+    'name' => 'AI WhatsApp assistant',
+    'price_cents' => 1900,
+    'interval' => 'month',
+    'provider_price_id' => env('STRIPE_PRICE_ADDON_AI_ASSISTANT'),
+    'applies_to' => ['free'],          // plans this add-on can be bought with
+    'features' => ['ai_assistant'],    // features switched on while active
+    'limits' => ['ai_conversations' => 100], // added to the plan's limit
+],
+```
+
+`App\Billing\AddonCatalog` reads these definitions. `validate()` reports any add-on that would be wrong to sell: an unknown plan, feature or limit, a price that is not positive, or an add-on that changes nothing. `tests/Feature/Billing/AddonCatalogTest.php` runs this check, so a broken price fails the build.
+
+---
+
+## 5. Stripe setup
+
+Stripe needs one product and one monthly price for each plan and each add-on.
+
+1. In the Stripe dashboard, create a product for each plan and each add-on, with a recurring monthly price in USD matching the amounts above.
+2. Copy each price ID (starts `price_`) into the server environment:
+
+```
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_ADDON_AI_ASSISTANT=price_...
+STRIPE_PRICE_ADDON_AI_CONVERSATIONS=price_...
+STRIPE_PRICE_ADDON_CUSTOMERS=price_...
+STRIPE_PRICE_ADDON_TEAM_MEMBERS=price_...
+STRIPE_PRICE_ADDON_OUTBOUND_EMAILS=price_...
+STRIPE_PRICE_ADDON_CUSTOM_BRANDING=price_...
+```
+
+3. Run `php artisan optimize:clear` after changing environment values.
+
+Do not put price IDs or secret keys in code or in this document.
+
+---
+
+## 6. What is built and what is not
+
+| Part | Status |
+|---|---|
+| Plan definitions, limits and features | Built (`config/billing.php`) |
+| Add-on definitions and validation | Built (`AddonCatalog`, tests) |
+| Add-on purchase (Stripe checkout) | **Not built** |
+| Add-ons on a subscription (Stripe items) | **Not built.** Blocker: `StripeBillingProvider::map()` takes the *first* subscription item as the plan. Add-on items must be recognised separately first, or a subscription with an add-on fails with "a price QuoteFollow doesn't know". |
+| Add-on limits and features applied to a business | **Not built.** `EntitlementService` reads only the plan today. |
+| Add-ons on the billing page | **Not built** |
+| Annual prices | **Not built** |
+
+**Recommendation:** do not sell add-ons until the first two rows are done. Until then, the proposed prices are for review only.
+
+---
+
+## 7. Decisions needed from the owner
+
+1. Confirm the Starter ($29) and Pro ($79) prices, or change them in `config/billing.php`.
+2. Approve or change each add-on price above.
+3. Decide whether the Free plan should include the AI assistant trial, or only sell it as the add-on.
+4. Decide whether to offer annual billing, and at what discount.
+5. Decide on a founding-customer price (a fixed price for early customers, with a limited number of spots), which was proposed earlier and is not built.

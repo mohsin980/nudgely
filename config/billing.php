@@ -120,4 +120,81 @@ return [
 
     ],
 
+    /*
+    | Add-ons: optional extras bought on top of a plan. They never replace the plan.
+    | - applies_to: the plan keys the add-on can be bought with.
+    | - limits: amounts ADDED to the plan's limit (not replacing it), for the limit keys listed in plans.*.limits.
+    | - features: features switched on for the business while the add-on is active.
+    | Prices are USD per month. Each add-on needs its own Stripe price (STRIPE_PRICE_ADDON_*).
+    */
+    'addons' => [
+
+        'ai_assistant' => [
+            'name' => 'AI WhatsApp assistant',
+            'description' => 'Your AI assistant answers WhatsApp leads, qualifies them and hands over to your team. Includes 100 AI conversations a month.',
+            'price_cents' => 1900,
+            'interval' => 'month',
+            'provider_price_id' => env('STRIPE_PRICE_ADDON_AI_ASSISTANT'),
+            'applies_to' => ['free'],
+            'features' => ['ai_assistant'],
+            'limits' => ['ai_conversations' => 100],
+        ],
+
+        'ai_conversations' => [
+            'name' => '+200 AI conversations a month',
+            'description' => 'More AI assistant conversations each month, for busy businesses.',
+            'price_cents' => 1200,
+            'interval' => 'month',
+            'provider_price_id' => env('STRIPE_PRICE_ADDON_AI_CONVERSATIONS'),
+            'applies_to' => ['starter', 'pro'],
+            'features' => [],
+            'limits' => ['ai_conversations' => 200],
+        ],
+
+        'customers' => [
+            'name' => '+1,000 customers',
+            'description' => 'Room for 1,000 more customers.',
+            'price_cents' => 1000,
+            'interval' => 'month',
+            'provider_price_id' => env('STRIPE_PRICE_ADDON_CUSTOMERS'),
+            'applies_to' => ['free', 'starter', 'pro'],
+            'features' => [],
+            'limits' => ['customers' => 1000],
+        ],
+
+        'team_members' => [
+            'name' => '+5 team members',
+            'description' => 'Five more people on your team, each with their own role.',
+            'price_cents' => 1000,
+            'interval' => 'month',
+            'provider_price_id' => env('STRIPE_PRICE_ADDON_TEAM_MEMBERS'),
+            'applies_to' => ['free', 'starter', 'pro'],
+            'features' => [],
+            'limits' => ['team_members' => 5],
+        ],
+
+        'outbound_emails' => [
+            'name' => '+10,000 emails a month',
+            'description' => 'Ten thousand more outbound emails each month.',
+            'price_cents' => 800,
+            'interval' => 'month',
+            'provider_price_id' => env('STRIPE_PRICE_ADDON_OUTBOUND_EMAILS'),
+            'applies_to' => ['free', 'starter', 'pro'],
+            'features' => [],
+            'limits' => ['outbound_emails' => 10000],
+        ],
+
+        'custom_branding' => [
+            'name' => 'Custom branding',
+            'description' => 'Your logo and colours on emails and estimates. Already included in Starter and Pro.',
+            'price_cents' => 900,
+            'interval' => 'month',
+            'provider_price_id' => env('STRIPE_PRICE_ADDON_CUSTOM_BRANDING'),
+            'applies_to' => ['free'],
+            'features' => ['custom_branding'],
+            'limits' => [],
+        ],
+
+    ],
+
 ];

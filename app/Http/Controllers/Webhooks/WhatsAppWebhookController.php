@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Log;
  */
 class WhatsAppWebhookController extends Controller
 {
+    /** Meta's own batches are far smaller; anything larger is refused unparsed. */
+    private const MAX_BYTES = 1024 * 1024;
+
     public function verify(Request $request): Response
     {
         $token = (string) $request->query('hub_verify_token', $request->query('hub.verify_token', ''));
@@ -40,19 +43,22 @@ class WhatsAppWebhookController extends Controller
     public function receive(Request $request): Response
     {
         $payload = $request->getContent();
-        $phoneNumberId = (string) data_get($request->json()->all(), 'entry.0.changes.0.value.metadata.phone_number_id', '');
+
+        // Size first: an oversized body is refused before it is parsed or looked up.
+        if (strlen($payload) > self::MAX_BYTES) {
+            return response('Payload too large', 413);
+        }
+
+        $body = json_decode($payload, true);
+        $phoneNumberId = (string) data_get($body, 'entry.0.changes.0.value.metadata.phone_number_id', '');
         $connection = $phoneNumberId === '' ? null : WhatsAppConnection::query()->where('phone_number_id', $phoneNumberId)->first();
 
         if ($connection === null || ! $this->signedBy($connection, $payload, (string) $request->header('X-Hub-Signature-256'))) {
             return response('Invalid signature', 401);
         }
 
-        if (strlen($payload) > 1024 * 1024) {
-            return response('Payload too large', 413);
-        }
-
-        ProcessWhatsAppWebhookJob::dispatch($connection->id, $request->json()->all());
-        Log::info('WhatsApp webhook received.', ['organization_id' => $connection->organization_id, 'field' => data_get($request->json()->all(), 'entry.0.changes.0.field')]);
+        ProcessWhatsAppWebhookJob::dispatch($connection->id, is_array($body) ? $body : []);
+        Log::info('WhatsApp webhook received.', ['organization_id' => $connection->organization_id, 'field' => data_get($body, 'entry.0.changes.0.field')]);
 
         return response('OK', 200);
     }

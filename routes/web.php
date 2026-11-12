@@ -201,10 +201,12 @@ Route::get('/inbox/{conversationId}', fn (int $conversationId) => redirect()->ro
 
 // Called by Stripe: authenticated by its signature, not by user sessions.
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:email-webhooks')->name('webhooks.whatsapp.verify');
-Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->middleware('throttle:email-webhooks')->name('webhooks.whatsapp');
+// POST webhooks are not rate-limited per IP: providers send bursts from shared addresses, and a 429 makes them
+// retry later. Each POST is bounded by its size cap and its signature check instead (see the controllers).
+Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->name('webhooks.whatsapp');
 Route::get('/webhooks/meta/leads', [MetaLeadsWebhookController::class, 'verify'])->middleware('throttle:email-webhooks')->name('webhooks.meta-leads.verify');
-Route::post('/webhooks/meta/leads', [MetaLeadsWebhookController::class, 'receive'])->middleware('throttle:email-webhooks')->name('webhooks.meta-leads');
-Route::post('/webhooks/stripe', StripeWebhookController::class)->middleware('throttle:email-webhooks')->name('webhooks.stripe');
+Route::post('/webhooks/meta/leads', [MetaLeadsWebhookController::class, 'receive'])->name('webhooks.meta-leads');
+Route::post('/webhooks/stripe', StripeWebhookController::class)->name('webhooks.stripe');
 
 // Called by email providers: authenticated by the provider handler, not by user sessions.
 // Readiness probe for load balancers and deploy checks. Public and minimal; see HealthController.
