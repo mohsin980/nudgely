@@ -12,7 +12,7 @@ The single source of truth is `config/billing.php`. Change prices there, not in 
 - The country comes from the CDN in front of the app (Cloudflare `CF-IPCountry` or CloudFront `CloudFront-Viewer-Country`). No third-party lookup is made, and the IP address is not stored for this purpose. Without a configured CDN header, every visitor sees USD.
 - The currency is chosen on first visit and kept for the session, so the price a visitor saw is the price they pay.
 - A business keeps **one currency for life**. Its first subscription sets it, because the payment provider locks a customer to the currency of its first charge. Plan changes stay in that currency. A business that subscribed in USD is billed in USD if it later visits from Pakistan.
-- Amounts are displayed with two decimal places in both currencies (for example "PKR 8,000.00" and "$29.00"). The amounts below are written without decimals for readability.
+- Amounts are displayed with two decimal places in both currencies (for example "PKR 8,000.00" and "$22.00"). The amounts below are written without decimals for readability.
 - The PKR amounts are **proposals** based on an approximate rate of PKR 280 to USD. Review them against the current rate before launch. Stripe must also be able to charge PKR for the account; confirm this in Stripe before enabling PKR checkout.
 
 Configuration: `billing.currencies` (supported currencies and country rules) and `billing.geo.country_headers` (set `BILLING_COUNTRY_HEADERS=CF-IPCountry` only when the CDN strips any copy the visitor sends).
@@ -23,7 +23,7 @@ Configuration: `billing.currencies` (supported currencies and country rules) and
 
 | | **Free** | **Starter** | **Pro** |
 |---|---|---|---|
-| Price (USD) | $0 / month | **$29 / month** | **$79 / month** |
+| Price (USD) | $0 / month | **$22 / month** | **$79 / month** |
 | Price (PKR) | PKR 0 / month | **PKR 8,000 / month** | **PKR 22,000 / month** |
 | Trial | — | 14 days, no card (sign-up trial) | 14 days on first paid subscription |
 | Customers | 100 | 500 | 2,000 |
@@ -193,7 +193,7 @@ The plans page ends with a **Need something custom? Talk to support** card. It i
 
 ## 7. Decisions needed from the owner
 
-1. Confirm the Starter ($29) and Pro ($79) prices, or change them in `config/billing.php`.
+1. Confirm the Starter ($22) and Pro ($79) prices, or change them in `config/billing.php`.
 2. Approve or change each add-on price above.
 3. Decide whether the Free plan should include the AI assistant trial, or only sell it as the add-on.
 4. Decide whether to offer annual billing, and at what discount.

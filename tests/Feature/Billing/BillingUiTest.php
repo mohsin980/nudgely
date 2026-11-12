@@ -105,7 +105,7 @@ test('the plans page shows every plan with price, limits, features and the right
 
     Livewire::actingAs($this->owner->fresh())->test(BillingPlans::class)
         ->assertSeeInOrder(['Free', 'Starter', 'Current plan', 'Pro'])
-        ->assertSee('$29.00')->assertSee('$79.00')->assertSee('500 customers')->assertSee('10,000 outbound emails')
+        ->assertSee('$22.00')->assertSee('$79.00')->assertSee('500 customers')->assertSee('10,000 outbound emails')
         ->assertSee('Team roles & permissions')->assertSee('Priority support')
         ->assertSee('Upgrade to Pro')->assertSee('Downgrade to Free')
         ->assertSee('Takes effect at the end of your billing period.')->assertSee('prorated');

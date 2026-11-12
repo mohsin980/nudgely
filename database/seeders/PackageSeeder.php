@@ -26,7 +26,7 @@ class PackageSeeder extends Seeder
         ],
         'starter' => [
             'name' => 'Starter', 'description' => null,
-            'prices' => ['USD' => 2900, 'PKR' => 800000],
+            'prices' => ['USD' => 2200, 'PKR' => 800000],
             'limits' => ['customers' => 500, 'automations' => 15, 'team_members' => 3, 'outbound_emails' => 2500, 'estimates' => 250, 'ai_conversations' => 100],
             'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification', 'ai_assistant', 'team_roles', 'custom_branding'],
         ],

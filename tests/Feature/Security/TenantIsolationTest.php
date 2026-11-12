@@ -251,7 +251,7 @@ test('7. billing pages show only the signed-in business', function () {
     $b = $this->b;
     $b['subscription']->forceFill(['plan' => 'pro'])->save();
 
-    Livewire::actingAs($a['owner'])->test(BillingOverview::class)->assertSee('Starter')->assertSee('$29.00')->assertDontSee('$79.00');
+    Livewire::actingAs($a['owner'])->test(BillingOverview::class)->assertSee('Starter')->assertSee('$22.00')->assertDontSee('$79.00');
     expect(Subscription::where('organization_id', $a['organization']->id)->count())->toBe(1)->and(app(BillingService::class)->currentSubscription($a['organization'])->plan)->toBe('starter');
     expect(fn () => app(BillingService::class)->changePlan($a['manager'], 'pro'))->toThrow(AuthorizationException::class);
 });

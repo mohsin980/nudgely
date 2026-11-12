@@ -104,7 +104,7 @@ return [
 
         'starter' => [
             'name' => 'Starter',
-            'price_cents' => 2900,
+            'price_cents' => 2200,
             'interval' => 'month',
             'provider_price_id' => env('STRIPE_PRICE_STARTER'),
             // Minor units (paisa): PKR 8,000.

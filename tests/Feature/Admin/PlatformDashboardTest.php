@@ -131,9 +131,9 @@ test('subscription counts keep active, trialing, past due and canceled apart', f
 });
 
 test('MRR counts active and past due paid subscriptions at list price and nothing else', function () {
-    makeSubscription('active', 'starter');        // 2900
+    makeSubscription('active', 'starter');        // 2200
     makeSubscription('active', 'pro');            // 7900
-    makeSubscription('past_due', 'starter');      // 2900, at risk
+    makeSubscription('past_due', 'starter');      // 2200, at risk
     makeSubscription('trialing', 'pro');          // not paying yet
     makeSubscription('cancelled', 'pro');
     makeSubscription('incomplete', 'pro');
@@ -143,7 +143,7 @@ test('MRR counts active and past due paid subscriptions at list price and nothin
     $mrr = app(PlatformMetrics::class)->mrr();
 
     expect($mrr)->toMatchArray([
-        'available' => true, 'cents' => 13700, 'subscriptions' => 3, 'unknown_plan' => 1, 'at_risk_cents' => 2900,
+        'available' => true, 'cents' => 12300, 'subscriptions' => 3, 'unknown_plan' => 1, 'at_risk_cents' => 2200,
     ]);
 });
 

@@ -13,7 +13,7 @@ test('the package seeder creates every plan and add-on, with their prices and de
         ->and(PlanSetting::query()->where('kind', PlanSetting::KIND_ADDON)->count())->toBe(6);
 
     $starter = app(PlanCatalog::class)->get('starter');
-    expect($starter->priceCents)->toBe(2900)
+    expect($starter->priceCents)->toBe(2200)
         ->and($starter->priceFor('PKR'))->toBe(800000)
         ->and($starter->limit(LimitKey::Customers))->toBe(500);
 

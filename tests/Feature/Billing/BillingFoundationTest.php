@@ -64,7 +64,7 @@ test('plans are defined once with prices, limits, features and provider price ID
 
     expect(array_keys($plans))->toBe(['free', 'starter', 'pro'])
         ->and($plans['free']->priceCents)->toBe(0)
-        ->and($plans['starter']->priceCents)->toBe(2900)
+        ->and($plans['starter']->priceCents)->toBe(2200)
         ->and($plans['pro']->priceCents)->toBe(7900)
         ->and($plans['pro']->priceLabel())->toBe('$79.00 / month')
         ->and(app(PlanCatalog::class)->default()->key)->toBe('free');
@@ -343,7 +343,7 @@ test('the billing page shows the plan, status and usage', function () {
     $this->billing->subscribe($this->owner, 'starter', trialDays: 14);
 
     Livewire::actingAs($this->owner->fresh())->test(BillingOverview::class)
-        ->assertSeeInOrder(['Current plan', 'Starter', '$29.00 / month', 'Trialing', 'Billing period', 'Trial ends', 'Next billing date'])
+        ->assertSeeInOrder(['Current plan', 'Starter', '$22.00 / month', 'Trialing', 'Billing period', 'Trial ends', 'Next billing date'])
         ->assertSee('Manage billing')->assertSee('Change plan')->assertSee('Cancel subscription');
 
     Livewire::actingAs($this->owner->fresh())->test(BillingUsage::class)

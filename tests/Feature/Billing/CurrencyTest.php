@@ -76,7 +76,7 @@ test('plan prices are shown in the visitor\'s currency, with a USD fallback for 
     $free = app(PlanCatalog::class)->get('free');
     $noPkr = new Plan('legacy', 'Legacy', 1500, BillingInterval::Month, [], [], null);
 
-    expect($starter->priceLabel('USD'))->toBe('$29.00 / month')
+    expect($starter->priceLabel('USD'))->toBe('$22.00 / month')
         ->and($starter->priceLabel('PKR'))->toBe('PKR 8,000.00 / month')
         ->and($free->amountLabel('PKR'))->toBe('PKR 0.00')
         ->and($free->amountLabel('USD'))->toBe('$0')

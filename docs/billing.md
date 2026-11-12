@@ -6,7 +6,7 @@ The internal billing architecture (14A) connected to Stripe (14B). The rest of t
 
 | | Free | Starter | Pro |
 | --- | --: | --: | --: |
-| Price / month | $0 | $29 | $79 |
+| Price / month | $0 | $22 | $79 |
 | Customers | 100 | 500 | 2,000 |
 | Automations | 3 | 15 | 50 |
 | Team members | 1 | 3 | 10 |
