@@ -230,3 +230,57 @@ For each lifecycle above, the "still to decide" lines need an answer before its 
 - Can a lost lead or a cancelled subscription be reopened, and how?
 - Can a failed automation run be retried?
 - Can a handed-over AI chat go back to the AI?
+
+---
+
+## 8. Verification results (checked against the code)
+
+Each inferred move in section 4 was checked against the code. Status: **Confirmed** (the code does it, with a guard), **Partly** (the code does it, but without a guard or with extra moves), **Not found** (no code path does it), or **Corrected** (the doc was wrong).
+
+| Lifecycle | Result | What the code actually does |
+|---|---|---|
+| Estimate: send, decide, expire, cancel | Confirmed | `decide` returns early if the decision is already made, and refuses unless the quote is sent or viewed. Expiry only applies to sent or viewed quotes (a conditional update). |
+| Automation run: waiting → running | Confirmed | `resume` only moves a run that is still waiting, inside a lock. |
+| Automation run: finish (completed, failed, skipped) | Partly | `finish` sets the status without checking the current one. |
+| Automation run: failed → retried | Corrected | There is no retry path for a failed run. Retries happen at the action level only. |
+| Automation action run: running → pending (retry) | Corrected | A temporary failure moves the action back to pending, and each attempt is counted. The job's try limit stops it. |
+| Automation action run: pending/running → failed | Confirmed | `markActionRunFailed` only applies from pending or running. |
+| Conversation: closed → open when the customer writes | Confirmed | `recordActivity` reopens a closed conversation. |
+| Conversation: any → any | Corrected | Staff can set any status from the inbox, with no rules. |
+| Lead Ads lead: pending → imported or matched | Confirmed | Import only runs on pending leads. |
+| Lead Ads lead: pending → failed | Confirmed | Only when the failure is final. A non-final failure stays pending and is retried, and stale pending leads are retried too. |
+| Lead Ads page: active → failed → active | Corrected | A page returns to active after a successful sync. |
+| WhatsApp connection: pending → active | Confirmed | Set after a successful connection. |
+| WhatsApp connection: pending → failed | Confirmed | Set when a connection step fails. |
+| WhatsApp connection: failed → anything | Not found | No code path moves a failed connection out of failed. |
+| Email connection: active → reauth required | Confirmed | Set when the provider refuses access. |
+| Email connection: reauth required → active | Confirmed | Set after a successful reconnect. |
+| Email connection: → disconnected | Confirmed | Set when the user disconnects in settings. |
+| Team member: active ↔ suspended | Confirmed | Both directions check the current status first. |
+| Team member: → removed | Confirmed | Removed is final; the code refuses to change it. |
+| Team member: invited → active | Not found | Not checked. The invitation path needs its own review. |
+| Team invitation: open → used | Confirmed | Acceptance sets an accepted time and user. |
+| Team invitation: open → expired | Confirmed | Expiry is checked on acceptance. |
+| Appointment request: requested → confirmed or declined | Confirmed | Only open requests can be decided, and only by an owner or manager. |
+| Webhook event: failed → received (retry) | Confirmed | Retry is possible. |
+| Webhook event: status changes | **Partly (risk)** | `transition()` updates the row by ID only, with no check of the current status. Callers must check first, and nothing enforces it. |
+| Task: pending → completed | Confirmed | Completion only applies to pending tasks. |
+| Task: pending → cancelled | Not found | No cancel path was found in the task service. |
+| Organization: suspend and unsuspend | Confirmed | Done in one service, with a lock. |
+
+### Corrections to earlier sections
+
+- **Section 4.3 (automation run):** a failed run cannot be retried. Retries apply to individual actions.
+- **Section 4.4 (action run):** actions are retried. A temporary failure goes back to pending, up to the job's try limit.
+- **Section 4.5 (conversation):** staff can set any status, so the "any → closed" rule is not enforced.
+- **Section 4.10 (Lead Ads page):** a failed page returns to active after a successful sync.
+- **Section 4.15 (webhook events):** status changes are not checked in the database. This is the main risk in this section.
+
+### New risks found
+
+1. **Webhook event status is unguarded** (see above).
+2. **Automation run finish is unguarded**, so a run could be finished twice.
+3. **Conversation status can be set to anything** from the inbox.
+4. **Failed WhatsApp connections have no way out** in code.
+
+These are candidates for review. They haven't been reproduced yet.
