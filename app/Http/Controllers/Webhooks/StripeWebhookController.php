@@ -61,7 +61,7 @@ class StripeWebhookController extends Controller
         try {
             $outcome = $handler->handle($event);
         } catch (\Throwable $e) {
-            $record->forceFill(['status' => WebhookEventStatus::Failed, 'failed_at' => now(), 'detail' => mb_substr($e::class, 0, 255)])->save();
+            $this->settle($record, ['status' => WebhookEventStatus::Failed, 'failed_at' => now(), 'detail' => mb_substr($e::class, 0, 255)]);
             Log::warning('Stripe webhook processing failed.', ['event' => 'billing.webhook.failed', 'event_type' => $event['type'], 'provider_event_id' => $event['id'], 'exception' => $e::class]);
             report($e);
 
@@ -104,13 +104,34 @@ class StripeWebhookController extends Controller
 
     private function finish(BillingWebhookEvent $record, WebhookOutcome $outcome): void
     {
-        $record->forceFill([
+        $this->settle($record, [
             'status' => $outcome->status,
             'organization_id' => $outcome->organizationId,
             'detail' => $outcome->reason,
             'processed_at' => now(),
             'failed_at' => null,
-        ])->save();
+        ]);
+    }
+
+    /**
+     * Records the result only while this request still holds the event (status processing), so a result can never
+     * overwrite a newer one. A refused write is logged, not silently dropped.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function settle(BillingWebhookEvent $record, array $attributes): void
+    {
+        $updated = BillingWebhookEvent::query()->whereKey($record->id)
+            ->where('status', WebhookEventStatus::Processing->value)
+            ->update($attributes + ['updated_at' => now()]);
+
+        if ($updated === 0) {
+            Log::warning('Stripe webhook result refused: the event is no longer being processed.', [
+                'event' => 'billing.webhook.result_refused', 'billing_webhook_event_id' => $record->id,
+            ]);
+        }
+
+        $record->refresh();
     }
 
     /**
