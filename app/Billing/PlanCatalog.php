@@ -95,7 +95,7 @@ final class PlanCatalog
         }
 
         foreach ($this->resolved() as $plan) {
-            if ($plan->providerPriceId === $priceId || in_array($priceId, $plan->providerPriceIds, true)) {
+            if ($plan->providerPriceId === $priceId || in_array($priceId, $plan->providerPriceIds, true) || in_array($priceId, $plan->legacyProviderPriceIds, true)) {
                 return $plan;
             }
         }
@@ -178,7 +178,50 @@ final class PlanCatalog
             $plans[$key] = isset($overrides[$key]) ? $this->applyOverride($plan, $overrides[$key]) : $plan;
         }
 
+        // Plans an administrator created: not in config, so they are built whole from their saved row.
+        foreach ($overrides as $key => $override) {
+            if (! isset($plans[$key]) && ($built = $this->fromOverride((string) $key, $override)) !== null) {
+                $plans[$key] = $built;
+            }
+        }
+
         return $this->resolved = $plans;
+    }
+
+    /**
+     * A plan that exists only in the database. Null (and left out of the catalog) when its saved row is incomplete,
+     * so one bad row can never break billing.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function fromOverride(string $key, array $row): ?Plan
+    {
+        $name = trim((string) ($row['name'] ?? ''));
+        $prices = is_array($row['prices'] ?? null) ? $row['prices'] : [];
+        $ids = is_array($row['provider_price_ids'] ?? null) ? $row['provider_price_ids'] : [];
+        $limitsRow = is_array($row['limits'] ?? null) ? $row['limits'] : [];
+
+        if (! preg_match('/^[a-z][a-z0-9_]{1,31}$/', $key) || $name === '' || ! is_int($prices['USD'] ?? null) || $prices['USD'] < 0) {
+            return null;
+        }
+
+        $limits = [];
+
+        foreach (LimitKey::cases() as $limit) {
+            if (! array_key_exists($limit->value, $limitsRow)) {
+                return null;
+            }
+
+            $limits[$limit->value] = $limitsRow[$limit->value];
+        }
+
+        return new Plan($key, $name, $prices['USD'], BillingInterval::Month, $limits, array_values($row['features'] ?? []),
+            is_string($ids['USD'] ?? null) ? $ids['USD'] : null,
+            array_filter(array_diff_key($prices, ['USD' => true]), fn ($v) => is_int($v) && $v >= 0),
+            array_filter(array_diff_key($ids, ['USD' => true]), fn ($v) => is_string($v) && $v !== ''),
+            is_string($row['description'] ?? null) ? $row['description'] : '',
+            (bool) ($row['active'] ?? true),
+            array_values(array_filter($row['legacy_provider_price_ids'] ?? [], 'is_string')));
     }
 
     /**
@@ -199,8 +242,47 @@ final class PlanCatalog
             }
         }
 
-        // Price, interval, features and the provider price ID are never overridden.
-        return new Plan($plan->key, $name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId,
-            $plan->prices, $plan->providerPriceIds);
+        $priceCents = $plan->priceCents;
+        $prices = $plan->prices;
+        $providerPriceId = $plan->providerPriceId;
+        $providerPriceIds = $plan->providerPriceIds;
+
+        // An administrator's prices and provider price IDs replace the configured ones. When a price ID changes, the
+        // old one is kept as a legacy ID so existing subscribers still map to this plan.
+        $legacy = $plan->legacyProviderPriceIds;
+
+        foreach (($override['prices'] ?? null) ?: [] as $currency => $amount) {
+            if (is_string($currency) && is_int($amount) && $amount >= 0) {
+                if ($currency === 'USD') {
+                    $priceCents = $amount;
+                } else {
+                    $prices[$currency] = $amount;
+                }
+            }
+        }
+
+        foreach (($override['provider_price_ids'] ?? null) ?: [] as $currency => $id) {
+            $oldId = $currency === 'USD' ? $providerPriceId : ($providerPriceIds[$currency] ?? null);
+
+            if (is_string($currency) && is_string($id) && $id !== '') {
+                if ($currency === 'USD') {
+                    $providerPriceId = $id;
+                } else {
+                    $providerPriceIds[$currency] = $id;
+                }
+
+                if ($oldId !== null && $oldId !== $id) {
+                    $legacy[] = $oldId;
+                }
+            }
+        }
+
+        $legacy = array_values(array_unique([...$legacy, ...($override['legacy_provider_price_ids'] ?? [])]));
+
+        return new Plan($plan->key, $name, $priceCents, $plan->interval, $limits, $override['features'] ?? $plan->features, $providerPriceId,
+            $prices, $providerPriceIds,
+            is_string($override['description'] ?? null) ? $override['description'] : $plan->description,
+            (bool) ($override['active'] ?? $plan->active),
+            $legacy);
     }
 }

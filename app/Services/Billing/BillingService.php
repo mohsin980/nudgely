@@ -217,6 +217,7 @@ class BillingService
     {
         $organization = $this->authorize($actor);
         $plan = $this->plans->get($planKey);
+        $this->assertSellable($plan);
         $subscription = $this->currentSubscription($organization);
 
         if ($subscription === null) {
@@ -495,7 +496,7 @@ class BillingService
      */
     public function plans(): array
     {
-        return $this->plans->all();
+        return array_values(array_filter($this->plans->all(), fn (Plan $plan) => $plan->active));
     }
 
     /**
@@ -521,7 +522,21 @@ class BillingService
             throw new BillingException('The free plan needs no subscription.');
         }
 
+        $this->assertSellable($plan);
+
         return $plan;
+    }
+
+    /**
+     * An inactive plan is no longer sold: businesses already on it keep it, but nobody can start or move to it.
+     *
+     * @throws BillingException
+     */
+    private function assertSellable(Plan $plan): void
+    {
+        if (! $plan->active) {
+            throw new BillingException('This plan is no longer available. Please choose another plan.');
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Services\Platform;
 
 use App\Billing\Plan;
 use App\Billing\PlanCatalog;
+use App\Billing\PlanLadder;
 use App\Enums\Billing\LimitKey;
 use App\Enums\Billing\SubscriptionStatus;
 use App\Exceptions\Platform\PlanSettingsException;
@@ -252,30 +253,9 @@ class PlanSettingsService
      */
     private function ladderErrors(Plan $edited, array $limits): array
     {
-        $ladder = collect($this->plans->all())
+        return PlanLadder::errors(collect($this->plans->all())
             ->map(fn (Plan $plan) => $plan->key === $edited->key ? new Plan($plan->key, $plan->name, $plan->priceCents, $plan->interval, $limits, $plan->features, $plan->providerPriceId, $plan->prices, $plan->providerPriceIds) : $plan)
-            ->sortBy(fn (Plan $plan) => $plan->priceCents)->values();
-
-        $errors = [];
-
-        for ($i = 1; $i < $ladder->count(); $i++) {
-            [$cheaper, $dearer] = [$ladder[$i - 1], $ladder[$i]];
-
-            if ($cheaper->priceCents === $dearer->priceCents) {
-                continue;
-            }
-
-            foreach (LimitKey::cases() as $key) {
-                $low = $cheaper->limit($key);
-                $high = $dearer->limit($key);
-
-                if ($low !== null && $high !== null && $high < $low || $low === null && $high !== null) {
-                    $errors["limits.{$key->value}"] = "{$dearer->name} must allow at least as many {$key->noun()} as {$cheaper->name}; otherwise upgrading would reduce what a business gets.";
-                }
-            }
-        }
-
-        return $errors;
+            ->values()->all());
     }
 
     /**

@@ -62,11 +62,11 @@ test('administrators with view_plans see every plan with price, interval, provid
 
         Livewire::test(Plans::class)
             ->assertSee('Free')->assertSee('Starter')->assertSee('Pro')
-            ->assertSee('$79.00')->assertSee('Monthly');
+            ->assertSee('$79.00')->assertSee('PKR 22,000.00');
     }
 
     $this->actingAs(planAdmin());
-    Livewire::test(Plans::class)->assertCanSeeTableRecords(['free', 'starter', 'pro'])->assertSee('Provider price ID');
+    Livewire::test(Plans::class)->assertCanSeeTableRecords(['free', 'starter', 'pro'])->assertSee('Stripe price (USD)');
 });
 
 test('customers, guests and admins without view_plans cannot open the plans page', function () {
@@ -255,18 +255,29 @@ test('bad override rows can never break billing', function () {
 
 // Panel
 
+/** The Pro plan's panel form, as configured, with the given changes. */
+function proPanelData(array $changes): array
+{
+    return array_merge([
+        'name' => 'Pro', 'description' => null, 'active' => true, 'price_usd' => 79, 'price_pkr' => 22000,
+        'provider_usd' => null, 'provider_pkr' => null,
+        'features' => ['estimates', 'follow_ups', 'automations', 'ai_reply_classification', 'ai_assistant', 'team_roles', 'custom_branding', 'priority_support'],
+        'limit_customers' => 2000, 'limit_automations' => 50, 'limit_team_members' => 10, 'limit_outbound_emails' => 10000,
+        'limit_estimates' => 1000, 'limit_ai_conversations' => 300,
+    ], $changes);
+}
+
 test('the edit action in the panel saves, audits and reports the effect', function () {
     $this->actingAs(planAdmin());
     $org = Organization::factory()->create(['timezone' => 'UTC']);
     subscribe($org);
 
     Livewire::test(Plans::class)
-        ->callAction(TestAction::make('edit')->table('pro'), [
-            'name' => 'Pro', 'limit_customers' => 2500, 'limit_automations' => 50, 'limit_team_members' => 10,
-            'limit_outbound_emails' => 10000, 'limit_estimates' => 1000, 'reason' => 'Increase customers for growth',
-        ])
+        ->callAction(TestAction::make('edit')->table('pro'), proPanelData([
+            'limit_customers' => 2500, 'reason' => 'Increase customers for growth',
+        ]))
         ->assertHasNoActionErrors()
-        ->assertNotified('Plan updated');
+        ->assertNotified('Plan saved');
 
     expect(app(PlanCatalog::class)->get('pro')->limit(LimitKey::Customers))->toBe(2500)
         ->and(PlatformAuditLog::sole()->reason)->toBe('Increase customers for growth');
@@ -276,10 +287,9 @@ test('the panel action rejects invalid input without saving', function () {
     $this->actingAs(planAdmin());
 
     Livewire::test(Plans::class)
-        ->callAction(TestAction::make('edit')->table('pro'), [
-            'name' => 'Pro', 'limit_customers' => 10, 'limit_automations' => 50, 'limit_team_members' => 10,
-            'limit_outbound_emails' => 10000, 'limit_estimates' => 1000, 'reason' => 'Lower than the cheaper plan',
-        ]);
+        ->callAction(TestAction::make('edit')->table('pro'), proPanelData([
+            'limit_customers' => 10, 'reason' => 'Lower than the cheaper plan',
+        ]));
 
     expect(PlanSetting::count())->toBe(0)->and(app(PlanCatalog::class)->get('pro')->limit(LimitKey::Customers))->toBe(2000);
 });

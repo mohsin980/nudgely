@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Billing\AddonCatalog;
 use App\Billing\PlanCatalog;
 use App\Contracts\Email\EmailProviderInterface;
 use App\Enums\Platform\PlatformPermission;
@@ -53,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(BillingProviderManager::class);
         // Plans are read from config/billing.php once and validated (a bad plan fails loudly).
         $this->app->singleton(PlanCatalog::class, fn ($app) => new PlanCatalog($app['config']->get('billing', []), fn () => PlanSetting::overrides()));
+        $this->app->singleton(AddonCatalog::class, fn ($app) => new AddonCatalog($app['config']->get('billing', []), fn () => PlanSetting::addonOverrides()));
         // Per job / request, so a chain depth never leaks into unrelated work.
         $this->app->scoped(AutomationExecutionScope::class);
     }

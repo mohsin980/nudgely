@@ -41,6 +41,12 @@ interface BillingProviderInterface
     public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession;
 
     /**
+     * Whether a provider price is a monthly price in this currency and amount, and active. Null when it is,
+     * otherwise a message the administrator can act on.
+     */
+    public function verifyPrice(string $priceId, string $currency, int $amount): ?string;
+
+    /**
      * The result of a checkout, or null while it isn't complete.
      *
      * @throws BillingException

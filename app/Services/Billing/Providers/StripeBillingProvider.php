@@ -64,6 +64,39 @@ class StripeBillingProvider implements BillingProviderInterface
         return (string) $customer['id'];
     }
 
+    /**
+     * Checks a price against Stripe before it is saved: it exists, is active, bills monthly, and matches the currency
+     * and amount entered. Otherwise the business would be charged something other than the price shown.
+     */
+    public function verifyPrice(string $priceId, string $currency, int $amount): ?string
+    {
+        try {
+            $price = $this->send('get', 'prices/'.rawurlencode($priceId));
+        } catch (BillingException) {
+            return "Stripe does not recognise the price {$priceId}, or Stripe can't be reached right now.";
+        }
+
+        if (($price['active'] ?? false) !== true) {
+            return "The Stripe price {$priceId} is not active.";
+        }
+
+        $stripeCurrency = strtoupper((string) ($price['currency'] ?? ''));
+
+        if ($stripeCurrency !== strtoupper($currency)) {
+            return "The Stripe price {$priceId} is in {$stripeCurrency}, not ".strtoupper($currency).'.';
+        }
+
+        if ((int) ($price['unit_amount'] ?? -1) !== $amount) {
+            return "The Stripe price {$priceId} charges a different amount from the one entered. Use the price with the amount you set here.";
+        }
+
+        if (($price['recurring']['interval'] ?? null) !== 'month') {
+            return "The Stripe price {$priceId} must bill every month.";
+        }
+
+        return null;
+    }
+
     public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession
     {
         $subscriptionData = ['metadata' => ['organization_id' => (string) $organization->id, 'plan' => $plan->key]];

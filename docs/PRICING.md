@@ -161,6 +161,32 @@ Do not put price IDs or secret keys in code or in this document.
 
 ---
 
+## 6a. Managing packages in the admin panel
+
+Plans and add-ons are edited in the admin panel (**Billing → Plans** and **Billing → Add-ons**). Anyone with the *manage plans* permission can use them; everyone with *view plans* can see them.
+
+**Plans** (Billing → Plans)
+- **New plan:** key (permanent), name, description, sold or not, USD and PKR prices, Stripe price IDs, features, and limits (empty means unlimited).
+- **Edit:** the same fields, for any plan. A reason is required and is written to the audit log.
+- **Reset to configured:** only for plans that come from `config/billing.php`. It puts the configured values back.
+
+**Add-ons** (Billing → Add-ons)
+- **New add-on:** key, name, description, sold or not, the plans it can be bought with, USD and PKR prices, Stripe price IDs, features switched on, and the extra limits it adds.
+- **Edit:** the same fields.
+
+**What is checked on every save**
+- Prices are whole amounts in minor units; USD is required; an add-on's price must be above zero.
+- A Stripe price ID starts with `price_` and is not used by another plan or add-on.
+- When Stripe is the billing provider, each new or changed Stripe price is fetched from Stripe. It must exist, be active, bill monthly, and match the currency and amount entered. A mismatch is refused, so a business is never charged something other than the price shown.
+- Features must exist; limits must be whole numbers or empty.
+- The default plan cannot be turned off.
+
+**Changing a Stripe price.** A Stripe price's amount cannot be changed, so a new price means a new price ID. The old ID is kept as a *legacy* ID, so businesses already on it stay on their plan. Old IDs are never deleted.
+
+**Turning a plan off.** An inactive plan is not sold. Nobody can start a checkout on it or move to it. Businesses already on it keep it.
+
+**Where the values live.** Saved packages are stored in the database (`plan_settings`, with a `kind` of plan or add-on). A package with no saved row uses its values from `config/billing.php`. Saving a package stores all of its values, so later config changes to that package do not apply until it is reset.
+
 ## 7. Decisions needed from the owner
 
 1. Confirm the Starter ($29) and Pro ($79) prices, or change them in `config/billing.php`.

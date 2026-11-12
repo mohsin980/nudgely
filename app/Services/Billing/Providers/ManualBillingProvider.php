@@ -34,6 +34,12 @@ class ManualBillingProvider implements BillingProviderInterface
         return 'manual_cus_'.Str::lower(Str::random(24));
     }
 
+    /** No provider to check against: prices are accepted as entered. */
+    public function verifyPrice(string $priceId, string $currency, int $amount): ?string
+    {
+        return null;
+    }
+
     public function createCheckout(Organization $organization, string $customerId, Plan $plan, int $trialDays, string $successUrl, string $cancelUrl, string $currency = 'USD'): CheckoutSession
     {
         $id = 'manual_cs_'.Str::lower(Str::random(24));

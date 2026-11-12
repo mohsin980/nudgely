@@ -161,6 +161,7 @@ class FakeStripe
         $segments = explode('/', $path);
 
         return match (true) {
+            $method === 'GET' && $segments[0] === 'prices' => $this->priceRoute($segments[1] ?? ''),
             $method === 'POST' && $path === 'customers' => $this->ok($this->customers[$id = 'cus_'.$this->next++] = ['id' => $id] + $data),
             $method === 'POST' && $path === 'checkout/sessions' => $this->ok($this->sessions[$id = 'cs_test_'.$this->next++] = ['id' => $id, 'url' => "https://checkout.stripe.test/c/{$id}", 'status' => 'open', 'subscription' => null] + $data),
             $method === 'GET' && $segments[0] === 'customers' => $this->ok(($this->customers[$segments[1]] ?? ['id' => $segments[1]]) + ['invoice_settings' => ['default_payment_method' => isset($this->cards[$segments[1]]) ? ['id' => 'pm_1', 'card' => $this->cards[$segments[1]]] : null]]),
@@ -256,6 +257,23 @@ class FakeStripe
         unset($this->schedules[$id]);
 
         return $this->ok($schedule + ['status' => 'released']);
+    }
+
+    /** @var array<string, array<string, mixed>> price id => the price as Stripe reports it */
+    public array $prices = [];
+
+    /** Register a price the way Stripe reports it: its amount in minor units, currency and billing interval. */
+    public function addPrice(string $id, string $currency, int $amount, bool $active = true, string $interval = 'month'): void
+    {
+        $this->prices[$id] = ['id' => $id, 'active' => $active, 'currency' => strtolower($currency), 'unit_amount' => $amount,
+            'recurring' => ['interval' => $interval]];
+    }
+
+    private function priceRoute(string $id)
+    {
+        return isset($this->prices[$id])
+            ? $this->ok($this->prices[$id])
+            : Http::response(['error' => ['type' => 'invalid_request_error', 'code' => 'resource_missing']], 404);
     }
 
     private function query(string $url): array

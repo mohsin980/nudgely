@@ -16,6 +16,7 @@ final class Plan
      * @param  list<string>  $features
      * @param  array<string, int>  $prices  Currency => price in minor units, for currencies other than USD
      * @param  array<string, string>  $providerPriceIds  Currency => provider price ID, for currencies other than USD
+     * @param  bool  $active  Inactive plans are not sold; businesses already on them keep them.
      */
     public function __construct(
         public readonly string $key,
@@ -27,6 +28,10 @@ final class Plan
         public readonly ?string $providerPriceId,
         public readonly array $prices = [],
         public readonly array $providerPriceIds = [],
+        public readonly string $description = '',
+        public readonly bool $active = true,
+        /** @var list<string> Provider price IDs this plan was sold under before: still mapped to it for existing subscribers. */
+        public readonly array $legacyProviderPriceIds = [],
     ) {}
 
     /**

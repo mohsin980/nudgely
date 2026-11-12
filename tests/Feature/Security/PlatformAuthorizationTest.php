@@ -94,6 +94,7 @@ dataset('admin pages', [
     'users' => ['filament.admin.resources.users.index', [], ['super', 'support']],
     'user' => ['filament.admin.resources.users.view', ['member'], ['super', 'support']],
     'plans' => ['filament.admin.pages.plans', [], ['super', 'support', 'billing']],
+    'add-ons' => ['filament.admin.pages.add-ons', [], ['super', 'support', 'billing']],
     'subscriptions' => ['filament.admin.resources.subscriptions.index', [], ['super', 'support', 'billing']],
     'subscription' => ['filament.admin.resources.subscriptions.view', ['subscription'], ['super', 'support', 'billing']],
     'usage' => ['filament.admin.pages.usage', [], ['super', 'support', 'billing']],
@@ -135,7 +136,7 @@ test('the matrix covers every admin page that exists', function () {
 function dataset_routes(): array
 {
     return ['filament.admin.pages.dashboard', 'filament.admin.resources.organizations.index', 'filament.admin.resources.organizations.view',
-        'filament.admin.resources.users.index', 'filament.admin.resources.users.view', 'filament.admin.pages.plans',
+        'filament.admin.resources.users.index', 'filament.admin.resources.users.view', 'filament.admin.pages.plans', 'filament.admin.pages.add-ons',
         'filament.admin.resources.subscriptions.index', 'filament.admin.resources.subscriptions.view', 'filament.admin.pages.usage',
         'filament.admin.pages.usage.{organizationId}', 'filament.admin.resources.audit-logs.index', 'filament.admin.resources.audit-logs.view', 'filament.admin.pages.ai-models'];
 }
@@ -301,7 +302,7 @@ test('nobody can assign themselves, or anyone, platform privileges from the appl
     // The panel offers no role assignment: its surface is exactly the reviewed set.
     $panel = Filament::getPanel('admin');
     $names = collect([...$panel->getResources(), ...$panel->getPages()])->map(fn ($class) => class_basename($class))->sort()->values()->all();
-    expect($names)->toBe(['AiModels', 'AuditLogResource', 'Dashboard', 'OrganizationResource', 'Plans', 'SubscriptionResource', 'UsageDetails', 'UsageMonitoring', 'UserResource'], 'The admin surface changed: add it to the authorization matrix.');
+    expect($names)->toBe(['AddOns', 'AiModels', 'AuditLogResource', 'Dashboard', 'OrganizationResource', 'Plans', 'SubscriptionResource', 'UsageDetails', 'UsageMonitoring', 'UserResource'], 'The admin surface changed: add it to the authorization matrix.');
 });
 
 test('a support admin who is given a role-like permission still cannot touch more privileged accounts or themselves', function () {
