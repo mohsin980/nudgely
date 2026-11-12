@@ -187,6 +187,10 @@ Plans and add-ons are edited in the admin panel (**Billing → Plans** and **Bil
 
 **Where the values live.** Saved packages are stored in the database (`plan_settings`, with a `kind` of plan or add-on). A package with no saved row uses its values from `config/billing.php`. Saving a package stores all of its values, so later config changes to that package do not apply until it is reset.
 
+## 6b. Custom solutions
+
+The plans page ends with a **Need something custom? Talk to support** card. It is for businesses whose needs no plan covers, such as call coverage only, a custom package, or a larger volume. The button opens an email to `SUPPORT_EMAIL`. If that setting is empty, the card shows the text without a link.
+
 ## 7. Decisions needed from the owner
 
 1. Confirm the Starter ($29) and Pro ($79) prices, or change them in `config/billing.php`.

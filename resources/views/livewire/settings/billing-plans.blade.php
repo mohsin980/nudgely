@@ -79,4 +79,6 @@
             </div>
         @endforeach
     </div>
+
+    @include('livewire.settings.partials.custom-solutions-cta')
 </x-settings.shell>
