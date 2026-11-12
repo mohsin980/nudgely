@@ -14,7 +14,7 @@ class AssistantProfile extends Model
 
     protected function casts(): array
     {
-        return ['enabled' => 'boolean'];
+        return ['enabled' => 'boolean', 'channels' => 'array'];
     }
 
     public function organization(): BelongsTo

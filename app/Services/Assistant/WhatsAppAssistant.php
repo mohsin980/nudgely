@@ -49,6 +49,7 @@ class WhatsAppAssistant
         private readonly AiChatLog $log,
         private readonly AppointmentBooking $appointments,
         private readonly AssistantBudget $budget,
+        private readonly AssistantChannels $channels,
     ) {}
 
     /**
@@ -73,6 +74,11 @@ class WhatsAppAssistant
 
         if (! $profile?->enabled || ! $this->entitlements->hasFeature($organization, 'ai_assistant')) {
             return 'off';
+        }
+
+        // The owner can turn WhatsApp off for the assistant, and it must be bought like any other channel.
+        if (! $this->channels->allows($organization, $profile, AssistantChannels::WHATSAPP)) {
+            return 'channel off';
         }
 
         if ($this->answeredOrNewer($message)) {

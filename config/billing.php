@@ -76,6 +76,7 @@ return [
         'automations' => 'Automations',
         'ai_reply_classification' => 'AI reply sorting',
         'ai_assistant' => 'AI WhatsApp assistant',
+        'assistant_email' => 'AI email replies',
         'team_roles' => 'Team roles & permissions',
         'custom_branding' => 'Custom branding',
         'priority_support' => 'Priority support',

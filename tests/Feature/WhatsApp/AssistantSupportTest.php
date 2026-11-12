@@ -1,5 +1,6 @@
 <?php
 
+use App\Billing\PlanCatalog;
 use App\Livewire\Settings\AiAssistant;
 use App\Models\AppointmentRequest;
 use App\Models\AssistantChat;
@@ -9,6 +10,7 @@ use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Assistant\AppointmentBooking;
 use App\Services\Assistant\AppointmentSlots;
+use App\Services\Assistant\AssistantChannels;
 use App\Services\Assistant\AssistantDecision;
 use App\Services\Assistant\AssistantKnowledgeService;
 use App\Services\Assistant\AssistantPromptBuilder;
@@ -365,4 +367,39 @@ test('an invalid email is not saved on the customer', function () {
     supportSays('My email is not-an-email', 'wamid.CONTACT3');
 
     expect($this->customer->fresh()->email)->toBeNull();
+});
+
+// ─── Channels: WhatsApp and email ───────────────────────────────────────────────────────
+
+test('the assistant never uses email unless the business bought the email channel', function () {
+    $profile = $this->organization->assistantProfile()->firstOrFail();
+    $profile->forceFill(['channels' => ['whatsapp', 'email']])->save();
+
+    $channels = app(AssistantChannels::class);
+
+    expect($channels->enabled($this->organization->fresh(), $profile->fresh()))->toBe(['whatsapp'])
+        ->and($channels->allows($this->organization->fresh(), $profile->fresh(), AssistantChannels::EMAIL))->toBeFalse();
+});
+
+test('with the email channel bought and turned on, the assistant may reply by email', function () {
+    config(['billing.plans.free.features' => [...config('billing.plans.free.features'), 'assistant_email']]);
+    app()->forgetInstance(PlanCatalog::class);
+    $profile = $this->organization->assistantProfile()->firstOrFail();
+    $channels = app(AssistantChannels::class);
+
+    $profile->forceFill(['channels' => ['whatsapp', 'email']])->save();
+    expect($channels->enabled($this->organization->fresh(), $profile->fresh()))->toBe(['whatsapp', 'email']);
+
+    $profile->forceFill(['channels' => ['whatsapp']])->save();
+    expect($channels->enabled($this->organization->fresh(), $profile->fresh()))->toBe(['whatsapp']);
+});
+
+test('when the owner turns WhatsApp off for the assistant, customers get no AI reply on WhatsApp', function () {
+    $profile = $this->organization->assistantProfile()->firstOrFail();
+    $profile->forceFill(['channels' => ['email']])->save();
+    supportAi(['reply' => 'This should not be sent.']);
+
+    supportSays('Do you do boilers?', 'wamid.CHANNEL1');
+
+    expect(supportSent())->toBe([]);
 });
