@@ -10,7 +10,7 @@ use App\Exceptions\AI\InvalidModelOutputException;
  */
 final readonly class AssistantDecision
 {
-    public const DETAIL_FIELDS = ['requirement', 'budget', 'location', 'timeline', 'other'];
+    public const DETAIL_FIELDS = ['requirement', 'budget', 'location', 'timeline', 'email', 'address', 'other'];
 
     /** Languages the assistant can reply in (codes match AssistantProfile::LANGUAGES). */
     public const LANGUAGES = ['en', 'ur', 'ar'];
@@ -81,6 +81,11 @@ final readonly class AssistantDecision
         foreach (self::DETAIL_FIELDS as $field) {
             $value = $data['details'][$field] ?? null;
             $details[$field] = is_string($value) && trim($value) !== '' ? mb_substr(trim($value), 0, 200) : null;
+        }
+
+        // Only a real-looking email is kept; anything else is dropped rather than saved on the customer.
+        if ($details['email'] !== null && filter_var($details['email'], FILTER_VALIDATE_EMAIL) === false) {
+            $details['email'] = null;
         }
 
         $reason = is_string($data['handover_reason'] ?? null) && trim($data['handover_reason']) !== '' ? mb_substr(trim($data['handover_reason']), 0, 200) : null;

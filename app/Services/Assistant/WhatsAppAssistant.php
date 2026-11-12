@@ -12,6 +12,7 @@ use App\Exceptions\WhatsApp\WhatsAppSendException;
 use App\Models\AssistantChat;
 use App\Models\AssistantProfile;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\Message;
 use App\Services\AI\AiChatLog;
 use App\Services\AI\Chat\ChatClient;
@@ -144,6 +145,8 @@ class WhatsAppAssistant
             'details' => array_merge($chat->details ?? [], array_filter($decision->details, fn ($value) => $value !== null)),
         ])->save();
 
+        $this->saveContactDetails($customer, $decision->details);
+
         if ($decision->qualified && $chat->qualified_at === null) {
             $chat->forceFill(['qualified_at' => now()])->save();
             $this->leadStages->advance($organization->id, $customer->id, LeadStage::Qualified, 'assistant_qualified', $conversation->id);
@@ -164,6 +167,29 @@ class WhatsAppAssistant
         }
 
         return 'replied';
+    }
+
+    /**
+     * Keep the email and address the customer gave on their record. Only a blank field is filled: an email or address
+     * already on the record is never overwritten by the AI.
+     *
+     * @param  array<string, ?string>  $details
+     */
+    private function saveContactDetails(Customer $customer, array $details): void
+    {
+        $changes = [];
+
+        if (filled($details['email'] ?? null) && blank($customer->email)) {
+            $changes['email'] = $details['email'];
+        }
+
+        if (filled($details['address'] ?? null) && blank($customer->address)) {
+            $changes['address'] = $details['address'];
+        }
+
+        if ($changes !== []) {
+            $customer->forceFill($changes)->save();
+        }
     }
 
     /** The message the customer gets when the AI can't answer, in the chat's language. */

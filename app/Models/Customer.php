@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
  * first_name/last_name in both directions, so older code that only knows `name` keeps working.
  * Emails are stored lowercased and trimmed; (organization_id, email) is unique.
  */
-#[Fillable(['name', 'first_name', 'last_name', 'email', 'phone', 'company', 'notes', 'status', 'preferred_channel'])]
+#[Fillable(['name', 'first_name', 'last_name', 'email', 'address', 'phone', 'company', 'notes', 'status', 'preferred_channel'])]
 class Customer extends Model
 {
     /** @use HasFactory<CustomerFactory> */

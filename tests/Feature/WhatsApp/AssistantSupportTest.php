@@ -335,3 +335,34 @@ test('a customer gets one assistant chat per day: messages on the same day share
     expect(AssistantChat::query()->count())->toBe(2)
         ->and(AssistantChat::query()->latest('id')->first()->replies)->toBe(1);
 });
+
+// ─── Lead capture: email and address ────────────────────────────────────────────────────
+
+test('the email and address a customer gives are saved on a blank customer record', function () {
+    $this->customer->forceFill(['email' => null, 'address' => null])->save();
+    supportAi(['reply' => 'Thanks! What is your address?', 'details' => ['requirement' => 'Boiler service', 'email' => 'ali@example.com', 'address' => '12 Main Street, Lahore']]);
+
+    supportSays('My email is ali@example.com, I am at 12 Main Street, Lahore', 'wamid.CONTACT1');
+
+    expect($this->customer->fresh()->email)->toBe('ali@example.com')
+        ->and($this->customer->fresh()->address)->toBe('12 Main Street, Lahore');
+});
+
+test('an email already on the record is not overwritten, but a blank address is filled', function () {
+    $this->customer->forceFill(['email' => 'kept@example.com', 'address' => null])->save();
+    supportAi(['reply' => 'Thanks!', 'details' => ['email' => 'new@example.com', 'address' => 'Gulberg, Lahore']]);
+
+    supportSays('Reach me at new@example.com, I am in Gulberg, Lahore', 'wamid.CONTACT2');
+
+    expect($this->customer->fresh()->email)->toBe('kept@example.com')
+        ->and($this->customer->fresh()->address)->toBe('Gulberg, Lahore');
+});
+
+test('an invalid email is not saved on the customer', function () {
+    $this->customer->forceFill(['email' => null])->save();
+    supportAi(['reply' => 'Thanks!', 'details' => ['email' => 'not-an-email']]);
+
+    supportSays('My email is not-an-email', 'wamid.CONTACT3');
+
+    expect($this->customer->fresh()->email)->toBeNull();
+});

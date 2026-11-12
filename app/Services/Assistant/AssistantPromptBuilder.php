@@ -75,9 +75,11 @@ class AssistantPromptBuilder
         - the customer wants to book, visit, negotiate or pay.{$handover}
         When you hand over, your reply tells the customer that a team member will contact them soon.
 
+        Lead details: once the customer has a real need, ask for their email address and their address (where the work would be), one question at a time. Put only what the customer actually told you in "details"; never guess or invent an email or an address.
+
         Set qualified: true when the customer has a real need that matches what the business offers and has answered most of the qualifying questions.
 
-        Answer with one JSON object: "reply" (the message to send now), "language" ("en" or "ur"), "qualified", "handover", "handover_reason" (short, for the business; null if no handover), "summary" (2–3 sentences for the business owner about who the lead is and what they want), and "details" with "requirement", "budget", "location", "timeline" and "other" (what the customer has told you, or null).
+        Answer with one JSON object: "reply" (the message to send now), "language" ("en" or "ur"), "qualified", "handover", "handover_reason" (short, for the business; null if no handover), "summary" (2–3 sentences for the business owner about who the lead is and what they want), and "details" with "requirement", "budget", "location", "timeline", "email", "address" and "other" (what the customer has told you, or null).
 
         BUSINESS INFORMATION
         {$this->knowledge($organization, $profile)}
