@@ -28,6 +28,7 @@ class AssistantHandover
         private readonly TeamNotifier $notifier,
         private readonly TeamDirectory $team,
         private readonly WhatsAppClient $whatsapp,
+        private readonly HandoverBrief $brief,
     ) {}
 
     public function handOver(AssistantChat $chat, AssistantProfile $profile, string $reason): void
@@ -56,7 +57,7 @@ class AssistantHandover
         $message = ($profile->assistant_name ?: 'The AI assistant').' handed over '.$name.': '.$reason;
 
         $this->notifyTeam($conversation, NotificationType::AssistantHandover, $message, 'assistant-chat:'.$chat->id.':handover');
-        $this->pingOwner($conversation, $profile, $name, $reason, $chat->summary);
+        $this->pingOwner($conversation, $profile, $name, $reason, $chat->summary, $this->brief->for($chat)['open']);
 
         Log::info('AI assistant handed over a chat.', ['organization_id' => $chat->organization_id, 'conversation_id' => $chat->conversation_id, 'assistant_chat_id' => $chat->id]);
     }
@@ -101,7 +102,10 @@ class AssistantHandover
         }
     }
 
-    private function pingOwner(Conversation $conversation, AssistantProfile $profile, string $name, string $reason, ?string $summary): void
+    /**
+     * @param  list<string>  $open
+     */
+    private function pingOwner(Conversation $conversation, AssistantProfile $profile, string $name, string $reason, ?string $summary, array $open): void
     {
         $connection = $conversation->organization->whatsappConnection()->first();
 
@@ -111,6 +115,7 @@ class AssistantHandover
 
         $text = "QuoteFlow: {$name} needs you on WhatsApp.\n{$reason}"
             .(filled($summary) ? "\n\n{$summary}" : '')
+            .($open !== [] ? "\n\nStill open:\n- ".implode("\n- ", $open) : '')
             ."\n\nOpen the chat: ".route('inbox.show', $conversation->id);
 
         try {
