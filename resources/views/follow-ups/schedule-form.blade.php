@@ -2,6 +2,14 @@
 @php($field = 'block w-full rounded-xl border-0 bg-white py-3 pr-3.5 pl-11 text-[15px] text-slate-900 shadow-xs ring-1 ring-slate-200 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-violet-600 focus:ring-inset')
 @php($fieldIcon = 'pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-slate-400')
 @php($label = 'block text-[15px] font-semibold text-slate-800')
+@php($today = now($organization->timezone()))
+@php($quickDates = [
+    'Today' => $today->toDateString(),
+    'Tomorrow' => $today->copy()->addDay()->toDateString(),
+    'In 3 days' => $today->copy()->addDays(3)->toDateString(),
+    'Next week' => $today->copy()->addWeek()->toDateString(),
+    'In 1 month' => $today->copy()->addMonth()->toDateString(),
+])
 <form wire:submit="scheduleFollowUp" aria-label="Schedule follow-up"
       class="rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.2)] ring-1 ring-slate-200/70 sm:p-6">
     <div class="flex items-center gap-4">
@@ -34,14 +42,20 @@
                     <label for="schedule-date" class="{{ $label }}">Date</label>
                     <div class="relative mt-1.5">
                         <x-ui-icon name="calendar" class="{{ $fieldIcon }}" />
-                        <input id="schedule-date" type="date" wire:model="scheduleDate" class="{{ $field }}">
+                        <input id="schedule-date" type="date" wire:model="scheduleDate" min="{{ $today->toDateString() }}" style="color-scheme: light" class="{{ $field }}">
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-2" role="group" aria-label="Quick dates">
+                        @foreach ($quickDates as $quickLabel => $quickDate)
+                            <button type="button" wire:click="$set('scheduleDate', '{{ $quickDate }}')" data-quick-date="{{ $quickLabel }}"
+                                    class="rounded-full bg-violet-50 px-3 py-1 text-sm font-medium text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-100 focus:ring-2 focus:ring-violet-600 focus:outline-none">{{ $quickLabel }}</button>
+                        @endforeach
                     </div>
                 </div>
                 <div>
                     <label for="schedule-time" class="{{ $label }}">Time <span class="font-normal text-slate-500">({{ $organization->timezone() }})</span></label>
                     <div class="relative mt-1.5">
                         <x-ui-icon name="clock" class="{{ $fieldIcon }}" />
-                        <input id="schedule-time" type="time" wire:model="scheduleTime" class="{{ $field }}">
+                        <input id="schedule-time" type="time" wire:model="scheduleTime" style="color-scheme: light" class="{{ $field }}">
                     </div>
                 </div>
             </div>

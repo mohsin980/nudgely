@@ -283,3 +283,13 @@ test('a ready follow-up offers Send Follow-Up', function () {
     Livewire::actingAs($this->admin)->test(FollowUpIndex::class)
         ->assertSeeInOrder(['Follow-up ready', 'Send Follow-Up', 'Reschedule', 'Cancel']);
 });
+
+test('the schedule form offers quick dates and rejects past dates in the browser', function () {
+    Livewire::actingAs($this->admin)->test(FollowUpIndex::class)
+        ->call('openScheduleForm')
+        ->assertSeeHtml('data-quick-date="Tomorrow"')
+        ->assertSeeHtml('data-quick-date="In 1 month"')
+        ->assertSeeHtml('min="'.now($this->admin->organization->timezone())->toDateString().'"')
+        ->set('scheduleDate', now($this->admin->organization->timezone())->addDays(3)->toDateString())
+        ->assertSet('scheduleDate', now($this->admin->organization->timezone())->addDays(3)->toDateString());
+});
