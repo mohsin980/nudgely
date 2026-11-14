@@ -1,5 +1,6 @@
 {{-- What the AI assistant did in this conversation: still answering (with "Take over"), or handed over with its summary. --}}
-@php($details = collect($chat->details ?? [])->filter())
+@php($details = collect($chat->details ?? []))
+@php($brief = $chat->isActive() ? null : app(\App\Services\Assistant\HandoverBrief::class)->for($chat))
 <section aria-labelledby="assistant-heading" data-assistant-chat="{{ $chat->status }}"
     @class(['rounded-2xl p-4 ring-1 sm:p-5', 'bg-violet-50/70 ring-violet-200' => $chat->isActive(), 'bg-amber-50/70 ring-amber-200' => ! $chat->isActive()])>
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -21,12 +22,25 @@
                 @if ($chat->summary)
                     <p class="mt-1 text-sm text-slate-700" data-assistant-summary>{{ $chat->summary }}</p>
                 @endif
-                @if ($details->isNotEmpty() || $chat->qualified_at)
+                @if ($brief && $brief['told'])
+                    <p class="mt-2 text-sm text-slate-600" data-assistant-last-reply><span class="font-semibold">{{ $assistantName }} last said:</span> &ldquo;{{ $brief['told'] }}&rdquo;</p>
+                @endif
+                @if ($brief && $brief['open'])
+                    <div class="mt-2" data-assistant-open>
+                        <p class="text-xs font-semibold tracking-wide text-amber-900 uppercase">Still open</p>
+                        <ul class="mt-1 list-inside list-disc text-sm text-slate-700">
+                            @foreach ($brief['open'] as $item)
+                                <li>{{ $item }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                @if ($details->filter()->isNotEmpty() || $chat->qualified_at)
                     <dl class="mt-2 flex flex-wrap gap-2 text-xs">
                         @if ($chat->qualified_at)
                             <div class="rounded-full bg-teal-50 px-2.5 py-1 font-semibold text-teal-700 ring-1 ring-teal-600/20 ring-inset"><dt class="sr-only">Lead</dt><dd>Qualified</dd></div>
                         @endif
-                        @foreach ($details as $field => $value)
+                        @foreach ($details->filter() as $field => $value)
                             <div class="rounded-full bg-white px-2.5 py-1 text-slate-700 ring-1 ring-slate-200 ring-inset"><dt class="inline font-semibold">{{ ucfirst($field) }}:</dt> <dd class="inline">{{ $value }}</dd></div>
                         @endforeach
                     </dl>
