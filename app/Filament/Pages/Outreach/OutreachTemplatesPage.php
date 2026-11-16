@@ -81,7 +81,7 @@ class OutreachTemplatesPage extends Page implements HasTable
             ->columns([
                 TextColumn::make('name')->weight('bold')->searchable(),
                 TextColumn::make('category.name')->label('Category'),
-                TextColumn::make('channel')->badge()->formatStateUsing(fn ($state) => $state->label()),
+                TextColumn::make('channel')->badge()->color(fn ($state) => $state->value === 'email' ? 'primary' : 'success')->formatStateUsing(fn ($state) => $state->label()),
                 TextColumn::make('status')->badge()->color(fn ($state) => match ($state) {
                     OutreachTemplateStatus::Approved => 'success',
                     OutreachTemplateStatus::Pending => 'warning',

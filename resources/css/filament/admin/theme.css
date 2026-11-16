@@ -64,3 +64,36 @@
     font-weight: 600;
     color: #64748b;
 }
+
+/*
+ * Outreach admin pages: a clear card around each table with a violet accent, and calmer table rows.
+ */
+.qf-outreach-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(124 58 237 / 0.18);
+}
+
+.qf-outreach-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, #7c3aed, #a78bfa, #16a34a);
+}
+
+.qf-outreach-card .fi-ta-row:hover {
+    background-color: rgb(124 58 237 / 0.04);
+}
+
+.qf-outreach-card .fi-ta-header-cell {
+    background-color: #f8f7ff;
+}
+
+.dark .qf-outreach-card {
+    background: #1e1b3a;
+    border-color: rgb(255 255 255 / 0.08);
+}

@@ -89,9 +89,9 @@ class OutreachCampaignsPage extends Page implements HasTable
             ->columns([
                 TextColumn::make('created_at')->label('Started')->dateTime(),
                 TextColumn::make('template.name')->label('Template')->weight('bold'),
-                TextColumn::make('channel')->badge()->formatStateUsing(fn ($state) => $state->label()),
+                TextColumn::make('channel')->badge()->color(fn ($state) => $state->value === 'email' ? 'primary' : 'success')->formatStateUsing(fn ($state) => $state->label()),
                 TextColumn::make('category.name')->label('Category'),
-                TextColumn::make('status')->badge()->color(fn ($state) => $state->value === 'completed' ? 'success' : 'warning'),
+                TextColumn::make('status')->badge()->color(fn ($state) => match ($state->value) { 'completed' => 'success', 'running' => 'info', default => 'gray' })->formatStateUsing(fn ($state) => ucfirst($state->value)),
                 TextColumn::make('queued_count')->label('Queued')->numeric(),
                 TextColumn::make('sent_count')->label('Sent')->numeric(),
                 TextColumn::make('failed_count')->label('Failed')->numeric(),

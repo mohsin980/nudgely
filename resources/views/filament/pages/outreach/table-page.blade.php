@@ -1,3 +1,5 @@
 <x-filament-panels::page>
-    {{ $this->table }}
+    <div class="qf-outreach-card">
+        {{ $this->table }}
+    </div>
 </x-filament-panels::page>

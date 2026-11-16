@@ -54,7 +54,7 @@ class OutreachLogsPage extends Page implements HasTable
             ->query(OutreachMessage::query()->with(['campaign.template'])->latest('id'))
             ->columns([
                 TextColumn::make('created_at')->label('When')->dateTime()->sortable(),
-                TextColumn::make('channel')->badge()->formatStateUsing(fn ($state) => $state->label()),
+                TextColumn::make('channel')->badge()->color(fn ($state) => $state->value === 'email' ? 'primary' : 'success')->formatStateUsing(fn ($state) => $state->label()),
                 TextColumn::make('recipient')->searchable(),
                 TextColumn::make('campaign.template.name')->label('Template'),
                 TextColumn::make('status')->badge()->color(fn ($state) => match ($state) {

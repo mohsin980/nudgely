@@ -78,7 +78,7 @@ class OutreachCategoriesPage extends Page implements HasTable
                 TextColumn::make('slug')->fontFamily('mono'),
                 TextColumn::make('contacts_count')->label('Contacts')->numeric(),
                 TextColumn::make('templates_count')->label('Templates')->numeric(),
-                IconColumn::make('is_active')->label('Active')->boolean(),
+                IconColumn::make('is_active')->label('Active')->boolean()->trueColor('success')->falseColor('gray'),
             ])
             ->recordActions([
                 Action::make('edit')

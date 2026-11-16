@@ -22,7 +22,9 @@ class OutreachVolumeChart extends ChartWidget
 
     protected ?string $heading = 'Messages sent per day';
 
-    protected ?string $maxHeight = '260px';
+    protected ?string $description = 'Last 14 days';
+
+    protected ?string $maxHeight = '280px';
 
     protected static function requiredPermission(): PlatformPermission
     {
@@ -50,8 +52,28 @@ class OutreachVolumeChart extends ChartWidget
         return [
             'labels' => $days->map(fn ($day) => $day->format('d M'))->all(),
             'datasets' => [
-                ['label' => 'Email', 'data' => $series('email'), 'borderColor' => '#7c3aed', 'backgroundColor' => '#7c3aed'],
-                ['label' => 'WhatsApp', 'data' => $series('whatsapp'), 'borderColor' => '#16a34a', 'backgroundColor' => '#16a34a'],
+                [
+                    'label' => 'Email',
+                    'data' => $series('email'),
+                    'borderColor' => '#7c3aed',
+                    'backgroundColor' => 'rgba(124, 58, 237, 0.14)',
+                    'fill' => true,
+                    'tension' => 0.4,
+                    'pointRadius' => 3,
+                    'pointBackgroundColor' => '#7c3aed',
+                    'borderWidth' => 2.5,
+                ],
+                [
+                    'label' => 'WhatsApp',
+                    'data' => $series('whatsapp'),
+                    'borderColor' => '#16a34a',
+                    'backgroundColor' => 'rgba(22, 163, 74, 0.12)',
+                    'fill' => true,
+                    'tension' => 0.4,
+                    'pointRadius' => 3,
+                    'pointBackgroundColor' => '#16a34a',
+                    'borderWidth' => 2.5,
+                ],
             ],
         ];
     }
@@ -59,5 +81,16 @@ class OutreachVolumeChart extends ChartWidget
     protected function getType(): string
     {
         return 'line';
+    }
+
+    protected function getOptions(): array
+    {
+        return [
+            'plugins' => ['legend' => ['position' => 'bottom', 'labels' => ['usePointStyle' => true, 'padding' => 16]]],
+            'scales' => [
+                'x' => ['grid' => ['display' => false]],
+                'y' => ['beginAtZero' => true, 'ticks' => ['precision' => 0], 'grid' => ['color' => 'rgba(148, 163, 184, 0.18)']],
+            ],
+        ];
     }
 }

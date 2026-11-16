@@ -18,9 +18,11 @@ class OutreachOutcomeChart extends ChartWidget
 
     protected int|string|array $columnSpan = ['md' => 2, 'xl' => 2];
 
-    protected ?string $heading = 'Outcome, last 30 days';
+    protected ?string $heading = 'Outcome by channel';
 
-    protected ?string $maxHeight = '260px';
+    protected ?string $description = 'Last 30 days';
+
+    protected ?string $maxHeight = '280px';
 
     protected static function requiredPermission(): PlatformPermission
     {
@@ -37,12 +39,21 @@ class OutreachOutcomeChart extends ChartWidget
 
         $count = fn (string $channel, string $status) => (int) ($rows->first(fn ($r) => (string) $r->channel === $channel && (string) $r->status === $status)?->total ?? 0);
 
+        $bar = fn (string $label, string $status, string $color) => [
+            'label' => $label,
+            'data' => [$count('email', $status), $count('whatsapp', $status)],
+            'backgroundColor' => $color,
+            'borderRadius' => 8,
+            'borderSkipped' => false,
+            'maxBarThickness' => 56,
+        ];
+
         return [
             'labels' => ['Email', 'WhatsApp'],
             'datasets' => [
-                ['label' => 'Sent', 'data' => [$count('email', 'sent'), $count('whatsapp', 'sent')], 'backgroundColor' => '#16a34a'],
-                ['label' => 'Failed', 'data' => [$count('email', 'failed'), $count('whatsapp', 'failed')], 'backgroundColor' => '#dc2626'],
-                ['label' => 'Skipped', 'data' => [$count('email', 'skipped'), $count('whatsapp', 'skipped')], 'backgroundColor' => '#94a3b8'],
+                $bar('Sent', 'sent', '#16a34a'),
+                $bar('Failed', 'failed', '#dc2626'),
+                $bar('Skipped', 'skipped', '#94a3b8'),
             ],
         ];
     }
@@ -50,5 +61,16 @@ class OutreachOutcomeChart extends ChartWidget
     protected function getType(): string
     {
         return 'bar';
+    }
+
+    protected function getOptions(): array
+    {
+        return [
+            'plugins' => ['legend' => ['position' => 'bottom', 'labels' => ['usePointStyle' => true, 'padding' => 16]]],
+            'scales' => [
+                'x' => ['grid' => ['display' => false]],
+                'y' => ['beginAtZero' => true, 'ticks' => ['precision' => 0], 'grid' => ['color' => 'rgba(148, 163, 184, 0.18)']],
+            ],
+        ];
     }
 }

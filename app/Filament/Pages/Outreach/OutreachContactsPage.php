@@ -88,8 +88,8 @@ class OutreachContactsPage extends Page implements HasTable
                 TextColumn::make('category.name')->label('Category'),
                 TextColumn::make('consent_source')->label('Consent source')->limit(40),
                 TextColumn::make('consent_at')->label('Consent date')->dateTime()->placeholder('None'),
-                TextColumn::make('email_opted_out_at')->label('Email stopped')->dateTime()->placeholder('—'),
-                TextColumn::make('whatsapp_opted_out_at')->label('WhatsApp stopped')->dateTime()->placeholder('—'),
+                TextColumn::make('email_opted_out_at')->label('Email stopped')->dateTime()->placeholder('Subscribed')->badge()->color(fn ($state) => $state ? 'danger' : 'success'),
+                TextColumn::make('whatsapp_opted_out_at')->label('WhatsApp stopped')->dateTime()->placeholder('Subscribed')->badge()->color(fn ($state) => $state ? 'danger' : 'success'),
             ])
             ->recordActions([
                 Action::make('stop_email')
