@@ -233,3 +233,18 @@ test('the volume chart counts only sent messages per day and channel', function 
     $email = collect($data['datasets'])->firstWhere('label', 'Email')['data'];
     expect(array_sum($email))->toBe(2);
 });
+
+test('the outcome chart counts sent, failed and skipped per channel without errors', function () {
+    $template = approvedEmailTemplate($this->hvac, $this->superAdmin);
+    $campaign = OutreachCampaign::query()->create(['outreach_template_id' => $template->id, 'outreach_category_id' => $this->hvac->id, 'channel' => 'email', 'status' => 'completed', 'created_by' => $this->superAdmin->id]);
+    OutreachMessage::query()->create(['outreach_campaign_id' => $campaign->id, 'channel' => 'email', 'recipient' => 'a@example.com', 'status' => 'sent', 'sent_at' => now()]);
+    OutreachMessage::query()->create(['outreach_campaign_id' => $campaign->id, 'channel' => 'email', 'recipient' => 'b@example.com', 'status' => 'failed']);
+
+    $chart = new \App\Filament\Widgets\Outreach\OutreachOutcomeChart;
+    $method = new ReflectionMethod($chart, 'getData');
+    $method->setAccessible(true);
+    $data = $method->invoke($chart);
+
+    expect(collect($data['datasets'])->firstWhere('label', 'Sent')['data'][0])->toBe(1)
+        ->and(collect($data['datasets'])->firstWhere('label', 'Failed')['data'][0])->toBe(1);
+});

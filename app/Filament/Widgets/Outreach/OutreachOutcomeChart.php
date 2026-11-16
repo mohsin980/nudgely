@@ -37,7 +37,9 @@ class OutreachOutcomeChart extends ChartWidget
             ->groupBy('channel', 'status')
             ->get();
 
-        $count = fn (string $channel, string $status) => (int) ($rows->first(fn ($r) => (string) $r->channel === $channel && (string) $r->status === $status)?->total ?? 0);
+        // Channel and status come back as enums, so compare their underlying values.
+        $value = fn ($v) => $v instanceof \BackedEnum ? $v->value : (string) $v;
+        $count = fn (string $channel, string $status) => (int) ($rows->first(fn ($r) => $value($r->channel) === $channel && $value($r->status) === $status)?->total ?? 0);
 
         $bar = fn (string $label, string $status, string $color) => [
             'label' => $label,
