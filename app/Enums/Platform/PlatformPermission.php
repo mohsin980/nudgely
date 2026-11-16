@@ -36,6 +36,14 @@ enum PlatformPermission: string
     case ManageRoles = 'manage_roles';
     case ManageSystemSettings = 'manage_system_settings';
 
+    case ViewOutreach = 'view_outreach';
+    case ManageOutreachCategories = 'manage_outreach_categories';
+    case ManageOutreachContacts = 'manage_outreach_contacts';
+    case ManageOutreachTemplates = 'manage_outreach_templates';
+    case ApproveOutreachTemplates = 'approve_outreach_templates';
+    case SendOutreach = 'send_outreach';
+    case ManageOutreachAccess = 'manage_outreach_access';
+
     /**
      * @return list<string>
      */

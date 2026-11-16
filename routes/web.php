@@ -9,6 +9,7 @@ use App\Http\Controllers\Customers\CustomerImportController;
 use App\Http\Controllers\Estimates\EstimateImportController;
 use App\Http\Controllers\Estimates\PublicEstimateController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Outreach\OutreachUnsubscribeController;
 use App\Http\Controllers\Settings\EmailOAuthController;
 use App\Http\Controllers\Settings\LogoController;
 use App\Http\Controllers\UnsubscribeController;
@@ -223,3 +224,8 @@ Route::post('/webhooks/email/events/{provider}', DeliveryEventWebhookController:
     ->whereAlpha('provider')
     ->middleware('throttle:email-webhooks')
     ->name('webhooks.email.events');
+
+// Outreach email unsubscribe: signed, so only the link in the email works.
+Route::get('/unsubscribe/outreach/{contact}', OutreachUnsubscribeController::class)
+    ->middleware('signed')
+    ->name('outreach.unsubscribe');

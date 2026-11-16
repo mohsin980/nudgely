@@ -24,7 +24,7 @@ test('the seeder creates every platform permission and role', function () {
     expect(Permission::query()->pluck('name')->sort()->values()->all())->toBe(collect(PlatformPermission::values())->sort()->values()->all())
         ->and(Role::query()->pluck('name')->sort()->values()->all())->toBe(collect(PlatformRole::values())->sort()->values()->all())
         ->and(Permission::query()->where('guard_name', '!=', 'web')->count())->toBe(0)
-        ->and(count(PlatformPermission::cases()))->toBe(17);
+        ->and(count(PlatformPermission::cases()))->toBe(24);
 });
 
 test('the seeder is safe to run more than once', function () {
