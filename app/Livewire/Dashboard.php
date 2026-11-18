@@ -75,6 +75,7 @@ class Dashboard extends Component
             },
             'firstName' => strtok(trim($user->name), ' ') ?: $user->name,
             'assistant' => $this->assistantStats($user->organization),
+            'wonThisWeek' => $dashboard->acceptedThisWeek($user->organization),
         ]);
     }
 

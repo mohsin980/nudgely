@@ -225,6 +225,27 @@ class DashboardService
      *
      * @return array{sent_7d: int, sent_prev_7d: int, sent_trend: ?int, draft: int, sent: int, viewed: int, accepted: int, declined: int, expired: int, outstanding_count: int, outstanding_cents: int, accepted_recent_count: int, accepted_recent_cents: int}
      */
+    /**
+     * Quotes accepted since the start of this week in the organization's timezone: how many, and their total in cents.
+     *
+     * @return array{count: int, cents: int}
+     */
+    public function acceptedThisWeek(Organization $organization): array
+    {
+        $weekStart = $organization->localNow()->startOfWeek()->utc();
+
+        $row = Estimate::query()
+            ->where('organization_id', $organization->id)
+            ->where('status', 'accepted')
+            ->where('accepted_at', '>=', $weekStart)
+            ->selectRaw('count(*) as won_count')
+            ->selectRaw('coalesce(sum(total), 0) as won_total')
+            ->toBase()
+            ->first();
+
+        return ['count' => (int) $row->won_count, 'cents' => Money::parse((string) $row->won_total)];
+    }
+
     public function estimatePipeline(Organization $organization, CarbonImmutable $acceptedSince): array
     {
         $row = Estimate::query()
