@@ -125,6 +125,37 @@
             </div>
         </section>
     @else
+        {{-- Jobs: the three numbers that matter most each day. --}}
+        <section aria-labelledby="jobs-heading" data-jobs>
+            <h2 id="jobs-heading" class="text-lg font-bold text-slate-900">Jobs</h2>
+            <ul role="list" class="mt-3 grid gap-4 sm:grid-cols-3">
+                <li>
+                    <a href="{{ route('estimates.index', ['status' => 'awaiting']) }}" wire:navigate data-jobs-card="open-quotes"
+                       class="flex flex-col rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 p-5 text-white shadow-[0_12px_30px_-14px_rgba(2,132,199,0.6)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+                        <span class="text-sm font-medium text-sky-100">Open quotes</span>
+                        <span class="mt-1 text-3xl font-bold" data-jobs-value="open-quotes">{{ $money($pipeline['outstanding_cents']) }}</span>
+                        <span class="mt-1 text-sm text-sky-100">{{ $pipeline['outstanding_count'] }} waiting for a reply</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('estimates.index', ['status' => 'accepted']) }}" wire:navigate data-jobs-card="won-this-week"
+                       class="flex flex-col rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 text-white shadow-[0_12px_30px_-14px_rgba(5,150,105,0.6)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+                        <span class="text-sm font-medium text-emerald-100">Won this week</span>
+                        <span class="mt-1 text-3xl font-bold" data-jobs-value="won-this-week">{{ $money($wonThisWeek['cents']) }}</span>
+                        <span class="mt-1 text-sm text-emerald-100">{{ $wonThisWeek['count'] }} {{ \Illuminate\Support\Str::plural('quote', $wonThisWeek['count']) }} accepted</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('follow-ups.index', ['filter' => 'today']) }}" wire:navigate data-jobs-card="follow-up-today"
+                       class="flex flex-col rounded-2xl bg-gradient-to-br from-violet-600 to-violet-700 p-5 text-white shadow-[0_12px_30px_-14px_rgba(109,40,217,0.6)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+                        <span class="text-sm font-medium text-violet-100">Follow up today</span>
+                        <span class="mt-1 text-3xl font-bold" data-jobs-value="follow-up-today">{{ $d->summary['due_today'] }}</span>
+                        <span class="mt-1 text-sm text-violet-100">{{ $d->summary['overdue'] }} overdue</span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
         {{-- Key numbers. Each card opens the matching list. --}}
         <section aria-labelledby="glance-heading">
             <h2 id="glance-heading" class="sr-only">Key numbers</h2>
