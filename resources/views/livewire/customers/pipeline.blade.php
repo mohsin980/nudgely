@@ -1,5 +1,5 @@
 <div class="space-y-6">
-    @php($pill = 'h-10 rounded-xl border-0 py-0 pr-9 pl-3.5 text-sm font-medium shadow-none ring-1 ring-inset transition focus:ring-2 focus:ring-violet-500 focus:outline-none')
+    @php($pill = 'h-11 rounded-xl border-0 py-0 pr-9 pl-3.5 text-sm font-medium shadow-none ring-1 ring-inset transition focus:ring-2 focus:ring-violet-500 focus:outline-none')
 
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -29,7 +29,7 @@
         <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <label for="pipeline-tag" class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Filter by tag</label>
             <select id="pipeline-tag" wire:change="$set('tag', $event.target.value)" class="{{ $pill }} mt-2 w-full bg-white text-slate-700 ring-slate-200">
-                <option value="" @selected($tag === '')>All customers</option>
+                <option value="" @selected($tag === '')>All leads</option>
                 @foreach ($tags as $option)
                     <option value="{{ $option->slug }}" @selected($tag === $option->slug)>{{ $option->name }}</option>
                 @endforeach
@@ -72,7 +72,7 @@
                             @endif
 
                             <label class="sr-only" for="move-{{ $customer->id }}">Move {{ $customer->name }} to a stage</label>
-                            <select id="move-{{ $customer->id }}" wire:change="moveLead({{ $customer->id }}, $event.target.value)" class="mt-2.5 w-full rounded-lg border-0 py-1.5 pr-8 pl-2.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
+                            <select id="move-{{ $customer->id }}" wire:change="moveLead({{ $customer->id }}, $event.target.value)" class="mt-2.5 h-11 w-full rounded-lg border-0 py-2 pr-8 pl-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
                                 @foreach ($stages as $option)
                                     <option value="{{ $option->value }}" @selected($customer->lead_stage === $option)>Stage: {{ $option->label() }}</option>
                                 @endforeach
