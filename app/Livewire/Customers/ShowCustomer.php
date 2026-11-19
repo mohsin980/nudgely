@@ -13,14 +13,17 @@ use App\Models\FollowUp;
 use App\Models\Task;
 use App\Services\Conversations\ConversationService;
 use App\Services\Conversations\TimelineService;
+use App\Services\Customers\CustomerTagService;
 use App\Services\Customers\EmailPreferenceService;
 use App\Services\Leads\LeadAssignmentService;
 use App\Services\Leads\LeadStageService;
 use App\Services\Tasks\TaskService;
 use App\Services\Team\TeamDirectory;
+use App\Support\Money;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -38,6 +41,9 @@ class ShowCustomer extends Component
     public int $customerId;
 
     public int $timelineLimit = 30;
+
+    /** The tag typed into the box on the customer page. */
+    public string $tagName = '';
 
     public bool $showEmailForm = false;
 
@@ -216,6 +222,43 @@ class ShowCustomer extends Component
             abort(403, $e->getMessage());
         }
 
+        $this->customerChanged();
+    }
+
+    /**
+     * Set the expected deal value in the business's currency; blank clears it. Accepts 2500, 2,500 or 2500.50.
+     */
+    public function saveDealValue(string $amount): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $amount = trim($amount);
+        $cents = $amount === '' ? null : (Money::tryParse($amount) ?? throw ValidationException::withMessages(['dealValue' => 'Enter an amount like 2500 or 2500.00.']));
+
+        $customer = $this->customer;
+        $customer->deal_value_cents = $cents;
+        $customer->save();
+
+        $this->customerChanged();
+    }
+
+    /**
+     * Add the tag typed in the box to this customer.
+     */
+    public function addTag(CustomerTagService $tags): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $tags->add($this->customer, $this->tagName);
+        $this->reset('tagName');
+        $this->customerChanged();
+    }
+
+    public function removeTag(int $tagId, CustomerTagService $tags): void
+    {
+        $this->authorize('update', $this->customer);
+
+        $tags->remove($this->customer, $tagId);
         $this->customerChanged();
     }
 

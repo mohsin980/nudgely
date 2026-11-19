@@ -12,6 +12,7 @@
             <p class="mt-1 text-sm text-slate-500">{{ trans_choice(':count customer|:count customers', $customers->total()) }}{{ $filtering ? ' match your filters' : '' }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('customers.pipeline') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset transition hover:bg-slate-50" data-link="pipeline">Pipeline</a>
             @can('create', \App\Models\Customer::class)
                 <a href="{{ route('customers.import') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200 ring-inset transition hover:bg-slate-50"><x-ui-icon name="download" class="size-4 rotate-180 stroke-2" />Import CSV</a>
             @endcan

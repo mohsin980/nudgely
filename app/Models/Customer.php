@@ -44,6 +44,7 @@ class Customer extends Model
     protected function casts(): array
     {
         return [
+            'deal_value_cents' => 'integer',
             'email_opted_out_at' => 'datetime',
             'is_demo' => 'boolean',
             'last_activity_at' => 'datetime',

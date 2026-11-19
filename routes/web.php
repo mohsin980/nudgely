@@ -26,6 +26,7 @@ use App\Livewire\Automations\ShowAutomation;
 use App\Livewire\Customers\CustomerForm;
 use App\Livewire\Customers\CustomerImport;
 use App\Livewire\Customers\CustomerIndex;
+use App\Livewire\Customers\Pipeline;
 use App\Livewire\Customers\ShowCustomer;
 use App\Livewire\Dashboard;
 use App\Livewire\Estimates\EstimateForm;
@@ -73,6 +74,7 @@ Route::middleware('auth')->group(function () {
     // Customer IDs are looked up inside the user's organization by each component.
     Route::middleware('can:access-organization')->group(function () {
         Route::get('/customers', CustomerIndex::class)->name('customers.index');
+        Route::get('/customers/pipeline', Pipeline::class)->name('customers.pipeline');
         Route::get('/customers/create', CustomerForm::class)->middleware('can:create,'.Customer::class)->name('customers.create');
         Route::get('/customers/import', CustomerImport::class)->middleware('can:create,'.Customer::class)->name('customers.import');
         Route::get('/customers/import/sample.csv', [CustomerImportController::class, 'sample'])->middleware('can:create,'.Customer::class)->name('customers.import.sample');

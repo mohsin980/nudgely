@@ -47,6 +47,27 @@
                         <span class="font-medium text-slate-800">{{ $team[$this->customer->assigned_to] ?? 'A former team member' }}</span>
                     @endif
                 </div>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-section="deal-value">
+                    <label for="deal-value" class="text-slate-500">Deal value:</label>
+                    <input id="deal-value" type="text" inputmode="decimal" placeholder="e.g. 2500.00" value="{{ $this->customer->deal_value_cents === null ? '' : \App\Support\Money::toDecimal($this->customer->deal_value_cents) }}" wire:change="saveDealValue($event.target.value)" class="w-36 rounded-xl border-0 px-3 py-1.5 text-sm font-medium text-slate-800 shadow-xs ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
+                    <span class="text-slate-400">{{ $this->customer->organization->currencyCode() }}</span>
+                    @error('dealValue') <span role="alert" class="text-red-700">{{ $message }}</span> @enderror
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-section="customer-tags">
+                    <span class="text-slate-500">Tags:</span>
+                    @foreach ($this->customer->tags as $tag)
+                        <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 py-0.5 pr-1 pl-2.5 text-xs font-medium text-violet-700 ring-1 ring-violet-200 ring-inset">
+                            {{ $tag->name }}
+                            <button type="button" wire:click="removeTag({{ $tag->id }})" aria-label="Remove tag {{ $tag->name }}" class="rounded-full px-1 text-violet-500 hover:bg-violet-100 hover:text-violet-800">&times;</button>
+                        </span>
+                    @endforeach
+                    <form wire:submit="addTag" class="inline-flex items-center gap-1.5">
+                        <label for="new-tag" class="sr-only">New tag</label>
+                        <input id="new-tag" type="text" wire:model="tagName" maxlength="50" placeholder="Add a tag" class="w-36 rounded-xl border-0 px-2.5 py-1 text-xs ring-1 ring-slate-200 ring-inset focus:ring-2 focus:ring-violet-600">
+                        <button type="submit" class="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 ring-1 ring-violet-200 ring-inset hover:bg-violet-50">Add</button>
+                    </form>
+                    @error('tag') <span role="alert" class="text-red-700">{{ $message }}</span> @enderror
+                </div>
                 @php($bizSettings = $this->customer->organization->businessSettings())
                 @if ($bizSettings->usesChannel(\App\Enums\MessageChannel::WhatsApp))
                     <p class="mt-1 flex flex-wrap items-center gap-2 text-sm" data-section="customer-channel">
