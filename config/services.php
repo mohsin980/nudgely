@@ -14,12 +14,12 @@ return [
     |
     */
 
-    // Each business connects its own WhatsApp number (Meta WhatsApp Cloud API); QuoteFlow holds no Meta account.
+    // Each business connects its own WhatsApp number (Meta WhatsApp Cloud API); Nudgely holds no Meta account.
     'whatsapp' => [
         'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
         'timeout' => 10,
-        // One-click connect (Meta Embedded Signup) through QuoteFlow's own Meta app. Turned on when all three of
+        // One-click connect (Meta Embedded Signup) through Nudgely's own Meta app. Turned on when all three of
         // app_id, app_secret and config_id are set. Its webhook (callback /webhooks/whatsapp) is set up once in
         // that Meta app with verify_token; businesses connected this way are signed with app_secret.
         'embedded' => [

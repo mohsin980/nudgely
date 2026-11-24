@@ -281,7 +281,7 @@ test('a Microsoft account is disconnected locally, and the page explains the man
     Livewire::actingAs($owner)->test(EmailSettings::class)
         ->call('beginDisconnect', $connection->id)
         ->call('confirmDisconnect')
-        ->assertSee('remove QuoteFlow from your Microsoft account');
+        ->assertSee('remove Nudgely from your Microsoft account');
 
     Http::assertNothingSent();
     expect($connection->refresh()->credentials)->toBeNull();

@@ -7,7 +7,7 @@
         @if ($supportEmail)
             <a href="mailto:{{ $supportEmail }}?subject={{ rawurlencode($topic.' setup help') }}" class="font-semibold text-violet-700 underline">Contact support</a> ({{ $supportEmail }}).
         @else
-            Contact QuoteFlow support to get started.
+            Contact Nudgely support to get started.
         @endif
     </p>
 </div>

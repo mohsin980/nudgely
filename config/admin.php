@@ -12,7 +12,7 @@ return [
     |
     */
 
-    'brand' => env('ADMIN_PANEL_BRAND', 'QuoteFlow AI'),
+    'brand' => env('ADMIN_PANEL_BRAND', 'Nudgely AI'),
 
     // Administrators must set up and use an authenticator app to sign in to the panel.
     'require_mfa' => (bool) env('ADMIN_REQUIRE_MFA', true),

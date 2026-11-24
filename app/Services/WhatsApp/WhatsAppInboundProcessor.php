@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Turns a WhatsApp webhook into QuoteFlow records, for the business whose number it was sent to.
+ * Turns a WhatsApp webhook into Nudgely records, for the business whose number it was sent to.
  *
  * Customer messages: the customer is found by phone number (or added as a new lead, if the plan allows),
  * the message joins their open conversation (or starts one), and it is announced as a customer reply, so

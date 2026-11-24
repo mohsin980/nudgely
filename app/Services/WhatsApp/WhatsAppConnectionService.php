@@ -20,9 +20,9 @@ use RuntimeException;
 /**
  * Connects a business's own WhatsApp number (Meta WhatsApp Cloud API) and checks it works.
  *
- * The business creates its WhatsApp Business account in Meta and pastes four values here. QuoteFlow
+ * The business creates its WhatsApp Business account in Meta and pastes four values here. Nudgely
  * checks them with Meta straight away, stores the secrets encrypted, and gives the business a webhook
- * address and verify token to paste back into Meta so customers' replies reach QuoteFlow.
+ * address and verify token to paste back into Meta so customers' replies reach Nudgely.
  * Only people who may manage the business's email (the owner) can change it.
  */
 class WhatsAppConnectionService
@@ -82,7 +82,7 @@ class WhatsAppConnectionService
     }
 
     /**
-     * Whether one-click connect (Meta Embedded Signup through QuoteFlow's Meta app) is set up on this server.
+     * Whether one-click connect (Meta Embedded Signup through Nudgely's Meta app) is set up on this server.
      */
     public static function embeddedSignupEnabled(): bool
     {
@@ -118,8 +118,8 @@ class WhatsAppConnectionService
      * reported. Nothing from the browser is trusted on its own: the code is exchanged for a token by the server,
      * and the number must belong to the WhatsApp Business account that token was granted for.
      *
-     * Then QuoteFlow's app is subscribed to the account (so replies arrive) and the number is registered for the
-     * Cloud API with a PIN QuoteFlow keeps.
+     * Then Nudgely's app is subscribed to the account (so replies arrive) and the number is registered for the
+     * Cloud API with a PIN Nudgely keeps.
      *
      * @throws AuthorizationException|ValidationException|RuntimeException
      */
@@ -144,7 +144,7 @@ class WhatsAppConnectionService
 
         $token = $this->exchangeCode($data['code']);
         $this->assertNumberInAccount($token, $data['phone_number_id'], $data['business_account_id']);
-        $this->request(fn () => $this->client->graphWithToken($token)->post($data['business_account_id'].'/subscribed_apps'), 'Meta did not let QuoteFlow receive messages for this account');
+        $this->request(fn () => $this->client->graphWithToken($token)->post($data['business_account_id'].'/subscribed_apps'), 'Meta did not let Nudgely receive messages for this account');
 
         $pin = $existing?->registration_pin ?: (string) random_int(100000, 999999);
         $this->register($token, $data['phone_number_id'], $pin, $organization->id);
@@ -266,7 +266,7 @@ class WhatsAppConnectionService
         $organization = $this->organizationOf($actor);
 
         if (($connection = $organization->whatsappConnection()->first()) !== null) {
-            // Connected through QuoteFlow's Meta app: stop Meta sending this account's messages to us (best effort).
+            // Connected through Nudgely's Meta app: stop Meta sending this account's messages to us (best effort).
             if ($connection->isEmbeddedSignup()) {
                 try {
                     $this->client->graph($connection)->delete($connection->business_account_id.'/subscribed_apps');
@@ -282,7 +282,7 @@ class WhatsAppConnectionService
 
     /**
      * The one-time sign-in code becomes a token for the business's WhatsApp account. Only the server can do this
-     * (it needs QuoteFlow's app secret), and a code works once.
+     * (it needs Nudgely's app secret), and a code works once.
      *
      * @throws RuntimeException
      */
@@ -309,7 +309,7 @@ class WhatsAppConnectionService
     private function assertNumberInAccount(string $token, string $phoneNumberId, string $businessAccountId): void
     {
         $response = $this->request(fn () => $this->client->graphWithToken($token)->get($businessAccountId.'/phone_numbers', ['fields' => 'id', 'limit' => 100]),
-            'Meta did not let QuoteFlow read this WhatsApp Business account');
+            'Meta did not let Nudgely read this WhatsApp Business account');
 
         $ids = array_map('strval', array_column((array) $response->json('data'), 'id'));
 

@@ -165,7 +165,7 @@ class EmailSettings extends Component
         return match (true) {
             ! $connection->isVerified() => ['allowed' => false, 'reason' => 'Verify this domain first.'],
             // Mailboxes send with their own credentials, so the server's Postmark token is not needed for them.
-            ! $connection->provider->isAccountBased() && ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark server token.'],
+            ! $connection->provider->isAccountBased() && ! $this->sendingConfigured => ['allowed' => false, 'reason' => 'Email sending isn\'t connected on this server yet. Ask your Nudgely administrator to add the Postmark server token.'],
             default => ['allowed' => true, 'reason' => null],
         };
     }
@@ -341,7 +341,7 @@ class EmailSettings extends Component
         $this->authorize('verify', $connection);
 
         if (! $this->verificationConfigured) {
-            $this->notify('Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.', 'error');
+            $this->notify('Domain verification isn\'t connected on this server yet. Ask your Nudgely administrator to add the Postmark account token.', 'error');
 
             return;
         }
@@ -371,7 +371,7 @@ class EmailSettings extends Component
         $this->authorize('verify', $connection);
 
         if (! $this->verificationConfigured) {
-            $this->notify('Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.', 'error');
+            $this->notify('Domain verification isn\'t connected on this server yet. Ask your Nudgely administrator to add the Postmark account token.', 'error');
 
             return;
         }
@@ -595,8 +595,8 @@ class EmailSettings extends Component
         }
 
         return $connection->provider === EmailProvider::Microsoft
-            ? ' To finish, remove QuoteFlow from your Microsoft account\'s app access.'
-            : ' Google could not be reached to revoke access. To finish, remove QuoteFlow from your Google account\'s third-party access.';
+            ? ' To finish, remove Nudgely from your Microsoft account\'s app access.'
+            : ' Google could not be reached to revoke access. To finish, remove Nudgely from your Google account\'s third-party access.';
     }
 
     private function authorizeManageEmail(): void

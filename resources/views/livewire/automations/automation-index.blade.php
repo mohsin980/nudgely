@@ -125,7 +125,7 @@
     {{-- Email safety settings (the owner decides; everyone else sees them) --}}
     <section aria-labelledby="settings-heading" class="rounded-2xl bg-white p-5 shadow-[0_8px_30px_-14px_rgba(76,29,149,0.18)] ring-1 ring-slate-200/70 sm:p-6">
         @php($columns = [
-            [['automations_enabled', 'bolt', 'Turn on automations', 'Let QuoteFlow run the automations you have turned on.'],
+            [['automations_enabled', 'bolt', 'Turn on automations', 'Let Nudgely run the automations you have turned on.'],
              ['require_approval_for_email', 'envelope', 'Ask me before sending any email', 'Recommended. You see every email before it goes to a customer.']],
             [['automatic_email_enabled', 'envelope', 'Send emails automatically', 'Automations can email customers from your business email address.']],
         ])
@@ -134,7 +134,7 @@
                 <span class="grid size-16 shrink-0 place-items-center rounded-2xl bg-linear-to-b from-emerald-100 to-emerald-200/70 text-emerald-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"><x-ui-icon name="shield" class="size-8 stroke-[1.8]" /></span>
                 <div>
                     <h2 id="settings-heading" class="text-lg font-bold text-slate-900">Email safety</h2>
-                    <p class="mt-0.5 text-sm text-slate-500">Control how QuoteFlow handles customer emails.</p>
+                    <p class="mt-0.5 text-sm text-slate-500">Control how Nudgely handles customer emails.</p>
                 </div>
             </div>
             @foreach ($columns as $column)

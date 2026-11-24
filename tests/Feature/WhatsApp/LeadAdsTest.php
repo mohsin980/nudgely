@@ -84,7 +84,7 @@ test('the owner signs in with Facebook, picks a Page, and it is subscribed to ne
     $page = Livewire::actingAs($this->owner)->test(LeadAdsSettings::class)
         ->assertSee('Connect Facebook Page')
         ->call('loadPages', 'short-lived-user-token')
-        ->assertSee('Which Pages should send leads to QuoteFlow?')->assertSee('Other Page')
+        ->assertSee('Which Pages should send leads to Nudgely?')->assertSee('Other Page')
         ->assertDontSee('EAAB-page-token') // tokens never reach the page
         ->set('selected', [LA_PAGE])
         ->call('connectPages')
@@ -103,7 +103,7 @@ test('a Facebook sign-in issued to another app is refused', function () {
 
     Livewire::actingAs($this->owner)->test(LeadAdsSettings::class)
         ->call('loadPages', 'someone-elses-token')
-        ->assertSee('not for QuoteFlow')->assertSet('choices', []);
+        ->assertSee('not for Nudgely')->assertSet('choices', []);
 });
 
 test('a Page connected to another business cannot be taken over', function () {
@@ -182,7 +182,7 @@ test('the same lead delivered twice is imported once', function () {
         ->and(Customer::query()->where('email', 'ali@example.com')->count())->toBe(1);
 });
 
-test('webhooks not signed with QuoteFlow\'s app secret, or for unknown Pages, are refused or ignored', function () {
+test('webhooks not signed with Nudgely\'s app secret, or for unknown Pages, are refused or ignored', function () {
     Queue::fake();
     leadWebhook('wrong-secret')->assertStatus(401);
     leadWebhook()->assertOk(); // Page not connected: ignored

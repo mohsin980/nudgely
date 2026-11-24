@@ -34,7 +34,7 @@
 
         @if ($choices !== [])
             <form wire:submit="connectPages" class="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200" data-page-choices>
-                <p class="font-semibold text-slate-900">Which Pages should send leads to QuoteFlow?</p>
+                <p class="font-semibold text-slate-900">Which Pages should send leads to Nudgely?</p>
                 <ul role="list" class="mt-3 space-y-2">
                     @foreach ($choices as $choice)
                         <li>
@@ -103,7 +103,7 @@
                 ['user-plus', 'Added as a customer', 'Name, email, phone and every answer from the form. Someone already in your customers is updated, not duplicated.'],
                 ['bolt', 'Automations start', 'Your “Customer created” automations run straight away, e.g. a welcome message and follow-ups.'],
                 ['bell', 'Your team is told', 'The person handling it, the owner and managers get a notification.'],
-                ['arrow-path', 'Nothing is missed', 'QuoteFlow also checks your forms every 15 minutes in case Facebook didn\'t send a lead.'],
+                ['arrow-path', 'Nothing is missed', 'Nudgely also checks your forms every 15 minutes in case Facebook didn\'t send a lead.'],
             ] as [$icon, $title, $text])
                 <li class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
                     <span class="grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 ring-inset"><x-ui-icon :name="$icon" class="size-4" /></span>

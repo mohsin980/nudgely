@@ -9,8 +9,8 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 /**
- * QuoteFlow's Meta app's Page webhook (field "leadgen"): Meta says a lead form was submitted, with the lead's
- * ID only. Signed with QuoteFlow's app secret (X-Hub-Signature-256); the lead's answers are fetched later by
+ * Nudgely's Meta app's Page webhook (field "leadgen"): Meta says a lead form was submitted, with the lead's
+ * ID only. Signed with Nudgely's app secret (X-Hub-Signature-256); the lead's answers are fetched later by
  * ImportLeadAdJob with the Page's own token.
  */
 class MetaLeadsWebhookController extends Controller

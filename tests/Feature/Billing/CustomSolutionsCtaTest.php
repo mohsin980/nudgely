@@ -22,6 +22,6 @@ test('without a support email, the custom solutions card still explains who to c
 
     Livewire::actingAs($this->owner)->test(BillingPlans::class)
         ->assertSee('Need something custom?')
-        ->assertSee('Contact QuoteFlow support to discuss a custom solution.')
+        ->assertSee('Contact Nudgely support to discuss a custom solution.')
         ->assertDontSee('mailto:', false);
 });

@@ -14,7 +14,7 @@ return [
         'postmark_token' => env('OUTREACH_POSTMARK_TOKEN'),
         'message_stream' => env('OUTREACH_POSTMARK_MESSAGE_STREAM', 'outbound'),
         'from_email' => env('OUTREACH_FROM_EMAIL'),
-        'from_name' => env('OUTREACH_FROM_NAME', 'QuoteFlow'),
+        'from_name' => env('OUTREACH_FROM_NAME', 'Nudgely'),
     ],
 
     'whatsapp' => [

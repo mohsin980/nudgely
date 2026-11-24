@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Starts the follow-up sequence for imported estimates the business confirms were already sent to the customer
- * outside QuoteFlow.
+ * outside Nudgely.
  *
  * This sends no estimate email and does not change an estimate's status: a follow-up is only scheduled, and each
  * one is then sent by the existing follow-up engine (which re-checks opt-out, suppression, replies and expiry at send
@@ -35,7 +35,7 @@ class ImportFollowUpActivation
     /** Reasons an estimate is left out. Each is shown to the business with its count. */
     public const REASONS = [
         'already_activated' => 'Follow-ups already started',
-        'changed_in_quoteflow' => 'Already sent or changed in QuoteFlow',
+        'changed_in_quoteflow' => 'Already sent or changed in Nudgely',
         'not_confirmed_sent' => 'The file does not say it was sent',
         'expired' => 'Expiration date has passed',
         'no_email' => 'No email address',
@@ -94,7 +94,7 @@ class ImportFollowUpActivation
         abort_unless($actor->organization_id === $import->organization_id, 404);
 
         if (! $confirmed) {
-            throw ValidationException::withMessages(['confirmed' => 'Confirm that these estimates were already sent to the customers outside QuoteFlow.']);
+            throw ValidationException::withMessages(['confirmed' => 'Confirm that these estimates were already sent to the customers outside Nudgely.']);
         }
 
         $plan = $this->plan($import);

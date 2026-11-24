@@ -4,7 +4,7 @@
     <div class="text-center">
         <span class="mx-auto grid size-16 place-items-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 ring-inset"><x-ui-icon name="envelope" class="size-8" /></span>
         <h1 class="mt-6 text-[36px] leading-none font-extrabold tracking-tight sm:text-[46px]">Check your email</h1>
-        <p class="mt-[18px] text-lg text-[#56536f] sm:text-[20px]">We sent a link to <strong class="font-semibold text-slate-900">{{ $email }}</strong>. Click it to confirm your address and start using QuoteFlow.</p>
+        <p class="mt-[18px] text-lg text-[#56536f] sm:text-[20px]">We sent a link to <strong class="font-semibold text-slate-900">{{ $email }}</strong>. Click it to confirm your address and start using Nudgely.</p>
     </div>
 
     @if (session('status'))

@@ -165,7 +165,7 @@
                     <form wire:submit="activateFollowUps" class="mt-5 space-y-4 border-t border-slate-200 pt-5">
                         <label class="flex items-start gap-3 text-sm text-slate-800">
                             <input type="checkbox" wire:model="followUpsConfirmed" class="mt-1 rounded border-slate-300 text-violet-600 focus:ring-violet-600" data-confirm-follow-ups>
-                            <span>These customers were already sent their estimate outside QuoteFlow, and they should receive the follow-up messages from now on.</span>
+                            <span>These customers were already sent their estimate outside Nudgely, and they should receive the follow-up messages from now on.</span>
                         </label>
                         @error('followUps') <p class="text-sm text-red-700" role="alert">{{ $message }}</p> @enderror
                         <button type="submit" wire:loading.attr="disabled" wire:target="activateFollowUps" class="{{ $primary }}" data-activate-follow-ups><span wire:loading.remove wire:target="activateFollowUps">Start follow-ups for {{ $followUps['eligible']->count() }} {{ \Illuminate\Support\Str::plural('estimate', $followUps['eligible']->count()) }}</span><span wire:loading wire:target="activateFollowUps">Scheduling…</span></button>

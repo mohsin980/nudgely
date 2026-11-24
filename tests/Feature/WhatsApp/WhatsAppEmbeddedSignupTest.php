@@ -110,7 +110,7 @@ test('only the owner can connect, and not when one-click connect is off', functi
     Http::assertNothingSent();
 });
 
-test('replies to a one-click number are accepted when signed with QuoteFlow\'s app secret, not otherwise', function () {
+test('replies to a one-click number are accepted when signed with Nudgely\'s app secret, not otherwise', function () {
     Queue::fake();
     metaEmbeddedSignupAccepts();
     Livewire::actingAs($this->owner)->test(WhatsAppSettings::class)->call('completeEmbeddedSignup', 'code', ES_PHONE, ES_WABA);
@@ -123,12 +123,12 @@ test('replies to a one-click number are accepted when signed with QuoteFlow\'s a
     Queue::assertPushed(ProcessWhatsAppWebhookJob::class, 1);
 });
 
-test('Meta can verify QuoteFlow\'s app webhook with the platform token', function () {
+test('Meta can verify Nudgely\'s app webhook with the platform token', function () {
     $this->get('/webhooks/whatsapp?hub_mode=subscribe&hub_verify_token=platform-verify-token&hub_challenge=12345')->assertOk()->assertSeeText('12345');
     $this->get('/webhooks/whatsapp?hub_mode=subscribe&hub_verify_token=wrong&hub_challenge=12345')->assertForbidden();
 });
 
-test('disconnecting a one-click number unsubscribes QuoteFlow\'s app from the account', function () {
+test('disconnecting a one-click number unsubscribes Nudgely\'s app from the account', function () {
     metaEmbeddedSignupAccepts();
     Livewire::actingAs($this->owner)->test(WhatsAppSettings::class)->call('completeEmbeddedSignup', 'code', ES_PHONE, ES_WABA);
 

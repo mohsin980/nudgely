@@ -219,7 +219,7 @@
 
         @elseif ($step === \App\Enums\Onboarding\OnboardingStep::FollowUpChannels)
             <h1 class="relative {{ $title }}">How do you want to follow up?</h1>
-            <p class="relative {{ $lead }}">Choose how QuoteFlow contacts your customers. You can change this any time, and pick a channel per customer.</p>
+            <p class="relative {{ $lead }}">Choose how Nudgely contacts your customers. You can change this any time, and pick a channel per customer.</p>
             <form wire:submit="saveChannels" class="relative mt-8 space-y-6" novalidate>
                 <div class="grid gap-4 md:grid-cols-3" role="radiogroup" aria-label="Follow-up channels" data-channel-choices>
                     @foreach ([

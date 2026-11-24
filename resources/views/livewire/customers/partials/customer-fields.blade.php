@@ -67,7 +67,7 @@
                     <input type="checkbox" wire:model="whatsapp_consent" class="mt-0.5 size-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" data-whatsapp-consent>
                     <span class="text-sm">
                         <span class="block font-semibold text-slate-800">Customer agreed to WhatsApp messages</span>
-                        <span class="block text-slate-500">Required before QuoteFlow messages them on WhatsApp. Add the country code to the phone number if they live outside your country.</span>
+                        <span class="block text-slate-500">Required before Nudgely messages them on WhatsApp. Add the country code to the phone number if they live outside your country.</span>
                     </span>
                 </label>
             </div>

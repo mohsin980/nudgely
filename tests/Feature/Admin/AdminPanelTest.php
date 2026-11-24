@@ -47,7 +47,7 @@ test('a platform administrator sees the dashboard', function () {
     $this->actingAs(platformAdmin())->get('/admin')
         ->assertOk()
         ->assertSee('Platform Overview')
-        ->assertSee('QuoteFlow AI');
+        ->assertSee('Nudgely AI');
 });
 
 test('a suspended platform administrator is refused', function () {

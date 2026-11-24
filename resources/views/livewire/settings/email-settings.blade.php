@@ -103,7 +103,7 @@
                                 <p class="mt-1 text-sm text-slate-500">{{ $account->status_message }}</p>
                             @endif
                             @if ($account->connection_status === \App\Models\EmailConnection::STATUS_ACTIVE && ! $account->bounce_scan_enabled && $account->provider !== \App\Enums\EmailProvider::Smtp)
-                                <p class="mt-1 text-sm text-slate-500" data-bounce-tracking="off">Bounce tracking is off. Reconnect to let QuoteFlow read bounce notices in this mailbox.</p>
+                                <p class="mt-1 text-sm text-slate-500" data-bounce-tracking="off">Bounce tracking is off. Reconnect to let Nudgely read bounce notices in this mailbox.</p>
                             @endif
                         </div>
                         </div>
@@ -355,7 +355,7 @@
                                             Only verified emails can send email or become the default sender.
                                         </p>
                                         @unless ($this->verificationConfigured)
-                                            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-amber-800">Domain verification isn't connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.</p>
+                                            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-amber-800">Domain verification isn't connected on this server yet. Ask your Nudgely administrator to add the Postmark account token.</p>
                                         @endunless
                                     </div>
 

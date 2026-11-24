@@ -113,7 +113,7 @@ class AssistantHandover
             return;
         }
 
-        $text = "QuoteFlow: {$name} needs you on WhatsApp.\n{$reason}"
+        $text = "Nudgely: {$name} needs you on WhatsApp.\n{$reason}"
             .(filled($summary) ? "\n\n{$summary}" : '')
             .($open !== [] ? "\n\nStill open:\n- ".implode("\n- ", $open) : '')
             ."\n\nOpen the chat: ".route('inbox.show', $conversation->id);

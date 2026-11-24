@@ -79,7 +79,7 @@
             <div class="mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200" x-data="whatsappEmbeddedSignup(@js($embeddedSignup))" data-embedded-signup>
                 <div class="min-w-0 flex-1">
                     <p class="font-semibold text-slate-900">{{ $connection ? 'Use a different number' : 'Connect in about 2 minutes' }}</p>
-                    <p class="mt-0.5 text-sm text-slate-600">Sign in with Facebook, pick or create your WhatsApp Business account and number. QuoteFlow sets up the rest, including receiving replies.</p>
+                    <p class="mt-0.5 text-sm text-slate-600">Sign in with Facebook, pick or create your WhatsApp Business account and number. Nudgely sets up the rest, including receiving replies.</p>
                     <p x-show="error" x-text="error" role="alert" class="mt-2 text-sm font-medium text-rose-700" x-cloak></p>
                 </div>
                 <button type="button" x-on:click="start()" x-bind:disabled="busy" class="inline-flex items-center gap-2 rounded-xl bg-[#1877F2] px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-[#166fe0] disabled:opacity-60">
@@ -119,7 +119,7 @@
         @endif
     </section>
 
-    {{-- Numbers connected with one click receive replies through QuoteFlow's Meta app: nothing to paste. --}}
+    {{-- Numbers connected with one click receive replies through Nudgely's Meta app: nothing to paste. --}}
     @if ($connection && ! $connection->isEmbeddedSignup())
         {{-- 3. Webhook for replies --}}
         <section class="{{ $card }}" aria-labelledby="webhook-heading">
@@ -155,7 +155,7 @@
                 <div><label for="wa-template" class="{{ $label }}">Template name in Meta</label><input id="wa-template" type="text" wire:model="followUpTemplate" placeholder="e.g. quote_follow_up" class="{{ $field }}">@error('followUpTemplate') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
                 <div><label for="wa-template-language" class="{{ $label }}">Language code</label><input id="wa-template-language" type="text" wire:model="templateLanguage" placeholder="en" class="{{ $field }}">@error('templateLanguage') <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror</div>
             </div>
-            <p class="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 ring-1 ring-slate-200">Example to create in WhatsApp Manager → Message templates (category <strong class="font-semibold text-slate-800">Utility</strong>): <em>"Hi @{{1}}, just checking in about your quote. Reply here if you have any questions."</em> QuoteFlow fills <code>@{{1}}</code> with the customer's first name. Without a template, these follow-ups go by email when the customer has one.</p>
+            <p class="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 ring-1 ring-slate-200">Example to create in WhatsApp Manager → Message templates (category <strong class="font-semibold text-slate-800">Utility</strong>): <em>"Hi @{{1}}, just checking in about your quote. Reply here if you have any questions."</em> Nudgely fills <code>@{{1}}</code> with the customer's first name. Without a template, these follow-ups go by email when the customer has one.</p>
             <div class="mt-5 flex justify-end"><button type="submit" class="{{ $primaryButton }}">Save template</button></div>
         </form>
 
@@ -191,15 +191,15 @@
         <ol x-show="open" x-cloak class="mt-5 space-y-4 text-[15px] text-slate-700" data-section="whatsapp-guide">
             @foreach ($embeddedSignup ? [
                 ['Have your number ready', 'Use a number that isn\'t on the regular WhatsApp or WhatsApp Business app, or delete it from that app first. You\'ll need to receive a code on it by SMS or call.'],
-                ['Press "Continue with Facebook"', 'Sign in with your Facebook account and allow QuoteFlow when asked.'],
-                ['Pick your business and number', 'Choose (or create) your business and WhatsApp Business account, add your number and enter the code Meta sends. QuoteFlow then connects it and starts receiving replies.'],
-                ['Add a payment method in Meta', 'In WhatsApp Manager → Payment settings. Meta bills you directly; QuoteFlow adds nothing on top.'],
+                ['Press "Continue with Facebook"', 'Sign in with your Facebook account and allow Nudgely when asked.'],
+                ['Pick your business and number', 'Choose (or create) your business and WhatsApp Business account, add your number and enter the code Meta sends. Nudgely then connects it and starts receiving replies.'],
+                ['Add a payment method in Meta', 'In WhatsApp Manager → Payment settings. Meta bills you directly; Nudgely adds nothing on top.'],
             ] : [
                 ['Create a Meta Business account', 'Go to business.facebook.com and create an account for your business (skip if you have one).'],
                 ['Create an app with WhatsApp', 'At developers.facebook.com → My Apps → Create app → choose "Business", then add the WhatsApp product. Meta gives you a test number to start; add your own number under WhatsApp → API Setup when ready.'],
                 ['Copy the IDs and a permanent token', 'In WhatsApp → API Setup copy the Phone number ID and WhatsApp Business account ID. For a token that doesn\'t expire, create a System User in Business Settings with the "whatsapp_business_messaging" permission and generate its token. Copy the App secret from App settings → Basic. Paste all four above and press Connect.'],
                 ['Add the webhook', 'Once connected, copy the Callback URL and Verify token shown above into WhatsApp → Configuration → Webhook, press Verify and save, then subscribe to "messages".'],
-                ['Add a payment method in Meta', 'In WhatsApp Manager → Payment settings. Meta bills you directly; QuoteFlow adds nothing on top.'],
+                ['Add a payment method in Meta', 'In WhatsApp Manager → Payment settings. Meta bills you directly; Nudgely adds nothing on top.'],
             ] as $index => [$stepTitle, $stepText])
                 <li class="flex gap-3.5">
                     <span class="grid size-7 shrink-0 place-items-center rounded-full bg-violet-600 text-sm font-bold text-white">{{ $index + 1 }}</span>

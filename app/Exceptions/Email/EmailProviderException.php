@@ -40,7 +40,7 @@ class EmailProviderException extends RuntimeException
     public static function notConfigured(string $detail): self
     {
         return new self($detail, self::NOT_CONFIGURED,
-            'Domain verification isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.');
+            'Domain verification isn\'t connected on this server yet. Ask your Nudgely administrator to add the Postmark account token.');
     }
 
     public static function unavailable(string $detail): self
@@ -82,7 +82,7 @@ class EmailProviderException extends RuntimeException
     public static function sendingNotConfigured(string $detail): self
     {
         return new self($detail, self::NOT_CONFIGURED,
-            'Email sending isn\'t connected on this server yet. Ask your QuoteFlow administrator to add the Postmark server token.');
+            'Email sending isn\'t connected on this server yet. Ask your Nudgely administrator to add the Postmark server token.');
     }
 
     public static function authenticationFailed(string $detail): self

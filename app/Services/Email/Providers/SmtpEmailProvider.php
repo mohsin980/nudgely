@@ -57,7 +57,7 @@ class SmtpEmailProvider
         $transport = $this->transport($settings);
 
         try {
-            // Bounce notices go to the bounce address, which routes them back to QuoteFlow. The From header is unchanged.
+            // Bounce notices go to the bounce address, which routes them back to Nudgely. The From header is unchanged.
             $envelope = $email->bounceAddress === null
                 ? null
                 : new Envelope(new Address($email->bounceAddress), [new Address($email->toEmail)]);

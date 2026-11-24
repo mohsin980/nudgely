@@ -52,7 +52,7 @@ class WhatsAppConnection extends Model
 
     /**
      * The secret Meta signs this number's webhooks with: the business's own Meta app when connected by hand,
-     * QuoteFlow's Meta app when connected with one click.
+     * Nudgely's Meta app when connected with one click.
      */
     public function webhookSecret(): ?string
     {

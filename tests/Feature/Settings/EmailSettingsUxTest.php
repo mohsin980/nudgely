@@ -168,7 +168,7 @@ class EmailSettingsUxTest extends TestCase
         $pending = $this->sender(EmailVerificationStatus::Pending);
 
         $this->settings()
-            ->assertSee("Domain verification isn't connected on this server yet. Ask your QuoteFlow administrator to add the Postmark account token.", false)
+            ->assertSee("Domain verification isn't connected on this server yet. Ask your Nudgely administrator to add the Postmark account token.", false)
             ->call('startVerification', $pending->id)->assertSet('statusType', 'error')
             ->call('checkVerification', $pending->id)->assertSet('statusType', 'error');
 

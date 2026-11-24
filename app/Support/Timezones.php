@@ -64,7 +64,7 @@ class Timezones
     }
 
     /**
-     * The country a timezone is in, if QuoteFlow supports that country (e.g. Asia/Karachi → PK).
+     * The country a timezone is in, if Nudgely supports that country (e.g. Asia/Karachi → PK).
      */
     public static function countryOf(?string $zone): ?string
     {

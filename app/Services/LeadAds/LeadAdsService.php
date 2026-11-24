@@ -32,10 +32,10 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * Facebook and Instagram Lead Ads, through QuoteFlow's own Meta app.
+ * Facebook and Instagram Lead Ads, through Nudgely's own Meta app.
  *
  * Connecting: the owner signs in with Facebook in the browser; the server checks that sign-in belongs to
- * QuoteFlow's app, lists the Pages it may use, and subscribes the chosen ones to new leads. Page tokens stay on
+ * Nudgely's app, lists the Pages it may use, and subscribes the chosen ones to new leads. Page tokens stay on
  * the server (encrypted). Receiving: Meta's webhook says a lead exists (ID only); a job fetches its answers with
  * the Page token and turns it into a customer (or finds the existing one by email or phone), which starts the
  * business's "customer created" automations and notifies the team. A scheduled sync picks up anything a webhook
@@ -80,11 +80,11 @@ class LeadAdsService
             throw new RuntimeException('Facebook did not return a valid sign-in. Try again.');
         }
 
-        // The token must have been issued to QuoteFlow's app (not pasted from somewhere else) and still be valid.
+        // The token must have been issued to Nudgely's app (not pasted from somewhere else) and still be valid.
         $debug = $this->request(fn () => $this->graph($this->appToken())->get('debug_token', ['input_token' => $userToken]), 'Facebook did not confirm the sign-in');
 
         if (! $debug->json('data.is_valid') || (string) $debug->json('data.app_id') !== (string) config('services.whatsapp.embedded.app_id')) {
-            throw new RuntimeException('That Facebook sign-in is not for QuoteFlow. Try again.');
+            throw new RuntimeException('That Facebook sign-in is not for Nudgely. Try again.');
         }
 
         // A long-lived user token gives Page tokens that don't expire.
@@ -151,7 +151,7 @@ class LeadAdsService
         foreach ($chosen as $id) {
             $page = $available[$id];
             $this->request(fn () => $this->graph($page['token'])->post($id.'/subscribed_apps', ['subscribed_fields' => 'leadgen']),
-                'Facebook did not let QuoteFlow receive leads for “'.$page['name'].'”');
+                'Facebook did not let Nudgely receive leads for “'.$page['name'].'”');
 
             $record = LeadAdsPage::query()->where('page_id', $id)->first() ?? new LeadAdsPage;
             $record->forceFill([
